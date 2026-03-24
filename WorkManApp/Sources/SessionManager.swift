@@ -12,17 +12,27 @@ class SessionManager: ObservableObject {
     @Published var selectedGroupPath: String? = nil  // nil = 전체 보기
     @Published var focusSingleTab: Bool = false       // 개별 워커 포커스
     @Published private(set) var availableReportCount: Int = 0
-
-    var totalTokensUsed: Int {
-        tabs.reduce(0) { $0 + $1.tokensUsed }
-    }
+    @Published private(set) var totalTokensUsed: Int = 0
+    @Published private(set) var userVisibleTabCount: Int = 0
 
     var userVisibleTabs: [TerminalTab] {
         tabs.filter { $0.automationSourceTabId == nil }
     }
 
-    var userVisibleTabCount: Int {
-        userVisibleTabs.count
+    /// Recalculates cached `totalTokensUsed` from all tabs.
+    func updateTokenCount() {
+        totalTokensUsed = tabs.reduce(0) { $0 + $1.tokensUsed }
+    }
+
+    /// Recalculates cached `userVisibleTabCount`.
+    private func updateUserVisibleTabCount() {
+        userVisibleTabCount = tabs.filter { $0.automationSourceTabId == nil }.count
+    }
+
+    /// Convenience: update all tab-derived caches.
+    private func updateTabDerivedCaches() {
+        updateTokenCount()
+        updateUserVisibleTabCount()
     }
 
     var manualLaunchCapacity: Int {
@@ -117,6 +127,7 @@ class SessionManager: ObservableObject {
     }
 
     deinit {
+        scanTimer?.invalidate()
         autoSaveTimer?.invalidate()
         if let tabCompletionObserver {
             NotificationCenter.default.removeObserver(tabCompletionObserver)
@@ -230,6 +241,8 @@ class SessionManager: ObservableObject {
             if !isBackground || self.scanTickCount % 6 == 0 {
                 self.rescanForNewSessions()
             }
+            // 토큰 합계 갱신 (개별 탭 tokensUsed 변경 반영)
+            self.updateTokenCount()
             // git 정보 갱신: 매 3번째 tick (30초)
             if (!isBackground && self.scanTickCount % 3 == 0) || (isBackground && self.scanTickCount % 12 == 0) {
                 self.tabs.forEach { $0.refreshGitInfo() }
@@ -529,7 +542,7 @@ class SessionManager: ObservableObject {
     // MARK: - Tab Management
 
     @discardableResult
-    func addTab(projectName: String, projectPath: String, isClaude: Bool = false, detectedPid: Int? = nil, sessionCount: Int = 1, branch: String? = nil, initialPrompt: String? = nil, preferredCharacterId: String? = nil, automationSourceTabId: String? = nil, automationReportPath: String? = nil, manualLaunch: Bool = false) -> TerminalTab {
+    func addTab(projectName: String, projectPath: String, isClaude: Bool = false, detectedPid: Int? = nil, sessionCount: Int = 1, branch: String? = nil, initialPrompt: String? = nil, preferredCharacterId: String? = nil, automationSourceTabId: String? = nil, automationReportPath: String? = nil, manualLaunch: Bool = false, autoStart: Bool = true, restoredSession: SavedSession? = nil) -> TerminalTab {
         let registry = CharacterRegistry.shared
         let occupiedIds = occupiedCharacterIds()
         let availableDevelopers = registry.hiredCharacters(for: .developer).filter {
@@ -540,7 +553,21 @@ class SessionManager: ObservableObject {
         let color: Color
         let characterId: String?
 
-        if let preferred = registry.character(with: preferredCharacterId),
+        if let restoredSession {
+            if let restoredCharacterId = restoredSession.characterId,
+               let restoredCharacter = registry.character(with: restoredCharacterId),
+               restoredCharacter.isHired,
+               !restoredCharacter.isOnVacation,
+               (automationSourceTabId != nil || !occupiedIds.contains(restoredCharacter.id)) {
+                name = restoredCharacter.name
+                color = Color(hex: restoredCharacter.shirtColor)
+                characterId = restoredCharacter.id
+            } else {
+                name = restoredSession.workerName
+                color = Color(hex: restoredSession.workerColorHex)
+                characterId = nil
+            }
+        } else if let preferred = registry.character(with: preferredCharacterId),
            preferred.isHired, !preferred.isOnVacation,
            (automationSourceTabId != nil || !occupiedIds.contains(preferred.id)) {
             name = preferred.name
@@ -564,7 +591,7 @@ class SessionManager: ObservableObject {
         }
 
         let tab = TerminalTab(
-            id: UUID().uuidString,
+            id: restoredSession?.tabId ?? UUID().uuidString,
             projectName: projectName,
             projectPath: projectPath,
             workerName: name,
@@ -583,12 +610,15 @@ class SessionManager: ObservableObject {
         invalidateProjectGroupsCache()
         invalidateAvailableReportsCache()
         scheduleAvailableReportCountRefresh()
+        updateTabDerivedCaches()
         if activeTabId == nil {
             activeTabId = tab.id
         }
         workerIndex += 1
 
-        tab.start()
+        if autoStart {
+            tab.start()
+        }
         return tab
     }
 
@@ -665,6 +695,7 @@ class SessionManager: ObservableObject {
         invalidateProjectGroupsCache()
         invalidateAvailableReportsCache()
         scheduleAvailableReportCountRefresh()
+        updateTabDerivedCaches()
         if activeTabId == id {
             activeTabId = userVisibleTabs.last?.id
         }
@@ -897,9 +928,11 @@ class SessionManager: ObservableObject {
             initialPrompt: prompt,
             preferredCharacterId: preferredCharacter.id,
             automationSourceTabId: automationSourceTabId,
-            automationReportPath: automationReportPath
+            automationReportPath: automationReportPath,
+            autoStart: false
         )
         applyAutomationSettings(to: tab, role: role)
+        tab.start()
         return tab
     }
 
@@ -1641,6 +1674,7 @@ class SessionManager: ObservableObject {
     }
 
     func availableReports() -> [ReportReference] {
+        dispatchPrecondition(condition: .onQueue(.main))
         let currentProjects = userVisibleTabs.map { ($0.projectName, $0.projectPath) }
         let savedProjects = SessionStore.shared.load().map { ($0.projectName, $0.projectPath) }
         let signature = availableReportsSignature(currentProjects: currentProjects, savedProjects: savedProjects)
@@ -1689,7 +1723,7 @@ class SessionManager: ObservableObject {
     }
 
     // Feature 4: 세션 저장 (빈 자동화 탭 제외)
-    func saveSessions() {
+    func saveSessions(immediately: Bool = false) {
         let savableTabs = userVisibleTabs.filter { tab in
             // 토큰 사용 없고, 완료되지 않았고, 처리 중도 아닌 빈 탭은 저장하지 않음
             if tab.tokensUsed == 0 && !tab.isCompleted && !tab.isProcessing && tab.completedPromptCount == 0 {
@@ -1697,13 +1731,14 @@ class SessionManager: ObservableObject {
             }
             return true
         }
-        SessionStore.shared.save(tabs: savableTabs)
+        SessionStore.shared.save(tabs: savableTabs, immediately: immediately)
     }
 
     // Feature 4: 세션 복원 (이전 기록에서 경로 로드 - 같은 프로젝트 여러 탭 지원)
     func restoreSessions() {
         let saved = SessionStore.shared.load()
         var interruptedSessions: [SavedSession] = []
+        var recoveryBundles: [URL] = []
 
         // 워크플로우 자동 생성 탭 키워드 (Plan, Review, QA, Report 등이 중첩된 이름)
         let workflowSuffixes = ["Plan", "Review", "QA", "Report"]
@@ -1713,7 +1748,10 @@ class SessionManager: ObservableObject {
             guard !session.isCompleted && FileManager.default.fileExists(atPath: session.projectPath) else { continue }
 
             // 토큰 사용 없고 프롬프트도 없는 빈 세션은 건너뜀
-            if session.tokensUsed == 0 && (session.initialPrompt == nil || session.initialPrompt?.isEmpty == true) && session.wasProcessing != true {
+            if session.tokensUsed == 0 &&
+                (session.initialPrompt == nil || session.initialPrompt?.isEmpty == true) &&
+                (session.lastPrompt == nil || session.lastPrompt?.isEmpty == true) &&
+                session.wasProcessing != true {
                 continue
             }
 
@@ -1730,42 +1768,55 @@ class SessionManager: ObservableObject {
                 interruptedSessions.append(session)
             }
 
-            addTab(
+            let recoveryBundleURL: URL?
+            if session.wasProcessing == true {
+                recoveryBundleURL = SessionStore.shared.writeRecoveryBundle(
+                    for: session,
+                    reason: "앱 복원 중 중단된 세션 백업"
+                )
+                if let recoveryBundleURL {
+                    recoveryBundles.append(recoveryBundleURL)
+                }
+            } else {
+                recoveryBundleURL = nil
+            }
+
+            let tab = addTab(
                 projectName: session.projectName,
                 projectPath: session.projectPath,
                 branch: session.branch,
-                initialPrompt: session.initialPrompt
+                initialPrompt: nil,
+                autoStart: false,
+                restoredSession: session
             )
+            tab.applySavedSessionConfiguration(session)
+            tab.start()
+            tab.restoreSavedSessionSnapshot(session)
+            tab.appendRestorationNotice(from: session, recoveryBundleURL: recoveryBundleURL)
         }
 
         // 강제 종료로 중단된 작업이 있으면 알림
         if !interruptedSessions.isEmpty {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                self.showInterruptedSessionsAlert(interruptedSessions)
+                self.showInterruptedSessionsAlert(interruptedSessions, recoveryBundles: recoveryBundles)
             }
         }
     }
 
-    private func showInterruptedSessionsAlert(_ sessions: [SavedSession]) {
+    private func showInterruptedSessionsAlert(_ sessions: [SavedSession], recoveryBundles: [URL]) {
         let alert = NSAlert()
         let names = sessions.map { $0.projectName }.joined(separator: ", ")
-        alert.messageText = "이전에 중단된 작업이 \(sessions.count)개 있습니다"
-        alert.informativeText = "앱이 비정상 종료되어 다음 작업이 완료되지 못했습니다:\n\(names)\n\n변경사항이 남아있을 수 있습니다. 작업 전 상태로 되돌리시겠습니까?"
+        alert.messageText = "중단된 작업 \(sessions.count)개를 복원했습니다"
+        alert.informativeText = "앱이 비정상 종료되어 완료되지 못한 작업:\n\(names)\n\n자동 재실행과 자동 롤백은 하지 않았습니다. 현재 변경사항은 그대로 두었고, 복구 폴더를 함께 생성했습니다."
         alert.alertStyle = .warning
-        alert.addButton(withTitle: "모두 되돌리기")
-        alert.addButton(withTitle: "그대로 유지")
+        if !recoveryBundles.isEmpty {
+            alert.addButton(withTitle: "복구 폴더 보기")
+        }
+        alert.addButton(withTitle: "확인")
 
         let response = alert.runModal()
-        if response == .alertFirstButtonReturn {
-            for session in sessions {
-                let path = session.projectPath
-                // git 저장소인 경우 변경사항 롤백
-                let isGitRepo = TerminalTab.shellSync("git -C \"\(path)\" rev-parse --is-inside-work-tree 2>/dev/null")?.trimmingCharacters(in: .whitespacesAndNewlines) == "true"
-                if isGitRepo {
-                    _ = TerminalTab.shellSync("git -C \"\(path)\" checkout -- . 2>/dev/null")
-                    _ = TerminalTab.shellSync("git -C \"\(path)\" clean -fd 2>/dev/null")
-                }
-            }
+        if !recoveryBundles.isEmpty && response == .alertFirstButtonReturn {
+            NSWorkspace.shared.activateFileViewerSelecting(recoveryBundles)
         }
     }
 
@@ -1781,6 +1832,7 @@ class SessionManager: ObservableObject {
         invalidateProjectGroupsCache()
         invalidateAvailableReportsCache()
         scheduleAvailableReportCountRefresh()
+        updateTabDerivedCaches()
         workerIndex = 0
 
         // 다시 스캔
@@ -1862,7 +1914,7 @@ class SessionManager: ObservableObject {
         process.standardOutput = pipe
         process.standardError = FileHandle.nullDevice
         process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        process.arguments = ["-il", "-c", command]
+        process.arguments = ["-f", "-c", command]
         var env = ProcessInfo.processInfo.environment
         env["PATH"] = TerminalTab.buildFullPATH()
         process.environment = env

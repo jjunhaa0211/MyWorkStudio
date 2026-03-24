@@ -10,7 +10,7 @@ class AppSettings: ObservableObject {
     @AppStorage("isDarkMode") var isDarkMode: Bool = false {
         didSet { objectWillChange.send() }
     }
-    @AppStorage("fontSizeScale") var fontSizeScale: Double = 1.2 {
+    @AppStorage("fontSizeScale") var fontSizeScale: Double = 1.5 {
         didSet { objectWillChange.send() }
     }
 
@@ -41,6 +41,11 @@ class AppSettings: ObservableObject {
         didSet { objectWillChange.send() }
     }
     @AppStorage("terminalSidebarLightweight") var terminalSidebarLightweight: Bool = true {
+        didSet { objectWillChange.send() }
+    }
+
+    // ── 터미널 모드 ──
+    @AppStorage("rawTerminalMode") var rawTerminalMode: Bool = false {
         didSet { objectWillChange.send() }
     }
 
@@ -875,6 +880,8 @@ struct CoffeeSupportTier: Identifiable, Hashable {
 enum Theme {
     private static var dark: Bool { AppSettings.shared.isDarkMode }
     private static var scale: CGFloat { CGFloat(AppSettings.shared.fontSizeScale) }
+    /// UI 크롬(툴바, 사이드바, 필터 등)용 완화된 스케일 — 콘텐츠보다 덜 커짐
+    private static var chromeScale: CGFloat { 1 + (scale - 1) * 0.5 }
 
     // Backgrounds
     static var bg: Color { dark ? Color(hex: "0b0d12") : Color(hex: "f2f3f5") }
@@ -910,14 +917,14 @@ enum Theme {
     static var cyan: Color { dark ? Color(hex: "4ac6ae") : Color(hex: "0c9494") }
     static var pink: Color { dark ? Color(hex: "e686aa") : Color(hex: "d44888") }
 
-    // Fonts (scaled)
+    // Fonts (scaled) — 콘텐츠 영역
     static var monoTiny: Font { .system(size: round(9 * scale), design: .monospaced) }
     static var monoSmall: Font { .system(size: round(10 * scale), design: .monospaced) }
     static var monoNormal: Font { .system(size: round(12 * scale), design: .monospaced) }
     static var monoBold: Font { .system(size: round(11 * scale), weight: .semibold, design: .monospaced) }
-    static var pixel: Font { .system(size: round(8 * scale), weight: .bold, design: .monospaced) }
+    static var pixel: Font { .system(size: round(8 * chromeScale), weight: .bold, design: .monospaced) }
 
-    // Scaled font helper
+    // Scaled font helper — 콘텐츠
     static func mono(_ baseSize: CGFloat, weight: Font.Weight = .regular) -> Font {
         .system(size: round(baseSize * scale), weight: weight, design: .monospaced)
     }
@@ -927,9 +934,19 @@ enum Theme {
         .system(size: round(baseSize * scale), weight: weight, design: design)
     }
 
+    // UI 크롬용 폰트 (툴바, 사이드바, 필터 버튼 등)
+    static func chrome(_ baseSize: CGFloat, weight: Font.Weight = .regular) -> Font {
+        .system(size: round(baseSize * chromeScale), weight: weight, design: .monospaced)
+    }
+
     // 아이콘 크기 스케일
     static func iconSize(_ baseSize: CGFloat) -> CGFloat {
         round(baseSize * scale)
+    }
+
+    // UI 크롬용 아이콘 스케일
+    static func chromeIconSize(_ baseSize: CGFloat) -> CGFloat {
+        round(baseSize * chromeScale)
     }
 
     // Worker colors
@@ -978,7 +995,7 @@ struct SettingsView: View {
             // 헤더
             HStack {
                 Image(systemName: "gearshape.fill")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(size: Theme.iconSize(14), weight: .bold))
                     .foregroundColor(Theme.accent)
                 Text("설정")
                     .font(Theme.mono(15, weight: .black))
@@ -986,7 +1003,7 @@ struct SettingsView: View {
                 Spacer()
                 Button(action: { dismiss() }) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.system(size: Theme.iconSize(11), weight: .bold))
                         .foregroundColor(Theme.textDim)
                         .frame(width: 24, height: 24)
                         .background(Circle().fill(Theme.bgSurface))
@@ -1071,7 +1088,7 @@ struct SettingsView: View {
         return Button(action: { withAnimation(.easeInOut(duration: 0.15)) { selectedSettingsTab = tab } }) {
             VStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: Theme.iconSize(11), weight: .medium))
                 Text(title)
                     .font(Theme.mono(9, weight: selected ? .bold : .medium))
             }
@@ -1124,6 +1141,82 @@ struct SettingsView: View {
                         statusHint(icon: "checkmark.circle.fill", text: "잠금 캐릭터가 해제되었습니다. 고용은 캐릭터 화면에서 직접 진행해주세요.", tint: Theme.green)
                     } else if secretKeyResult == .wrong {
                         statusHint(icon: "xmark.circle.fill", text: "올바르지 않은 키입니다.", tint: Theme.red)
+                    }
+                }
+            }
+
+            settingsSection(title: "터미널 모드", subtitle: settings.rawTerminalMode ? "일반 터미널" : "워크맨 터미널") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Toggle(isOn: $settings.rawTerminalMode) {
+                        HStack(spacing: 8) {
+                            Image(systemName: settings.rawTerminalMode ? "terminal.fill" : "text.bubble.fill")
+                                .font(.system(size: Theme.iconSize(12), weight: .medium))
+                                .foregroundColor(settings.rawTerminalMode ? Theme.green : Theme.accent)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("일반 터미널 모드")
+                                    .font(Theme.mono(11, weight: .bold))
+                                    .foregroundColor(Theme.textPrimary)
+                                Text("iTerm처럼 순수 터미널로 Claude 실행")
+                                    .font(Theme.mono(9))
+                                    .foregroundColor(Theme.textDim)
+                            }
+                        }
+                    }
+                    .toggleStyle(.switch)
+                    .tint(Theme.green)
+
+                    if settings.rawTerminalMode {
+                        HStack(spacing: 6) {
+                            Image(systemName: "info.circle.fill").font(.system(size: Theme.iconSize(10))).foregroundColor(Theme.cyan)
+                            Text("토큰/비용 추적, 활동 상태, 완료 알림 등 워크맨 고유 기능이 비활성화됩니다. Claude가 일반 터미널과 동일하게 동작합니다.")
+                                .font(Theme.mono(9)).foregroundColor(Theme.textSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(8)
+                        .background(RoundedRectangle(cornerRadius: 6).fill(Theme.cyan.opacity(0.05)))
+                    }
+                }
+            }
+
+            settingsSection(title: "앱 정보", subtitle: "v\(UpdateChecker.shared.currentVersion)") {
+                VStack(spacing: 10) {
+                    HStack {
+                        Image(systemName: "info.circle.fill").font(.system(size: Theme.iconSize(11))).foregroundColor(Theme.accent)
+                        Text("현재 버전").font(Theme.mono(9, weight: .bold)).foregroundColor(Theme.textDim)
+                        Spacer()
+                        Text("v\(UpdateChecker.shared.currentVersion)").font(Theme.mono(11, weight: .bold)).foregroundColor(Theme.textPrimary)
+                    }
+
+                    HStack(spacing: 8) {
+                        Button(action: {
+                            if let url = URL(string: "https://github.com/jjunhaa0211/MyWorkStudio") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }) {
+                            HStack(spacing: 5) {
+                                Image(systemName: "chevron.left.forwardslash.chevron.right").font(.system(size: Theme.iconSize(10), weight: .bold))
+                                Text("GitHub 소스").font(Theme.mono(9, weight: .bold))
+                            }
+                            .foregroundColor(Theme.accent)
+                            .padding(.horizontal, 12).padding(.vertical, 7)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(Theme.accent.opacity(0.1)))
+                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.accent.opacity(0.3), lineWidth: 1))
+                        }.buttonStyle(.plain)
+
+                        Button(action: {
+                            UpdateChecker.shared.performUpdate()
+                        }) {
+                            HStack(spacing: 5) {
+                                Image(systemName: "arrow.triangle.2.circlepath").font(.system(size: Theme.iconSize(10), weight: .bold))
+                                Text("자동 업데이트").font(Theme.mono(9, weight: .bold))
+                            }
+                            .foregroundColor(Theme.green)
+                            .padding(.horizontal, 12).padding(.vertical, 7)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(Theme.green.opacity(0.1)))
+                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.green.opacity(0.3), lineWidth: 1))
+                        }.buttonStyle(.plain)
+
+                        Spacer()
                     }
                 }
             }
@@ -1228,7 +1321,7 @@ struct SettingsView: View {
                         if let protectionReason {
                             HStack(alignment: .top, spacing: 8) {
                                 Image(systemName: "lock.shield.fill")
-                                    .font(.system(size: 11, weight: .bold))
+                                    .font(.system(size: Theme.iconSize(11), weight: .bold))
                                     .foregroundColor(Theme.orange)
                                 Text(protectionReason)
                                     .font(Theme.mono(8))
@@ -1238,7 +1331,7 @@ struct SettingsView: View {
                         } else {
                             HStack(spacing: 8) {
                                 Image(systemName: "checkmark.shield.fill")
-                                    .font(.system(size: 11, weight: .bold))
+                                    .font(.system(size: Theme.iconSize(11), weight: .bold))
                                     .foregroundColor(Theme.green)
                                 Text("현재는 새 입력이 가능한 상태입니다. 한도를 너무 낮게 잡아도 즉시 막히지 않도록 보호선을 사용자 한도에 맞춰 계산합니다.")
                                     .font(Theme.mono(8))
@@ -1348,7 +1441,7 @@ struct SettingsView: View {
 
                     HStack(spacing: 8) {
                         Image(systemName: "person.3.sequence.fill")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.system(size: Theme.iconSize(11), weight: .bold))
                             .foregroundColor(Theme.orange)
                         Text("직원은 최대 13명까지 권장합니다. 그 이상은 세션 수와 메모리 사용량이 급격히 늘 수 있어 수동 추가도 막습니다.")
                             .font(Theme.mono(8))
@@ -1381,7 +1474,7 @@ struct SettingsView: View {
 
                     HStack(alignment: .top, spacing: 8) {
                         Image(systemName: selectedKind.icon)
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.system(size: Theme.iconSize(11), weight: .bold))
                             .foregroundColor(Theme.cyan)
                         Text(selectedKind.summary)
                             .font(Theme.mono(8))
@@ -1484,93 +1577,8 @@ struct SettingsView: View {
     }
 
     private var supportTab: some View {
-        let titleBinding = Binding(
-            get: { settings.coffeeSupportButtonTitle },
-            set: { settings.coffeeSupportButtonTitle = $0 }
-        )
-        let messageBinding = Binding(
-            get: { settings.coffeeSupportMessage },
-            set: { settings.coffeeSupportMessage = $0 }
-        )
-        let bankBinding = Binding(
-            get: { settings.coffeeSupportBankName },
-            set: { settings.coffeeSupportBankName = $0 }
-        )
-        let accountBinding = Binding(
-            get: { settings.coffeeSupportAccountNumber },
-            set: { settings.coffeeSupportAccountNumber = $0 }
-        )
-
-        return VStack(spacing: 14) {
-            settingsSection(title: "안내", subtitle: "설정 안에서 바로 후원") {
-                HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: settings.hasCoffeeSupportDestination ? "checkmark.circle.fill" : "info.circle.fill")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(settings.hasCoffeeSupportDestination ? Theme.green : Theme.orange)
-                    Text(settings.hasCoffeeSupportDestination
-                         ? "후원하기는 이제 설정 안에서만 보입니다. 아래에서 계좌를 확인하고 카카오뱅크나 토스로 바로 이동할 수 있습니다."
-                         : "은행명과 계좌번호를 입력하면 이 화면에서 카카오뱅크/토스 버튼이 바로 동작합니다.")
-                        .font(Theme.mono(8))
-                        .foregroundColor(Theme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Theme.bgSurface.opacity(0.45))
-                )
-            }
-
-            settingsSection(title: "후원 계좌", subtitle: settings.coffeeSupportAccountDisplayText) {
-                VStack(spacing: 10) {
-                    labeledField(title: "버튼", text: titleBinding, placeholder: "후원하기", emphasized: true) {}
-                    labeledField(title: "은행", text: bankBinding, placeholder: "카카오뱅크") {}
-                    labeledField(title: "계좌", text: accountBinding, placeholder: "7777015832634") {}
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("안내 문구")
-                            .font(Theme.mono(9, weight: .bold))
-                            .foregroundColor(Theme.textDim)
-
-                        TextEditor(text: messageBinding)
-                            .scrollContentBackground(.hidden)
-                            .font(Theme.mono(10))
-                            .foregroundColor(Theme.textPrimary)
-                            .frame(height: 88)
-                            .padding(10)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .fill(Theme.bgSurface)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .stroke(Theme.border.opacity(0.35), lineWidth: 1)
-                            )
-                    }
-
-                    HStack(alignment: .top, spacing: 8) {
-                        Image(systemName: "iphone.gen3")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(Theme.orange)
-                        Text("macOS에서 카카오뱅크나 토스 앱이 직접 열리지 않으면 공식 웹사이트를 대신 열고, 계좌번호는 이미 복사된 상태로 남겨둡니다.")
-                            .font(Theme.mono(8))
-                            .foregroundColor(Theme.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
-
-            settingsSection(title: "바로 후원", subtitle: settings.coffeeSupportDisplayTitle) {
-                VStack(alignment: .leading, spacing: 10) {
-                    CoffeeSupportPopoverView()
-                    Text("아래 버튼은 미리보기가 아니라 실제 동작입니다. 누르면 계좌 복사 후 카카오뱅크/토스를 엽니다.")
-                        .font(Theme.mono(8))
-                        .foregroundColor(Theme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
+        VStack(spacing: 14) {
+            CoffeeSupportPopoverView(embedded: true)
         }
     }
 
@@ -1595,7 +1603,7 @@ struct SettingsView: View {
                         showClearConfirm = true
                     }) {
                         HStack(spacing: 8) {
-                            Image(systemName: "wind").font(.system(size: 11, weight: .bold))
+                            Image(systemName: "wind").font(.system(size: Theme.iconSize(11), weight: .bold))
                             Text("오래된 캐시 삭제").font(Theme.mono(11, weight: .semibold))
                             Spacer()
                             Text("완료된 세션, 지난 토큰 이력")
@@ -1612,7 +1620,7 @@ struct SettingsView: View {
                         showClearConfirm = true
                     }) {
                         HStack(spacing: 8) {
-                            Image(systemName: "trash.fill").font(.system(size: 11, weight: .bold))
+                            Image(systemName: "trash.fill").font(.system(size: Theme.iconSize(11), weight: .bold))
                             Text("전체 데이터 삭제").font(Theme.mono(11, weight: .semibold))
                             Spacer()
                             Text("모든 데이터 초기화")
@@ -1632,7 +1640,7 @@ struct SettingsView: View {
 
     private func dataRow(icon: String, title: String, detail: String, tint: Color) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: icon).font(.system(size: 10, weight: .bold)).foregroundColor(tint)
+            Image(systemName: icon).font(.system(size: Theme.iconSize(10), weight: .bold)).foregroundColor(tint)
                 .frame(width: 20)
             Text(title).font(Theme.mono(10, weight: .medium)).foregroundColor(Theme.textPrimary)
             Spacer()
@@ -1731,7 +1739,7 @@ struct SettingsView: View {
                     }
                     Spacer()
                     Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.system(size: Theme.iconSize(15), weight: .bold))
                         .foregroundColor(Theme.accent)
                         .padding(10)
                         .background(Circle().fill(Theme.accent.opacity(0.12)))
@@ -1848,7 +1856,7 @@ struct SettingsView: View {
         return Button(action: { withAnimation(.easeInOut(duration: 0.2)) { settings.isDarkMode = isDark } }) {
             HStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.system(size: 14))
+                    .font(.system(size: Theme.iconSize(14)))
                     .foregroundColor(selected ? (isDark ? Theme.yellow : Theme.orange) : Theme.textDim)
                 Text(title)
                     .font(Theme.mono(11, weight: selected ? .bold : .regular))
@@ -1856,7 +1864,7 @@ struct SettingsView: View {
                 Spacer()
                 if selected {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 12)).foregroundColor(Theme.accent)
+                        .font(.system(size: Theme.iconSize(12))).foregroundColor(Theme.accent)
                 }
             }
             .padding(.horizontal, 14).padding(.vertical, 10)
@@ -1874,11 +1882,11 @@ struct SettingsView: View {
 
     private var fontSizeOptions: [FontSizeOption] {
         [
-            FontSizeOption(value: 0.85, label: "S"),
-            FontSizeOption(value: 1.0, label: "M"),
-            FontSizeOption(value: 1.2, label: "L"),
-            FontSizeOption(value: 1.4, label: "XL"),
-            FontSizeOption(value: 1.7, label: "XXL"),
+            FontSizeOption(value: 1.2, label: "S"),
+            FontSizeOption(value: 1.5, label: "M"),
+            FontSizeOption(value: 1.8, label: "L"),
+            FontSizeOption(value: 2.2, label: "XL"),
+            FontSizeOption(value: 2.7, label: "XXL"),
         ]
     }
 
@@ -1911,7 +1919,7 @@ struct SettingsView: View {
         }) {
             HStack(spacing: 6) {
                 Image(systemName: theme.icon)
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: Theme.iconSize(10), weight: .bold))
                 Text(theme.displayName)
                     .font(Theme.mono(9, weight: selected ? .bold : .medium))
                     .lineLimit(1)
@@ -1941,7 +1949,7 @@ struct SettingsView: View {
         }) {
             HStack(spacing: 10) {
                 Image(systemName: preset.icon)
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.system(size: Theme.iconSize(12), weight: .bold))
                     .foregroundColor(selected ? Theme.cyan : Theme.textDim)
                     .frame(width: 20)
 
@@ -1959,7 +1967,7 @@ struct SettingsView: View {
 
                 if selected {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 12))
+                        .font(.system(size: Theme.iconSize(12)))
                         .foregroundColor(Theme.cyan)
                 }
             }
@@ -1986,7 +1994,7 @@ struct SettingsView: View {
         }) {
             HStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.system(size: Theme.iconSize(11), weight: .bold))
                 Text(title)
                     .font(Theme.mono(10, weight: .bold))
                 Spacer()
@@ -2015,7 +2023,7 @@ struct SettingsView: View {
         }) {
             HStack(spacing: 8) {
                 Image(systemName: kind.icon)
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.system(size: Theme.iconSize(11), weight: .bold))
                     .foregroundColor(selected ? Theme.cyan : Theme.textDim)
                     .frame(width: 18)
 
@@ -2153,7 +2161,7 @@ struct SettingsView: View {
     private func statusHint(icon: String, text: String, tint: Color) -> some View {
         HStack(spacing: 5) {
             Image(systemName: icon)
-                .font(.system(size: 10, weight: .bold))
+                .font(.system(size: Theme.iconSize(10), weight: .bold))
             Text(text)
                 .font(Theme.mono(9, weight: .medium))
         }
@@ -2249,8 +2257,10 @@ enum CoffeeSupportProvider: String, CaseIterable, Identifiable {
 struct CoffeeSupportPopoverView: View {
     @ObservedObject private var settings = AppSettings.shared
     var onRequestSettings: (() -> Void)? = nil
+    var embedded: Bool = false
 
     @State private var feedback: Feedback?
+    @State private var copied = false
 
     private struct Feedback {
         let icon: String
@@ -2259,93 +2269,90 @@ struct CoffeeSupportPopoverView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 10) {
-                ZStack {
-                    Circle()
-                        .fill(Theme.orange.opacity(0.14))
-                        .frame(width: 36, height: 36)
-                    Image(systemName: "cup.and.saucer.fill")
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundColor(Theme.orange)
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(settings.coffeeSupportDisplayTitle)
-                        .font(Theme.mono(12, weight: .black))
-                        .foregroundColor(Theme.textPrimary)
-                    Text(settings.coffeeSupportMessage)
-                        .font(Theme.mono(8))
-                        .foregroundColor(Theme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+        VStack(alignment: .leading, spacing: 16) {
+            // 헤더
+            HStack(spacing: 12) {
+                Text(settings.coffeeSupportDisplayTitle)
+                    .font(Theme.mono(14, weight: .black))
+                    .foregroundColor(Theme.textPrimary)
+                Spacer()
             }
 
-            if settings.hasCoffeeSupportDestination {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("후원 계좌")
-                        .font(Theme.mono(8, weight: .bold))
-                        .foregroundColor(Theme.textDim)
+            // 안내 메시지
+            Text(settings.coffeeSupportMessage)
+                .font(Theme.mono(9))
+                .foregroundColor(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
 
-                    HStack(spacing: 10) {
-                        VStack(alignment: .leading, spacing: 4) {
+            if settings.hasCoffeeSupportDestination {
+                // 계좌 카드
+                VStack(spacing: 0) {
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 5) {
                             Text(settings.trimmedCoffeeSupportBankName.isEmpty ? "카카오뱅크" : settings.trimmedCoffeeSupportBankName)
-                                .font(Theme.mono(9, weight: .bold))
-                                .foregroundColor(Theme.textSecondary)
+                                .font(Theme.mono(9, weight: .semibold))
+                                .foregroundColor(Theme.textDim)
                             Text(settings.trimmedCoffeeSupportAccountNumber.isEmpty ? "7777015832634" : settings.trimmedCoffeeSupportAccountNumber)
-                                .font(Theme.mono(13, weight: .black))
+                                .font(Theme.mono(15, weight: .black))
                                 .foregroundColor(Theme.textPrimary)
                         }
-
                         Spacer()
-
-                        Button(action: { copySupportAccount(showFeedback: true) }) {
-                            Text("계좌 복사")
-                                .font(Theme.mono(8, weight: .bold))
-                                .foregroundColor(Theme.orange)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 7)
-                                .background(
-                                    Capsule()
-                                        .fill(Theme.orange.opacity(0.1))
-                                )
+                        Button(action: {
+                            copySupportAccount(showFeedback: true)
+                            withAnimation(.easeInOut(duration: 0.2)) { copied = true }
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                                withAnimation { copied = false }
+                            }
+                        }) {
+                            HStack(spacing: 5) {
+                                Image(systemName: copied ? "checkmark" : "doc.on.doc.fill")
+                                    .font(.system(size: Theme.iconSize(10), weight: .bold))
+                                Text(copied ? "복사됨" : "복사")
+                                    .font(Theme.mono(9, weight: .bold))
+                            }
+                            .foregroundColor(copied ? Theme.green : Theme.orange)
+                            .padding(.horizontal, 12).padding(.vertical, 8)
+                            .background(Capsule().fill((copied ? Theme.green : Theme.orange).opacity(0.12)))
                         }
                         .buttonStyle(.plain)
                     }
-                    .padding(12)
+                    .padding(14)
                     .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Theme.bgSurface.opacity(0.65))
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(Theme.bgSurface.opacity(0.7))
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Theme.border.opacity(0.28), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(Theme.border.opacity(0.25), lineWidth: 1)
                     )
                 }
 
-                VStack(spacing: 8) {
+                // 송금 버튼들
+                VStack(spacing: 6) {
                     ForEach(CoffeeSupportProvider.allCases) { provider in
                         providerButton(provider)
                     }
                 }
 
-                HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "info.circle.fill")
-                        .font(.system(size: 10, weight: .bold))
+                // 안내
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: Theme.iconSize(9)))
                         .foregroundColor(Theme.textDim)
-                    Text("버튼을 누르면 계좌가 먼저 복사되고, 이 Mac에서 앱을 열 수 없으면 공식 웹사이트로 넘어갑니다.")
+                    Text("앱을 열 수 없으면 공식 웹사이트로 이동합니다. 계좌는 자동 복사됩니다.")
                         .font(Theme.mono(8))
-                        .foregroundColor(Theme.textSecondary)
+                        .foregroundColor(Theme.textDim)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             } else {
+                // 계좌 미설정 상태
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .top, spacing: 8) {
-                        Image(systemName: "slider.horizontal.3")
-                            .font(.system(size: 11, weight: .bold))
+                        Image(systemName: "exclamationmark.circle.fill")
+                            .font(.system(size: Theme.iconSize(11), weight: .bold))
                             .foregroundColor(Theme.orange)
-                        Text("후원 계좌를 아직 입력하지 않았습니다. 설정에서 은행명과 계좌번호를 채우면 바로 사용할 수 있습니다.")
-                            .font(Theme.mono(8))
+                        Text("은행명과 계좌번호를 입력하면 바로 후원 기능을 사용할 수 있습니다.")
+                            .font(Theme.mono(9))
                             .foregroundColor(Theme.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -2355,46 +2362,34 @@ struct CoffeeSupportPopoverView: View {
                             Text("후원 설정 열기")
                                 .font(Theme.mono(9, weight: .bold))
                                 .foregroundColor(Theme.orange)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 9)
-                                        .fill(Theme.orange.opacity(0.1))
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 9)
-                                        .stroke(Theme.orange.opacity(0.24), lineWidth: 1)
-                                )
+                                .padding(.horizontal, 12).padding(.vertical, 8)
+                                .background(RoundedRectangle(cornerRadius: 8).fill(Theme.orange.opacity(0.1)))
                         }
                         .buttonStyle(.plain)
                     }
                 }
                 .padding(12)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Theme.bgSurface.opacity(0.6))
-                )
+                .background(RoundedRectangle(cornerRadius: 12).fill(Theme.bgSurface.opacity(0.5)))
             }
 
             if let feedback {
                 HStack(spacing: 6) {
                     Image(systemName: feedback.icon)
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.system(size: Theme.iconSize(10), weight: .bold))
                     Text(feedback.text)
                         .font(Theme.mono(8, weight: .medium))
                 }
                 .foregroundColor(feedback.tint)
+                .transition(.opacity)
             }
         }
-        .padding(16)
-        .frame(width: 320, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Theme.bgCard)
-        )
+        .padding(embedded ? 0 : 16)
+        .frame(maxWidth: embedded ? .infinity : 320, alignment: .leading)
+        .background(embedded ? AnyShapeStyle(.clear) : AnyShapeStyle(Theme.bgCard))
+        .clipShape(RoundedRectangle(cornerRadius: embedded ? 0 : 16))
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Theme.border.opacity(0.35), lineWidth: 1)
+            RoundedRectangle(cornerRadius: embedded ? 0 : 16)
+                .stroke(embedded ? .clear : Theme.border.opacity(0.35), lineWidth: embedded ? 0 : 1)
         )
         .onAppear {
             settings.ensureCoffeeSupportPreset()
@@ -2409,7 +2404,7 @@ struct CoffeeSupportPopoverView: View {
                         .fill(provider.tint.opacity(0.12))
                         .frame(width: 38, height: 38)
                     Image(systemName: provider.icon)
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.system(size: Theme.iconSize(14), weight: .bold))
                         .foregroundColor(provider.tint)
                 }
 
@@ -3474,14 +3469,20 @@ func drawAccessoryPixelFurniture(context: GraphicsContext, itemId: String, at po
 
 extension Color {
     init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        let r, g, b: UInt64
-        switch hex.count {
-        case 6: (r, g, b) = (int >> 16, int >> 8 & 0xFF, int & 0xFF)
-        default: (r, g, b) = (0, 0, 0)
+        var hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        // Expand 3-character shorthand (e.g. "fff" -> "ffffff")
+        if hex.count == 3 {
+            hex = hex.map { "\($0)\($0)" }.joined()
         }
+        var int: UInt64 = 0
+        guard Scanner(string: hex).scanHexInt64(&int), hex.count == 6 else {
+            // Fallback to magenta for debug visibility on invalid hex
+            self.init(.sRGB, red: 1, green: 0, blue: 1)
+            return
+        }
+        let r = int >> 16
+        let g = int >> 8 & 0xFF
+        let b = int & 0xFF
         self.init(.sRGB, red: Double(r) / 255, green: Double(g) / 255, blue: Double(b) / 255)
     }
 }

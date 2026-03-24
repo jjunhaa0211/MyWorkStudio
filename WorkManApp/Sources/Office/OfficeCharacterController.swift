@@ -11,6 +11,9 @@ class OfficeCharacterController: ObservableObject {
     private var walkableTiles: [TileCoord] = []
     private var pantryAndMeetingTiles: [TileCoord] = []
     private var socialHotspotTiles: [TileCoord] = []
+    private var socialHubTiles: [TileCoord] = []
+    private var refreshmentTiles: [TileCoord] = []
+    private var livelyBreakTiles: [TileCoord] = []
     private var blockedTiles: Set<String> = []
     private var seatAssignmentsByGroup: [String: String] = [:]
     private var socialEventCooldown: Double = 0
@@ -69,13 +72,29 @@ class OfficeCharacterController: ObservableObject {
             return zone == .pantry || zone == .meetingRoom
         }
 
-        var hotspots: Set<TileCoord> = []
-        for furniture in map.furniture where [.coffeeMachine, .sofa, .roundTable, .waterCooler].contains(furniture.type) {
-            for tile in interactionTiles(for: furniture) where map.isWalkable(tile) {
-                hotspots.insert(tile)
+        var hubs: Set<TileCoord> = []
+        var refreshments: Set<TileCoord> = []
+        for furniture in map.furniture {
+            switch furniture.type {
+            case .sofa, .roundTable:
+                for tile in interactionTiles(for: furniture) where map.isWalkable(tile) {
+                    hubs.insert(tile)
+                }
+            case .coffeeMachine, .waterCooler:
+                for tile in interactionTiles(for: furniture) where map.isWalkable(tile) {
+                    refreshments.insert(tile)
+                }
+            default:
+                continue
             }
         }
-        socialHotspotTiles = hotspots.isEmpty ? pantryAndMeetingTiles : Array(hotspots)
+
+        socialHubTiles = Array(hubs)
+        refreshmentTiles = Array(refreshments)
+        livelyBreakTiles = pantryAndMeetingTiles.filter(isLivelyBreakTile)
+
+        let mergedHotspots = mergedTiles(socialHubTiles, livelyBreakTiles, refreshmentTiles)
+        socialHotspotTiles = mergedHotspots.isEmpty ? pantryAndMeetingTiles : mergedHotspots
 
         for furniture in map.furniture {
             let walkable: Set<FurnitureType> = [.rug, .chair]
@@ -481,6 +500,26 @@ class OfficeCharacterController: ObservableObject {
                     }
                 }
 
+            case .onBreak:
+                if ch.socialTimer > 0 {
+                    characters[id] = ch
+                    continue
+                }
+                ch.wanderTimer -= deltaTime
+                if ch.wanderTimer <= 0 {
+                    if shouldKeepRoamingOffSeat(ch), ch.wanderCount >= ch.wanderLimit {
+                        ch.wanderCount = 0
+                        ch.wanderLimit = wanderMoveLimit()
+                    }
+
+                    if ch.wanderCount >= ch.wanderLimit {
+                        returnToSeat(&ch)
+                    } else {
+                        ch.state = .wanderPause
+                        ch.wanderTimer = wanderPauseDuration()
+                    }
+                }
+
             case .seatRest:
                 if ch.socialTimer > 0 {
                     characters[id] = ch
@@ -588,8 +627,12 @@ class OfficeCharacterController: ObservableObject {
             ch.state = .error
             ch.dir = facingForPurpose(.error, from: target)
         case .breakSpot:
+            if ch.state == .wandering {
+                ch.wanderCount += 1
+            }
             rememberBreakTarget(target, for: &ch)
             ch.state = .onBreak
+            ch.wanderTimer = breakStayDuration()
         }
     }
 
@@ -692,7 +735,7 @@ class OfficeCharacterController: ObservableObject {
         case .error:
             return bestInteractionTile(for: [.whiteboard, .printer], from: origin)
         case .breakSpot:
-            return bestInteractionTile(for: [.coffeeMachine, .sofa, .roundTable], from: origin)
+            return bestInteractionTile(for: [.sofa, .roundTable, .coffeeMachine, .waterCooler], from: origin)
         case .seat:
             return nil
         }
@@ -942,7 +985,7 @@ class OfficeCharacterController: ObservableObject {
     }
 
     private func idleRosterFallbackTile(for index: Int) -> TileCoord {
-        let preferredTiles = mergedTiles(socialHotspotTiles, pantryAndMeetingTiles, walkableTiles)
+        let preferredTiles = mergedTiles(socialHubTiles, livelyBreakTiles, refreshmentTiles, pantryAndMeetingTiles, walkableTiles)
         guard !preferredTiles.isEmpty else { return fallbackSpawnTile(for: index) }
         let stride = max(3, preferredTiles.count / 4)
         return preferredTiles[(index * stride) % preferredTiles.count]
@@ -1002,6 +1045,10 @@ class OfficeCharacterController: ObservableObject {
 
     private func seatRestDuration() -> Double {
         Double.random(in: OfficeConstants.relaxedSeatRestMin...OfficeConstants.relaxedSeatRestMax)
+    }
+
+    private func breakStayDuration() -> Double {
+        Double.random(in: 1.4...3.0)
     }
 
     private func wanderPauseDuration() -> Double {
@@ -1228,16 +1275,39 @@ class OfficeCharacterController: ObservableObject {
     }
 
     private func bestBreakTarget(for character: OfficeCharacter) -> TileCoord? {
-        let preferredTiles: [TileCoord]
+        let zoneFallbackTiles = pantryAndMeetingTiles.filter { !isAdjacentToDoor($0) }
+        let openFallbackTiles = walkableTiles.filter { walkableNeighborCount(at: $0) >= 3 && !isAdjacentToDoor($0) }
+
+        let candidateGroups: [[TileCoord]]
         if !character.isActive {
-            preferredTiles = mergedTiles(socialHotspotTiles, pantryAndMeetingTiles, walkableTiles)
+            candidateGroups = [
+                mergedTiles(socialHubTiles, livelyBreakTiles),
+                refreshmentTiles,
+                zoneFallbackTiles,
+                openFallbackTiles,
+                walkableTiles
+            ]
         } else if !pantryAndMeetingTiles.isEmpty {
-            preferredTiles = mergedTiles(pantryAndMeetingTiles, walkableTiles)
+            candidateGroups = [
+                mergedTiles(socialHubTiles, livelyBreakTiles, refreshmentTiles),
+                zoneFallbackTiles,
+                walkableTiles
+            ]
         } else {
-            preferredTiles = walkableTiles
+            candidateGroups = [walkableTiles]
         }
 
-        let candidates = preferredTiles
+        for group in candidateGroups {
+            if let target = bestReachableBreakTarget(in: group, character: character) {
+                return target
+            }
+        }
+
+        return nil
+    }
+
+    private func bestReachableBreakTarget(in tiles: [TileCoord], character: OfficeCharacter) -> TileCoord? {
+        let candidates = Array(Set(tiles))
             .filter { $0 != character.tileCoord }
             .map { tile in
                 (
@@ -1264,9 +1334,12 @@ class OfficeCharacterController: ObservableObject {
         let congestionPenalty = tileCongestion(at: tile) * 24
         let recentPenalty = recentTilePenalty(for: tile, recentTiles: character.recentBreakTargets)
         let zoneBonus = preferredBreakZoneBonus(for: tile)
-        let hotspotBonus = socialHotspotTiles.contains(tile) ? -4 : 0
+        let hubBonus = socialHubTiles.contains(tile) ? -16 : 0
+        let livelyBonus = livelyBreakTiles.contains(tile) ? -9 : 0
+        let refreshmentBonus = refreshmentTiles.contains(tile) ? -3 : 0
+        let seclusionPenalty = breakSeclusionPenalty(for: tile)
         let jitter = Int.random(in: 0...9)
-        return distance * 2 + congestionPenalty + recentPenalty + zoneBonus + hotspotBonus + jitter
+        return distance * 2 + congestionPenalty + recentPenalty + zoneBonus + hubBonus + livelyBonus + refreshmentBonus + seclusionPenalty + jitter
     }
 
     private func interactionScore(for tile: TileCoord,
@@ -1300,6 +1373,47 @@ class OfficeCharacterController: ObservableObject {
         return recency * 22
     }
 
+    private func breakSeclusionPenalty(for tile: TileCoord) -> Int {
+        let walkableNeighbors = walkableNeighborCount(at: tile)
+
+        let boundaryDistance = [
+            tile.col,
+            tile.row,
+            map.cols - 1 - tile.col,
+            map.rows - 1 - tile.row
+        ].min() ?? 0
+
+        var penalty = max(0, 4 - walkableNeighbors) * 12
+        if isAdjacentToDoor(tile) {
+            penalty += 18
+        }
+        if boundaryDistance <= 1 {
+            penalty += (2 - boundaryDistance) * 6
+        }
+        return penalty
+    }
+
+    private func walkableNeighborCount(at tile: TileCoord) -> Int {
+        Direction.allCases.reduce(into: 0) { total, direction in
+            if map.isWalkable(tile + direction.delta) {
+                total += 1
+            }
+        }
+    }
+
+    private func isAdjacentToDoor(_ tile: TileCoord) -> Bool {
+        Direction.allCases.contains { direction in
+            map.tileAt(tile + direction.delta) == .door
+        }
+    }
+
+    private func isLivelyBreakTile(_ tile: TileCoord) -> Bool {
+        guard let zone = map.zoneAt(tile), zone == .pantry || zone == .meetingRoom else { return false }
+        guard walkableNeighborCount(at: tile) == 4 else { return false }
+        guard !isAdjacentToDoor(tile) else { return false }
+        return !socialHubTiles.contains(tile) && !refreshmentTiles.contains(tile)
+    }
+
     private func tileCongestion(at tile: TileCoord) -> Int {
         characters.values.reduce(into: 0) { partial, character in
             if character.tileCoord == tile {
@@ -1320,6 +1434,11 @@ class OfficeCharacterController: ObservableObject {
         if ch.recentBreakTargets.count > OfficeConstants.recentBreakTargetLimit {
             ch.recentBreakTargets.removeFirst(ch.recentBreakTargets.count - OfficeConstants.recentBreakTargetLimit)
         }
+    }
+
+    private func shouldKeepRoamingOffSeat(_ character: OfficeCharacter) -> Bool {
+        guard character.isRosterOnly else { return false }
+        return registry.character(with: character.rosterCharacterId)?.isOnVacation == true
     }
 
     private func mergedTiles(_ groups: [TileCoord]...) -> [TileCoord] {

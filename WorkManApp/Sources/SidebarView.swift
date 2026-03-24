@@ -263,7 +263,7 @@ struct SidebarView: View {
         VStack(spacing: 6) {
             Button(action: { showCharacterSheet = true }) {
                 HStack(spacing: 8) {
-                    Text("👥").font(.system(size: 14))
+                    Text("👥").font(Theme.scaled(14))
                     Text("캐릭터 관리").font(Theme.mono(11, weight: .medium))
                     Spacer()
                     Text("\(CharacterRegistry.shared.hiredCharacters.count)/\(CharacterRegistry.shared.allCharacters.count)")
@@ -278,7 +278,7 @@ struct SidebarView: View {
 
             Button(action: { showAccessorySheet = true }) {
                 HStack(spacing: 8) {
-                    Text("🛋️").font(.system(size: 14))
+                    Text("🛋️").font(Theme.scaled(14))
                     Text("악세서리").font(Theme.mono(11, weight: .medium))
                     Spacer()
                     Text("\(breakRoomFurnitureOnCount)/20")
@@ -293,7 +293,7 @@ struct SidebarView: View {
 
             Button(action: { showReportSheet = true }) {
                 HStack(spacing: 8) {
-                    Text("📝").font(.system(size: 14))
+                    Text("📝").font(Theme.scaled(14))
                     Text("보고서").font(Theme.mono(11, weight: .medium))
                     Spacer()
                     Text("\(manager.availableReportCount)")
@@ -308,7 +308,7 @@ struct SidebarView: View {
 
             Button(action: { showAchievementSheet = true }) {
                 HStack(spacing: 8) {
-                    Text("🏆").font(.system(size: 14))
+                    Text("🏆").font(Theme.scaled(14))
                     Text("도전과제").font(Theme.mono(11, weight: .medium))
                     Spacer()
                     Text("\(AchievementManager.shared.unlockedCount)/\(AchievementManager.shared.achievements.count)")
@@ -351,7 +351,7 @@ struct SidebarView: View {
     private func lightweightButton(title: String, emoji: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                Text(emoji).font(.system(size: 14))
+                Text(emoji).font(Theme.scaled(14))
                 Text(title).font(Theme.mono(11, weight: .medium))
                 Spacer()
                 Text("열기")
@@ -405,7 +405,7 @@ struct ReportCenterView: View {
                 Spacer()
                 Button(action: { dismiss() }) {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.system(size: Theme.iconSize(16), weight: .bold))
                         .foregroundColor(Theme.textDim)
                 }
                 .buttonStyle(.plain)

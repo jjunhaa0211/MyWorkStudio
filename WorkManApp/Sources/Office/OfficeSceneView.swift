@@ -130,6 +130,13 @@ struct OfficeSceneView: View {
                         .padding(14)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                 }
+
+                if isFollowing, let followId = store.followingCharacterId,
+                   let character = controller.characters[followId] {
+                    followIndicator(name: character.displayName)
+                        .padding(14)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                }
             }
         }
         .background(viewportBackground)
@@ -167,38 +174,28 @@ struct OfficeSceneView: View {
 
     private func selectionPanel(tab: TerminalTab) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
+            HStack(alignment: .top, spacing: 8) {
                 Circle()
                     .fill(tab.workerColor)
+                    .padding(.top, 4)
                     .frame(width: 10, height: 10)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(tab.workerName)
                         .font(Theme.mono(11, weight: .bold))
                         .foregroundColor(Theme.textPrimary)
+                        .lineLimit(1)
                     Text(tab.projectName)
                         .font(Theme.mono(9))
                         .foregroundColor(Theme.textDim)
+                        .lineLimit(1)
                 }
-                Text(tab.workerJob.displayName)
-                    .font(Theme.mono(8, weight: .bold))
-                    .foregroundColor(roleTint(for: tab.workerJob))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
-                    .background(
-                        RoundedRectangle(cornerRadius: 5)
-                            .fill(roleTint(for: tab.workerJob).opacity(0.12))
-                    )
-                Spacer()
-                if let badge = tab.officeLatestToolBadge {
-                    Text(badge.label)
-                        .font(Theme.mono(8, weight: .bold))
-                        .foregroundColor(badge.tint)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(
-                            RoundedRectangle(cornerRadius: 5)
-                                .fill(badge.tint.opacity(0.12))
-                        )
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                HStack(spacing: 6) {
+                    selectionBadge(tab.workerJob.displayName, tint: roleTint(for: tab.workerJob))
+                    if let badge = tab.officeLatestToolBadge {
+                        selectionBadge(badge.label, tint: badge.tint)
+                    }
                 }
             }
 
@@ -211,7 +208,7 @@ struct OfficeSceneView: View {
             if let parallelSummary = tab.officeParallelSummary {
                 HStack(spacing: 6) {
                     Image(systemName: "point.3.connected.trianglepath.dotted")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.system(size: Theme.iconSize(9), weight: .bold))
                         .foregroundColor(Theme.purple)
                     Text(parallelSummary)
                         .font(Theme.mono(8, weight: .bold))
@@ -259,10 +256,22 @@ struct OfficeSceneView: View {
         .shadow(color: Color.black.opacity(settings.isDarkMode ? 0.22 : 0.10), radius: 12, y: 6)
     }
 
+    private func selectionBadge(_ label: String, tint: Color) -> some View {
+        Text(label)
+            .font(Theme.mono(8, weight: .bold))
+            .foregroundColor(tint)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(
+                RoundedRectangle(cornerRadius: 5)
+                    .fill(tint.opacity(0.12))
+            )
+    }
+
     private func bossTicker(character: WorkerCharacter) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "crown.fill")
-                .font(.system(size: 11))
+                .font(.system(size: Theme.iconSize(11)))
                 .foregroundColor(Theme.orange)
             Text("\(character.name) 사장: \(registry.bossLine(frame: store.frame))")
                 .font(Theme.mono(9, weight: .bold))
@@ -353,6 +362,75 @@ struct OfficeSceneView: View {
         }
     }
 
+    private func followIndicator(name: String) -> some View {
+        VStack(spacing: 6) {
+            // 줌 조절 버튼
+            HStack(spacing: 0) {
+                Button(action: {
+                    store.followZoomLevel = max(1.2, store.followZoomLevel - 0.3)
+                }) {
+                    Image(systemName: "minus")
+                        .font(.system(size: Theme.iconSize(10), weight: .bold))
+                        .foregroundColor(store.followZoomLevel <= 1.2 ? Theme.textDim.opacity(0.4) : Theme.textPrimary)
+                        .frame(width: 30, height: 26)
+                }
+                .buttonStyle(.plain)
+                .disabled(store.followZoomLevel <= 1.2)
+
+                Text("\(Int(store.followZoomLevel * 100))%")
+                    .font(Theme.mono(9, weight: .bold))
+                    .foregroundColor(Theme.textSecondary)
+                    .frame(width: 44)
+
+                Button(action: {
+                    store.followZoomLevel = min(3.0, store.followZoomLevel + 0.3)
+                }) {
+                    Image(systemName: "plus")
+                        .font(.system(size: Theme.iconSize(10), weight: .bold))
+                        .foregroundColor(store.followZoomLevel >= 3.0 ? Theme.textDim.opacity(0.4) : Theme.textPrimary)
+                        .frame(width: 30, height: 26)
+                }
+                .buttonStyle(.plain)
+                .disabled(store.followZoomLevel >= 3.0)
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 7)
+                    .fill(Theme.bgCard.opacity(0.94))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 7)
+                            .stroke(Theme.border.opacity(0.5), lineWidth: 1)
+                    )
+            )
+
+            // 추적 상태 + 닫기
+            Button(action: { store.followingCharacterId = nil }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "video.fill")
+                        .font(.system(size: Theme.iconSize(9), weight: .bold))
+                        .foregroundColor(Theme.cyan)
+                    Text("\(name) 추적 중")
+                        .font(Theme.mono(9, weight: .bold))
+                        .foregroundColor(Theme.cyan)
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: Theme.iconSize(9)))
+                        .foregroundColor(Theme.textDim)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .background(
+                    Capsule()
+                        .fill(Theme.bgCard.opacity(0.94))
+                        .overlay(
+                            Capsule()
+                                .stroke(Theme.cyan.opacity(0.35), lineWidth: 1)
+                        )
+                )
+            }
+            .buttonStyle(.plain)
+        }
+        .shadow(color: Color.black.opacity(settings.isDarkMode ? 0.2 : 0.08), radius: 8, y: 3)
+    }
+
     private func roleTint(for role: WorkerJob) -> Color {
         switch role {
         case .developer: return Theme.accent
@@ -420,8 +498,29 @@ struct OfficeSceneView: View {
         guard movement < 8 else { return }
 
         let scenePoint = scenePoint(for: value.location, size: size)
+
+        // 팔로우 중 빈 곳 탭 → 팔로우 해제
+        if isFollowing {
+            if let tabId = hitTestCharacter(at: scenePoint) {
+                if tabId == store.followingCharacterId {
+                    // 같은 캐릭터 다시 탭 → 팔로우 해제
+                    store.followingCharacterId = nil
+                } else {
+                    // 다른 캐릭터 탭 → 대상 변경
+                    store.followingCharacterId = tabId
+                    manager.selectTab(tabId)
+                }
+            } else {
+                store.followingCharacterId = nil
+            }
+            selectedFurnitureId = nil
+            return
+        }
+
         guard let tabId = hitTestCharacter(at: scenePoint) else { return }
+        // 캐릭터를 탭하면 선택 + 팔로우 시작
         manager.selectTab(tabId)
+        store.followingCharacterId = tabId
         selectedFurnitureId = nil
     }
 
@@ -441,11 +540,16 @@ struct OfficeSceneView: View {
 
     // MARK: - Scene Coordinates
 
+    private var isFollowing: Bool {
+        store.followingCharacterId != nil
+    }
+
     private func sceneMetrics(for size: CGSize) -> (scale: CGFloat, offsetX: CGFloat, offsetY: CGFloat) {
         let worldWidth = CGFloat(map.cols) * OfficeConstants.tileSize
         let worldHeight = CGFloat(map.rows) * OfficeConstants.tileSize
         let overviewScale = min(size.width / worldWidth, size.height / worldHeight)
-        let scale = isFocusMode ? min(max(overviewScale * store.cameraZoom, overviewScale), overviewScale * 2.2) : overviewScale
+        let useZoom = isFocusMode || isFollowing
+        let scale = useZoom ? min(max(overviewScale * store.cameraZoom, overviewScale), overviewScale * 3.2) : overviewScale
 
         let rawOffsetX = size.width / 2 - store.cameraCenter.x * scale
         let rawOffsetY = size.height / 2 - store.cameraCenter.y * scale

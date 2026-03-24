@@ -100,6 +100,8 @@ class UpdateChecker: ObservableObject {
                       let casks = json["casks"] as? [[String: Any]],
                       let cask = casks.first,
                       let version = cask["version"] as? String else {
+                    self.updateError = "Homebrew에서 버전 정보를 가져올 수 없습니다."
+                    print("[WorkMan] brew info 실패: \(result ?? "출력 없음")")
                     return
                 }
                 self.latestVersion = version
@@ -165,7 +167,7 @@ class UpdateChecker: ObservableObject {
         let proc = Process()
         let pipe = Pipe()
         proc.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        proc.arguments = ["-il", "-c", command]
+        proc.arguments = ["-f", "-c", command]
         var env = ProcessInfo.processInfo.environment
         env["PATH"] = TerminalTab.buildFullPATH()
         proc.environment = env
@@ -195,7 +197,7 @@ struct UpdateSheet: View {
             // Header
             VStack(spacing: 8) {
                 Image(systemName: "arrow.down.app.fill")
-                    .font(.system(size: 32)).foregroundColor(Theme.green)
+                    .font(.system(size: Theme.iconSize(32))).foregroundColor(Theme.green)
                 Text("업데이트 가능")
                     .font(Theme.mono(14, weight: .bold)).foregroundColor(Theme.textPrimary)
             }
@@ -207,7 +209,7 @@ struct UpdateSheet: View {
                     Text("v\(updater.currentVersion)")
                         .font(Theme.mono(13, weight: .bold)).foregroundColor(Theme.textSecondary)
                 }
-                Image(systemName: "arrow.right").font(.system(size: 14)).foregroundColor(Theme.green)
+                Image(systemName: "arrow.right").font(.system(size: Theme.iconSize(14))).foregroundColor(Theme.green)
                 VStack(spacing: 4) {
                     Text("최신").font(Theme.mono(9)).foregroundColor(Theme.textDim)
                     Text("v\(updater.latestVersion)")
@@ -242,19 +244,19 @@ struct UpdateSheet: View {
             }
             if let error = updater.updateError {
                 HStack(spacing: 4) {
-                    Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 10)).foregroundColor(Theme.red)
+                    Image(systemName: "exclamationmark.triangle.fill").font(.system(size: Theme.iconSize(10))).foregroundColor(Theme.red)
                     Text(error).font(Theme.mono(9)).foregroundColor(Theme.red).lineLimit(3)
                 }
             }
             if updater.updateSuccess {
                 HStack(spacing: 4) {
-                    Image(systemName: "checkmark.circle.fill").font(.system(size: 10)).foregroundColor(Theme.green)
+                    Image(systemName: "checkmark.circle.fill").font(.system(size: Theme.iconSize(10))).foregroundColor(Theme.green)
                     Text("업데이트 완료! 앱을 재시작해주세요.").font(Theme.mono(10, weight: .medium)).foregroundColor(Theme.green)
                 }
 
                 Button(action: { restartApp() }) {
                     HStack(spacing: 6) {
-                        Image(systemName: "arrow.clockwise").font(.system(size: 10))
+                        Image(systemName: "arrow.clockwise").font(.system(size: Theme.iconSize(10)))
                         Text("지금 재시작").font(Theme.mono(10, weight: .bold))
                     }
                     .foregroundColor(Theme.textOnAccent).padding(.horizontal, 16).padding(.vertical, 8)
@@ -274,7 +276,7 @@ struct UpdateSheet: View {
 
                     Button(action: { updater.openReleasePage() }) {
                         HStack(spacing: 4) {
-                            Image(systemName: "safari").font(.system(size: 9))
+                            Image(systemName: "safari").font(.system(size: Theme.iconSize(9)))
                             Text("GitHub").font(Theme.mono(10))
                         }
                         .foregroundColor(Theme.accent)
@@ -285,7 +287,7 @@ struct UpdateSheet: View {
 
                     Button(action: { updater.performUpdate() }) {
                         HStack(spacing: 4) {
-                            Image(systemName: "arrow.down.circle.fill").font(.system(size: 10))
+                            Image(systemName: "arrow.down.circle.fill").font(.system(size: Theme.iconSize(10)))
                             Text("brew로 업데이트").font(Theme.mono(10, weight: .bold))
                         }
                         .foregroundColor(Theme.textOnAccent).padding(.horizontal, 16).padding(.vertical, 7)

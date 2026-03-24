@@ -13,12 +13,12 @@ struct OfficeWindowView: View {
             // 미니 타이틀 바
             HStack(spacing: 8) {
                 Color.clear.frame(width: 58, height: 1)
-                Text("⛏").font(.system(size: 12))
+                Text("⛏").font(Theme.scaled(12))
                 Text(settings.appDisplayName)
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .font(Theme.mono(12, weight: .bold))
                     .foregroundColor(Theme.accent)
                 Text("OFFICE")
-                    .font(.system(size: 8, weight: .heavy, design: .monospaced))
+                    .font(Theme.mono(8, weight: .heavy))
                     .foregroundColor(Theme.textDim).tracking(2)
                 Spacer()
 
@@ -26,14 +26,14 @@ struct OfficeWindowView: View {
                 HStack(spacing: 4) {
                     Circle().fill(Theme.green).frame(width: 5, height: 5)
                     Text("\(manager.userVisibleTabs.filter { !$0.isCompleted }.count) active")
-                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .font(Theme.mono(9, weight: .medium))
                         .foregroundColor(Theme.textSecondary)
                 }
 
                 // 레벨
                 let level = AchievementManager.shared.currentLevel
                 Text("\(level.badge) Lv.\(level.level)")
-                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .font(Theme.mono(9, weight: .bold))
                     .foregroundColor(Theme.yellow)
                     .padding(.trailing, 8)
             }

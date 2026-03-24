@@ -7,34 +7,49 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A10001 /* WorkManApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001; };
-		A10002 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10002; };
-		A10003 /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10003; };
-		A10004 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10004; };
-		A10005 /* PixelStripView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10005; };
-		A10006 /* TerminalAreaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10006; };
-		A10007 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10007; };
-		A10008 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10008; };
-		A10009 /* MenuBarWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10009; };
-		A10010 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile;
-fileRef = B10010; };
-		A10020 /* OfficeWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10020; };
+		07A2B801437FFDA42534AA17 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AADE3B5D98B955B0C80A5DE3 /* Cocoa.framework */; };
+		273023032BF912399A803AEC /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F35199C3D3E258D53AF607EA /* XCTest.framework */; };
+		8EAB07DCD8A5717B584AE381 /* SessionPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B57D61AE58AAA182FF626C15 /* SessionPersistenceTests.swift */; };
 		9141A180C2CDC4F91C87AA78 /* UpdateChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01FB8028B43E80A3835392CA /* UpdateChecker.swift */; };
-		A10011 /* GameSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10011; };
-		A10012 /* CharacterSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10012; };
-		A10013 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10013; };
-		A10014 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = B10014; };
-		A20001 /* OfficeTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20001; };
-		A20002 /* OfficeMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20002; };
-		A20003 /* OfficeCharacterController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20003; };
-		A20004 /* OfficeSpriteRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20004; };
-		A20005 /* OfficeSceneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20005; };
-		A20006 /* OfficeSpriteData.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20006; };
-		A20007 /* OfficeSceneSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20007; };
-		A20008 /* OfficeLayoutStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20008; };
+		A10001 /* WorkManApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001 /* WorkManApp.swift */; };
+		A10002 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10002 /* Models.swift */; };
+		A10003 /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10003 /* SessionManager.swift */; };
+		A10004 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10004 /* MainView.swift */; };
+		A10005 /* PixelStripView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10005 /* PixelStripView.swift */; };
+		A10006 /* TerminalAreaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10006 /* TerminalAreaView.swift */; };
+		A10007 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10007 /* SidebarView.swift */; };
+		A10008 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10008 /* Theme.swift */; };
+		A10009 /* MenuBarWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10009 /* MenuBarWidget.swift */; };
+		A10010 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10010 /* SessionStore.swift */; };
+		A10011 /* GameSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10011 /* GameSystem.swift */; };
+		A10012 /* CharacterSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10012 /* CharacterSystem.swift */; };
+		A10013 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10013 /* Assets.xcassets */; };
+		A10014 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = B10014 /* AppIcon.icns */; };
+		A10020 /* OfficeWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10020 /* OfficeWindowView.swift */; };
+		A20001 /* OfficeTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20001 /* OfficeTypes.swift */; };
+		A20002 /* OfficeMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20002 /* OfficeMap.swift */; };
+		A20003 /* OfficeCharacterController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20003 /* OfficeCharacterController.swift */; };
+		A20004 /* OfficeSpriteRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20004 /* OfficeSpriteRenderer.swift */; };
+		A20005 /* OfficeSceneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20005 /* OfficeSceneView.swift */; };
+		A20006 /* OfficeSpriteData.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20006 /* OfficeSpriteData.swift */; };
+		A20007 /* OfficeSceneSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20007 /* OfficeSceneSupport.swift */; };
+		A20008 /* OfficeLayoutStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20008 /* OfficeLayoutStore.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		183AC13842E2842FE18AD529 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = P10001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = T10001;
+			remoteInfo = WorkManApp;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
+		01FB8028B43E80A3835392CA /* UpdateChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateChecker.swift; sourceTree = "<group>"; };
+		4B6C4A9868E571719C427D24 /* WorkManAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WorkManAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AADE3B5D98B955B0C80A5DE3 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
 		B10001 /* WorkManApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkManApp.swift; sourceTree = "<group>"; };
 		B10002 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		B10003 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
@@ -44,17 +59,12 @@ fileRef = B10010; };
 		B10007 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		B10008 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		B10009 /* MenuBarWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarWidget.swift; sourceTree = "<group>"; };
-		B10010 /* SessionStore.swift */ = {isa = PBXFileReference;
-lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
-		B10020 /* OfficeWindowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficeWindowView.swift; sourceTree = "<group>"; };
-		01FB8028B43E80A3835392CA /* UpdateChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateChecker.swift; sourceTree = "<group>"; };
+		B10010 /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
 		B10011 /* GameSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameSystem.swift; sourceTree = "<group>"; };
 		B10012 /* CharacterSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterSystem.swift; sourceTree = "<group>"; };
-		D10001 /* WorkManApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WorkManApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		E10001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		E10002 /* WorkManApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = WorkManApp.entitlements; sourceTree = "<group>"; };
 		B10013 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B10014 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
+		B10020 /* OfficeWindowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficeWindowView.swift; sourceTree = "<group>"; };
 		B20001 /* OfficeTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficeTypes.swift; sourceTree = "<group>"; };
 		B20002 /* OfficeMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficeMap.swift; sourceTree = "<group>"; };
 		B20003 /* OfficeCharacterController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficeCharacterController.swift; sourceTree = "<group>"; };
@@ -63,9 +73,23 @@ lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<
 		B20006 /* OfficeSpriteData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficeSpriteData.swift; sourceTree = "<group>"; };
 		B20007 /* OfficeSceneSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficeSceneSupport.swift; sourceTree = "<group>"; };
 		B20008 /* OfficeLayoutStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficeLayoutStore.swift; sourceTree = "<group>"; };
+		B57D61AE58AAA182FF626C15 /* SessionPersistenceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SessionPersistenceTests.swift; sourceTree = "<group>"; };
+		D10001 /* WorkManApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WorkManApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E10001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		E10002 /* WorkManApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = WorkManApp.entitlements; sourceTree = "<group>"; };
+		F35199C3D3E258D53AF607EA /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = System/Library/Frameworks/XCTest.framework; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		5499446D52E50500E5A032D4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				07A2B801437FFDA42534AA17 /* Cocoa.framework in Frameworks */,
+				273023032BF912399A803AEC /* XCTest.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F10001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -75,25 +99,41 @@ lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<
 		};
 /* End PBXFrameworksBuildPhase section */
 
-/* Begin PBXResourcesBuildPhase section */
-		R10001 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				A10013 /* Assets.xcassets in Resources */,
-				A10014 /* AppIcon.icns in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXResourcesBuildPhase section */
-
 /* Begin PBXGroup section */
+		38E9BF2AB24E3CCC6BCE666D /* OS X */ = {
+			isa = PBXGroup;
+			children = (
+				AADE3B5D98B955B0C80A5DE3 /* Cocoa.framework */,
+			);
+			name = "OS X";
+			sourceTree = "<group>";
+		};
+		DC004879538E95F2F14C1262 /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				B57D61AE58AAA182FF626C15 /* SessionPersistenceTests.swift */,
+			);
+			name = Tests;
+			path = Tests;
+			sourceTree = "<group>";
+		};
+		F41DB3DC3612520813F1E70B /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				38E9BF2AB24E3CCC6BCE666D /* OS X */,
+				F35199C3D3E258D53AF607EA /* XCTest.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		G10001 = {
 			isa = PBXGroup;
 			children = (
 				G10002 /* Sources */,
 				G10003 /* Resources */,
 				G10004 /* Products */,
+				DC004879538E95F2F14C1262 /* Tests */,
+				F41DB3DC3612520813F1E70B /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -119,21 +159,6 @@ lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<
 			path = Sources;
 			sourceTree = "<group>";
 		};
-		G20001 /* Office */ = {
-			isa = PBXGroup;
-			children = (
-				B20001 /* OfficeTypes.swift */,
-				B20002 /* OfficeMap.swift */,
-				B20003 /* OfficeCharacterController.swift */,
-				B20004 /* OfficeSpriteRenderer.swift */,
-				B20005 /* OfficeSceneView.swift */,
-				B20006 /* OfficeSpriteData.swift */,
-				B20007 /* OfficeSceneSupport.swift */,
-				B20008 /* OfficeLayoutStore.swift */,
-			);
-			path = Office;
-			sourceTree = "<group>";
-		};
 		G10003 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
@@ -149,16 +174,50 @@ lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<
 			isa = PBXGroup;
 			children = (
 				D10001 /* WorkManApp.app */,
+				4B6C4A9868E571719C427D24 /* WorkManAppTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		G20001 /* Office */ = {
+			isa = PBXGroup;
+			children = (
+				B20001 /* OfficeTypes.swift */,
+				B20002 /* OfficeMap.swift */,
+				B20003 /* OfficeCharacterController.swift */,
+				B20004 /* OfficeSpriteRenderer.swift */,
+				B20005 /* OfficeSceneView.swift */,
+				B20006 /* OfficeSpriteData.swift */,
+				B20007 /* OfficeSceneSupport.swift */,
+				B20008 /* OfficeLayoutStore.swift */,
+			);
+			path = Office;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		A9860837A40F0A1058CE29F7 /* WorkManAppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2F60DDD04CE26C43FC0514DD /* Build configuration list for PBXNativeTarget "WorkManAppTests" */;
+			buildPhases = (
+				0CAE5A43A0C268B584B7D7D1 /* Sources */,
+				5499446D52E50500E5A032D4 /* Frameworks */,
+				3BF3D69B0DB86B6170C83EDD /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				04A1EC26DDC1303C554BEF45 /* PBXTargetDependency */,
+			);
+			name = WorkManAppTests;
+			productName = WorkManAppTests;
+			productReference = 4B6C4A9868E571719C427D24 /* WorkManAppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		T10001 /* WorkManApp */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = C10003;
+			buildConfigurationList = C10003 /* Build configuration list for PBXNativeTarget "WorkManApp" */;
 			buildPhases = (
 				S10001 /* Sources */,
 				F10001 /* Frameworks */,
@@ -183,7 +242,7 @@ lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<
 				LastSwiftUpdateCheck = 1500;
 				LastUpgradeCheck = 1500;
 			};
-			buildConfigurationList = C10004;
+			buildConfigurationList = C10004 /* Build configuration list for PBXProject "WorkManApp" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = ko;
 			hasScannedForEncodings = 0;
@@ -197,11 +256,39 @@ lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<
 			projectRoot = "";
 			targets = (
 				T10001 /* WorkManApp */,
+				A9860837A40F0A1058CE29F7 /* WorkManAppTests */,
 			);
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		3BF3D69B0DB86B6170C83EDD /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		R10001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10013 /* Assets.xcassets in Resources */,
+				A10014 /* AppIcon.icns in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
+		0CAE5A43A0C268B584B7D7D1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8EAB07DCD8A5717B584AE381 /* SessionPersistenceTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		S10001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -233,7 +320,37 @@ lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		04A1EC26DDC1303C554BEF45 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = WorkManApp;
+			target = T10001 /* WorkManApp */;
+			targetProxy = 183AC13842E2842FE18AD529 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		32F69323DFAEB0E07ABC7D54 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.junha.workman.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/WorkManApp.app/Contents/MacOS/WorkManApp";
+			};
+			name = Release;
+		};
 		C10001 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -340,9 +457,39 @@ lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<
 			};
 			name = Release;
 		};
+		FABB0059B43D8E300ADF8706 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.junha.workman.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/WorkManApp.app/Contents/MacOS/WorkManApp";
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		2F60DDD04CE26C43FC0514DD /* Build configuration list for PBXNativeTarget "WorkManAppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				32F69323DFAEB0E07ABC7D54 /* Release */,
+				FABB0059B43D8E300ADF8706 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		C10003 /* Build configuration list for PBXNativeTarget "WorkManApp" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -362,7 +509,6 @@ lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
 	};
 	rootObject = P10001 /* Project object */;
 }

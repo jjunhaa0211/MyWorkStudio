@@ -130,7 +130,7 @@ struct MainView: View {
         let isActive = viewMode == mode
         return Button(action: { withAnimation(.easeInOut(duration: 0.2)) { viewModeRaw = mode.rawValue } }) {
             Image(systemName: icon)
-                .font(.system(size: 11, weight: .medium))
+                .font(.system(size: Theme.iconSize(11), weight: .medium))
                 .foregroundColor(isActive ? Theme.accent : Theme.textDim)
                 .frame(width: 30, height: 24)
                 .background(isActive ? Theme.accent.opacity(0.12) : .clear)
@@ -156,7 +156,7 @@ struct MainView: View {
                         }
                     }) {
                         Image(systemName: settings.officeViewMode == "grid" ? "scope" : "rectangle.expand.vertical")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.system(size: Theme.iconSize(10), weight: .bold))
                             .foregroundColor(Theme.textDim.opacity(0.6))
                             .frame(width: 26, height: 20)
                             .background(RoundedRectangle(cornerRadius: 5).fill(Theme.bgCard.opacity(0.7)))
@@ -168,7 +168,7 @@ struct MainView: View {
                     // 확장/축소
                     Button(action: { withAnimation(.easeInOut(duration: 0.25)) { officeExpanded.toggle() } }) {
                         Image(systemName: officeExpanded ? "chevron.up.2" : "chevron.down.2")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.system(size: Theme.iconSize(10), weight: .bold))
                             .foregroundColor(Theme.textDim.opacity(0.5))
                             .frame(width: 26, height: 20)
                             .background(RoundedRectangle(cornerRadius: 5).fill(Theme.bgCard.opacity(0.7)))
@@ -213,7 +213,15 @@ struct MainView: View {
         panel.nameFieldStringValue = url.lastPathComponent
         panel.allowedContentTypes = [.plainText]
         if panel.runModal() == .OK, let dest = panel.url {
-            try? FileManager.default.copyItem(at: url, to: dest)
+            do {
+                try FileManager.default.copyItem(at: url, to: dest)
+            } catch {
+                let alert = NSAlert()
+                alert.messageText = "로그 내보내기 실패"
+                alert.informativeText = error.localizedDescription
+                alert.alertStyle = .warning
+                alert.runModal()
+            }
         }
     }
 
@@ -280,9 +288,9 @@ struct MainView: View {
             Button(action: { openOfficeWindow() }) {
                 HStack(spacing: 4) {
                     Image(systemName: "rectangle.on.rectangle")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: Theme.iconSize(11), weight: .medium))
                     Text("분리")
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .font(Theme.mono(10, weight: .medium))
                 }
                 .foregroundColor(Theme.textDim)
                 .padding(.horizontal, 9).padding(.vertical, 5)
@@ -293,17 +301,17 @@ struct MainView: View {
             .help("오피스를 별도 창으로 분리 (듀얼 모니터)")
 
             Button(action: { showBugReport = true }) {
-                Image(systemName: "ladybug.fill").font(.system(size: 13))
+                Image(systemName: "ladybug.fill").font(.system(size: Theme.iconSize(13)))
                     .foregroundColor(Theme.textDim).padding(6)
             }.buttonStyle(.plain).help("버그 신고")
 
             Button(action: { showSettings = true }) {
-                Image(systemName: "gearshape.fill").font(.system(size: 13))
+                Image(systemName: "gearshape.fill").font(.system(size: Theme.iconSize(13)))
                     .foregroundColor(Theme.textDim).padding(6)
             }.buttonStyle(.plain).help("Settings")
 
             Button(action: { manager.refresh() }) {
-                Image(systemName: "arrow.clockwise").font(.system(size: 12, weight: .semibold))
+                Image(systemName: "arrow.clockwise").font(.system(size: Theme.iconSize(12), weight: .semibold))
                     .foregroundColor(Theme.textDim).padding(6)
             }.buttonStyle(.plain).help("Cmd+R")
 
@@ -487,6 +495,7 @@ struct BugReportView: View {
     }
 
     private func sendReport() {
+        guard !isSending else { return }
         isSending = true
 
         // 스크린샷을 임시 파일로 저장

@@ -339,6 +339,8 @@ final class OfficeSceneStore: ObservableObject {
     @Published var currentPreset: OfficePreset
     @Published var cameraCenter: CGPoint
     @Published var cameraZoom: CGFloat = 1
+    @Published var followingCharacterId: String?
+    @Published var followZoomLevel: CGFloat = 1.85  // 팔로우 줌 배율 (1.2 ~ 3.0)
     @Published var backgroundSnapshot: CGImage?
 
     @Published var frame: Int = 0
@@ -482,7 +484,15 @@ final class OfficeSceneStore: ObservableObject {
         var targetCenter = worldCenter
         var targetZoom: CGFloat = 1
 
-        if focusMode,
+        // 캐릭터 팔로우 모드 (grid/side 모두 동작)
+        if let followId = followingCharacterId,
+           let character = controller.characters[followId] {
+            targetCenter = CGPoint(
+                x: character.pixelX,
+                y: max(OfficeConstants.tileSize * 2, character.pixelY - 18)
+            )
+            targetZoom = followZoomLevel
+        } else if focusMode,
            let activeTabId,
            let character = controller.characters[activeTabId] {
             targetCenter = CGPoint(
@@ -492,7 +502,8 @@ final class OfficeSceneStore: ObservableObject {
             targetZoom = 1.65
         }
 
-        let blend: CGFloat = focusMode ? 0.16 : 0.12
+        let isFollowing = followingCharacterId != nil
+        let blend: CGFloat = isFollowing ? 0.18 : (focusMode ? 0.16 : 0.12)
         cameraCenter = CGPoint(
             x: cameraCenter.x + (targetCenter.x - cameraCenter.x) * blend,
             y: cameraCenter.y + (targetCenter.y - cameraCenter.y) * blend
@@ -505,6 +516,12 @@ final class OfficeSceneStore: ObservableObject {
         guard signature != lastSyncSignature else { return }
         lastSyncSignature = signature
         controller.sync(with: tabs)
+
+        // 팔로우 중인 캐릭터가 사라지면 해제
+        if let followId = followingCharacterId,
+           controller.characters[followId] == nil {
+            followingCharacterId = nil
+        }
     }
 
     private func syncSignature(for tabs: [TerminalTab]) -> Int {

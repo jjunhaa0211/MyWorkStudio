@@ -737,14 +737,16 @@ class CharacterRegistry: ObservableObject {
 
 struct CharacterCollectionView: View {
     @ObservedObject var registry = CharacterRegistry.shared
+    @Environment(\.dismiss) var dismiss
     @State private var editingId: String?
     @State private var editName = ""
     @State private var selectedSpecies: WorkerCharacter.Species? = nil
-    @State private var viewMode: CharViewMode = .grid
-    enum CharViewMode { case grid, list }
+    // grid only (list mode removed)
+
+    @State private var showPipeline = false
 
     let columns = [
-        GridItem(.adaptive(minimum: 220, maximum: 260), spacing: 16, alignment: .top)
+        GridItem(.adaptive(minimum: 200, maximum: 240), spacing: 12, alignment: .top)
     ]
 
     private var filteredHired: [WorkerCharacter] {
@@ -771,7 +773,7 @@ struct CharacterCollectionView: View {
             HStack(spacing: 12) {
                 ZStack {
                     Circle().fill(Theme.accent.opacity(0.1)).frame(width: 40, height: 40)
-                    Image(systemName: "person.3.fill").font(.system(size: 14)).foregroundColor(Theme.accent)
+                    Image(systemName: "person.3.fill").font(.system(size: Theme.iconSize(14))).foregroundColor(Theme.accent)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text("CHARACTERS").font(Theme.mono(12, weight: .heavy)).foregroundColor(Theme.textPrimary).tracking(1.5)
@@ -780,19 +782,12 @@ struct CharacterCollectionView: View {
                 }
                 Spacer()
 
-                // View mode toggle
-                HStack(spacing: 2) {
-                    Button(action: { withAnimation(.easeInOut(duration: 0.15)) { viewMode = .grid } }) {
-                        Image(systemName: "square.grid.2x2").font(.system(size: 10))
-                            .foregroundColor(viewMode == .grid ? Theme.accent : Theme.textDim).padding(4)
-                            .background(viewMode == .grid ? Theme.accent.opacity(0.12) : .clear).cornerRadius(4)
-                    }.buttonStyle(.plain)
-                    Button(action: { withAnimation(.easeInOut(duration: 0.15)) { viewMode = .list } }) {
-                        Image(systemName: "list.bullet").font(.system(size: 10))
-                            .foregroundColor(viewMode == .list ? Theme.accent : Theme.textDim).padding(4)
-                            .background(viewMode == .list ? Theme.accent.opacity(0.12) : .clear).cornerRadius(4)
-                    }.buttonStyle(.plain)
-                }
+                // Close button
+                Button(action: { dismiss() }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 18))
+                        .foregroundColor(Theme.textDim.opacity(0.5))
+                }.buttonStyle(.plain).help("닫기")
             }
             .padding(.horizontal, 20).padding(.vertical, 14)
             .background(Theme.bgCard)
@@ -810,73 +805,63 @@ struct CharacterCollectionView: View {
 
             Rectangle().fill(Theme.border).frame(height: 1)
 
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 8) {
-                    Image(systemName: "point.3.connected.trianglepath.dotted")
-                        .font(.system(size: 11))
-                        .foregroundColor(Theme.accent)
-                    Text("역할 흐름")
-                        .font(Theme.mono(9, weight: .bold))
-                        .foregroundColor(Theme.textSecondary)
-                    Spacer()
-                }
-
-                Text("기획자 → 디자이너 → 개발자 → 코드 리뷰어 → QA → 보고자 · SRE")
-                    .font(Theme.mono(9, weight: .semibold))
-                    .foregroundColor(Theme.textPrimary)
-                Text("없는 역할은 자동으로 건너뛰고, 사장은 농담만 합니다.")
-                    .font(Theme.mono(8))
-                    .foregroundColor(Theme.textDim)
-                Text("주의: 개발자를 제외한 직업은 자동 검증/문서화 세션이 추가될 수 있어 토큰 사용량이 늘어날 수 있습니다.")
-                    .font(Theme.mono(8, weight: .semibold))
-                    .foregroundColor(Theme.yellow)
-            }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(Theme.bgSurface.opacity(0.45))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Theme.border.opacity(0.35), lineWidth: 0.8)
-                    )
-            )
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
-
-            ScrollView(.horizontal, showsIndicators: false) {
+            // Compact info bar: stats + pipeline toggle
+            HStack(spacing: 12) {
+                // Inline stats
                 HStack(spacing: 10) {
-                    staffStatCard(
-                        title: "회사 인원",
-                        value: "\(registry.hiredCharacters.count)명",
-                        subtitle: "전체 \(registry.allCharacters.count)명 · 최대 \(CharacterRegistry.maxHiredCount)명",
-                        tint: Theme.accent,
-                        icon: "building.2.fill"
-                    )
-                    staffStatCard(
-                        title: "보고자",
-                        value: "\(registry.hiredCharacters(for: .reporter, allowVacation: true).count)명",
-                        subtitle: "문서화 담당",
-                        tint: Theme.purple,
-                        icon: "doc.text.fill"
-                    )
-                    staffStatCard(
-                        title: "개발자",
-                        value: "\(registry.hiredCharacters(for: .developer, allowVacation: true).count)명",
-                        subtitle: "구현 담당",
-                        tint: Theme.accent,
-                        icon: "laptopcomputer"
-                    )
-                    staffStatCard(
-                        title: "QA",
-                        value: "\(registry.hiredCharacters(for: .qa, allowVacation: true).count)명",
-                        subtitle: "검증 담당",
-                        tint: Theme.green,
-                        icon: "checkmark.shield.fill"
-                    )
+                    statBadge("\(registry.hiredCharacters.count)/\(CharacterRegistry.maxHiredCount)", icon: "person.2.fill", tint: Theme.accent)
+                    statBadge("\(registry.hiredCharacters(for: .developer, allowVacation: true).count)", icon: "laptopcomputer", tint: Theme.accent)
+                    statBadge("\(registry.hiredCharacters(for: .qa, allowVacation: true).count)", icon: "checkmark.shield.fill", tint: Theme.green)
+                    statBadge("\(registry.hiredCharacters(for: .reporter, allowVacation: true).count)", icon: "doc.text.fill", tint: Theme.purple)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
+
+                Spacer()
+
+                Button(action: { withAnimation(.easeInOut(duration: 0.2)) { showPipeline.toggle() } }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.triangle.swap").font(.system(size: 9, weight: .bold))
+                        Text("파이프라인").font(Theme.mono(8, weight: .medium))
+                        Image(systemName: showPipeline ? "chevron.up" : "chevron.down").font(.system(size: 7, weight: .bold))
+                    }
+                    .foregroundColor(Theme.textDim)
+                    .padding(.horizontal, 8).padding(.vertical, 4)
+                    .background(RoundedRectangle(cornerRadius: 6).fill(Theme.bgSurface))
+                }.buttonStyle(.plain)
+            }
+            .padding(.horizontal, 18).padding(.vertical, 8)
+
+            if showPipeline {
+                VStack(alignment: .leading, spacing: 8) {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 0) {
+                            pipelineStep(icon: "list.bullet.rectangle.portrait.fill", label: "기획", color: Theme.cyan, isFirst: true)
+                            pipelineArrow()
+                            pipelineStep(icon: "paintbrush.pointed.fill", label: "디자인", color: Theme.pink)
+                            pipelineArrow()
+                            pipelineStep(icon: "hammer.fill", label: "개발", color: Theme.accent, highlight: true)
+                            pipelineArrow()
+                            pipelineStep(icon: "checklist.checked", label: "리뷰", color: Theme.orange)
+                            pipelineArrow()
+                            pipelineStep(icon: "checkmark.seal.fill", label: "QA", color: Theme.green)
+                            pipelineArrow()
+                            pipelineStep(icon: "doc.text.fill", label: "보고", color: Theme.purple)
+                            Text("·").font(Theme.mono(10)).foregroundColor(Theme.textDim).padding(.horizontal, 4)
+                            pipelineStep(icon: "server.rack", label: "SRE", color: Theme.red, isLast: true)
+                        }
+                    }
+                    HStack(spacing: 12) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "forward.fill").font(.system(size: 7)).foregroundColor(Theme.green)
+                            Text("없는 역할은 자동 스킵").font(Theme.mono(7)).foregroundColor(Theme.textDim)
+                        }
+                        HStack(spacing: 4) {
+                            Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 7)).foregroundColor(Theme.yellow)
+                            Text("개발 외 역할은 추가 토큰 소모").font(Theme.mono(7, weight: .medium)).foregroundColor(Theme.yellow)
+                        }
+                    }
+                }
+                .padding(.horizontal, 18).padding(.bottom, 8)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
             ScrollView {
@@ -884,17 +869,9 @@ struct CharacterCollectionView: View {
                     // 고용 중
                     if !filteredHired.isEmpty {
                         sectionHeader("고용 중", count: filteredHired.count, color: Theme.green, icon: "person.fill.checkmark")
-                        if viewMode == .grid {
-                            LazyVGrid(columns: columns, spacing: 16) {
-                                ForEach(filteredHired) { char in
-                                    CharacterCard(character: char, isHired: true, editingId: $editingId, editName: $editName)
-                                }
-                            }
-                        } else {
-                            VStack(spacing: 4) {
-                                ForEach(filteredHired) { char in
-                                    CharacterListRow(character: char, isHired: true, editingId: $editingId, editName: $editName)
-                                }
+                        LazyVGrid(columns: columns, spacing: 16) {
+                            ForEach(filteredHired) { char in
+                                CharacterCard(character: char, isHired: true, editingId: $editingId, editName: $editName)
                             }
                         }
                     }
@@ -910,17 +887,9 @@ struct CharacterCollectionView: View {
                     // 대기 중 (잠금 해제된 것만)
                     if !filteredAvailable.isEmpty {
                         sectionHeader("대기 중", count: filteredAvailable.count, color: Theme.textSecondary, icon: "person.fill.questionmark")
-                        if viewMode == .grid {
-                            LazyVGrid(columns: columns, spacing: 16) {
-                                ForEach(filteredAvailable) { char in
-                                    CharacterCard(character: char, isHired: false, editingId: $editingId, editName: $editName)
-                                }
-                            }
-                        } else {
-                            VStack(spacing: 4) {
-                                ForEach(filteredAvailable) { char in
-                                    CharacterListRow(character: char, isHired: false, editingId: $editingId, editName: $editName)
-                                }
+                        LazyVGrid(columns: columns, spacing: 16) {
+                            ForEach(filteredAvailable) { char in
+                                CharacterCard(character: char, isHired: false, editingId: $editingId, editName: $editName)
                             }
                         }
                     }
@@ -931,7 +900,7 @@ struct CharacterCollectionView: View {
                             HStack(spacing: 8) {
                                 Rectangle().fill(Theme.yellow.opacity(0.2)).frame(height: 1)
                                 HStack(spacing: 4) {
-                                    Image(systemName: "lock.fill").font(.system(size: 7)).foregroundColor(Theme.yellow.opacity(0.5))
+                                    Image(systemName: "lock.fill").font(.system(size: Theme.iconSize(7))).foregroundColor(Theme.yellow.opacity(0.5))
                                     Text("LOCKED").font(Theme.mono(7, weight: .bold)).foregroundColor(Theme.yellow.opacity(0.5)).tracking(1.5)
                                 }
                                 Rectangle().fill(Theme.yellow.opacity(0.2)).frame(height: 1)
@@ -961,17 +930,20 @@ struct CharacterCollectionView: View {
         }()
 
         return Button(action: { withAnimation(.easeInOut(duration: 0.15)) { selectedSpecies = species } }) {
-            VStack(spacing: 3) {
+            VStack(spacing: 2) {
                 Text(label)
-                    .font(species == nil ? .system(size: 10, weight: active ? .bold : .medium, design: .monospaced) : .system(size: 20))
+                    .font(species == nil ? Theme.mono(9, weight: active ? .bold : .medium) : .system(size: 16))
+                    .frame(height: 20)
                 Text(species?.rawValue ?? "전체")
-                    .font(.system(size: 7, weight: .medium, design: .monospaced))
+                    .font(Theme.mono(7, weight: .medium))
                     .foregroundColor(active ? Theme.accent : Theme.textDim)
+                    .lineLimit(1)
                 Text("\(count)")
-                    .font(.system(size: 7, weight: .bold, design: .monospaced))
+                    .font(Theme.mono(7, weight: .bold))
                     .foregroundColor(active ? Theme.accent : Theme.textDim.opacity(0.5))
             }
-            .frame(width: 44, height: 52)
+            .frame(width: 48, height: 50)
+            .clipped()
             .background(
                 RoundedRectangle(cornerRadius: 8)
                     .fill(active ? Theme.accent.opacity(0.1) : Theme.bgCard.opacity(0.5))
@@ -1006,7 +978,7 @@ struct CharacterCollectionView: View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.system(size: Theme.iconSize(9), weight: .semibold))
                     .foregroundColor(tint)
                 Text(title)
                     .font(Theme.mono(8, weight: .bold))
@@ -1030,6 +1002,38 @@ struct CharacterCollectionView: View {
                 )
         )
     }
+
+    private func statBadge(_ value: String, icon: String, tint: Color) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon).font(.system(size: 8, weight: .semibold)).foregroundColor(tint)
+            Text(value).font(Theme.mono(9, weight: .bold)).foregroundColor(Theme.textPrimary)
+        }
+        .padding(.horizontal, 8).padding(.vertical, 4)
+        .background(RoundedRectangle(cornerRadius: 6).fill(Theme.bgSurface.opacity(0.6)))
+    }
+
+    private func pipelineStep(icon: String, label: String, color: Color, highlight: Bool = false, isFirst: Bool = false, isLast: Bool = false) -> some View {
+        VStack(spacing: 3) {
+            Image(systemName: icon)
+                .font(.system(size: Theme.iconSize(10), weight: .bold))
+                .foregroundColor(color)
+                .frame(width: 28, height: 28)
+                .background(
+                    Circle().fill(color.opacity(highlight ? 0.2 : 0.1))
+                        .overlay(Circle().stroke(color.opacity(highlight ? 0.5 : 0.2), lineWidth: highlight ? 1.5 : 0.5))
+                )
+            Text(label)
+                .font(Theme.mono(7, weight: highlight ? .bold : .medium))
+                .foregroundColor(highlight ? color : Theme.textSecondary)
+        }
+    }
+
+    private func pipelineArrow() -> some View {
+        Image(systemName: "chevron.right")
+            .font(.system(size: 7, weight: .bold))
+            .foregroundColor(Theme.textDim.opacity(0.4))
+            .padding(.horizontal, 3)
+    }
 }
 
 // MARK: - Character List Row
@@ -1045,7 +1049,7 @@ struct CharacterListRow: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 RoundedRectangle(cornerRadius: 2).fill(Color(hex: character.shirtColor)).frame(width: 4, height: 20)
-                Text(character.species.rawValue).font(.system(size: 10))
+                Text(character.species.rawValue).font(Theme.scaled(10))
                 if editingId == character.id {
                     TextField("이름", text: $editName)
                         .textFieldStyle(.roundedBorder).font(Theme.mono(10)).frame(width: 80)
@@ -1185,57 +1189,24 @@ struct CharacterCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
+            // Top: Avatar + Name + Role
+            HStack(spacing: 10) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    shirtColor.opacity(isHired ? 0.14 : 0.08),
-                                    Theme.bgSurface.opacity(0.65)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-
-                    if isHired {
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(
-                                RadialGradient(
-                                    colors: [shirtColor.opacity(0.14), .clear],
-                                    center: .center,
-                                    startRadius: 0,
-                                    endRadius: 40
-                                )
-                            )
-                    }
-
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(shirtColor.opacity(isHired ? 0.12 : 0.06))
                     Canvas { context, size in
                         drawCharacter(context: context, size: size)
                     }
-                    .frame(width: 58, height: 72)
-
-                    VStack {
-                        HStack {
-                            Spacer()
-                            Text(speciesEmoji(character.species))
-                                .font(.system(size: 10))
-                                .padding(4)
-                                .background(Circle().fill(Theme.bgCard.opacity(0.92)))
-                        }
-                        Spacer()
-                    }
-                    .padding(6)
+                    .frame(width: 40, height: 50)
                 }
-                .frame(width: 82, height: 96)
+                .frame(width: 52, height: 60)
 
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 3) {
                     if editingId == character.id {
                         TextField("이름", text: $editName)
                             .textFieldStyle(.plain)
-                            .font(Theme.mono(12, weight: .bold))
+                            .font(Theme.mono(11, weight: .bold))
                             .foregroundColor(shirtColor)
                             .onSubmit {
                                 if !editName.trimmingCharacters(in: .whitespaces).isEmpty {
@@ -1245,7 +1216,7 @@ struct CharacterCard: View {
                             }
                     } else {
                         Text(character.name)
-                            .font(Theme.mono(13, weight: .black))
+                            .font(Theme.mono(12, weight: .black))
                             .foregroundColor(shirtColor)
                             .lineLimit(1)
                             .onTapGesture(count: 2) {
@@ -1255,140 +1226,80 @@ struct CharacterCard: View {
                     }
 
                     Text(character.archetype)
-                        .font(Theme.mono(8, weight: .medium))
-                        .foregroundColor(Theme.textDim)
-                        .lineLimit(1)
+                        .font(Theme.mono(7)).foregroundColor(Theme.textDim).lineLimit(1)
 
-                    HStack(spacing: 6) {
-                        Label(character.jobRole.displayName, systemImage: character.jobRole.icon)
-                            .font(Theme.mono(8, weight: .bold))
-                            .foregroundColor(roleTint)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(roleTint.opacity(0.12))
-                            .cornerRadius(6)
-
-                        if character.isOnVacation {
-                            Text("휴가 중")
-                                .font(Theme.mono(8, weight: .bold))
-                                .foregroundColor(Theme.orange)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 4)
-                                .background(Theme.orange.opacity(0.12))
-                                .cornerRadius(6)
-                        }
-                    }
-
-                    HStack(spacing: 5) {
-                        if character.hatType != .none {
-                            badgeText(hatEmoji(character.hatType), tint: Theme.textSecondary)
-                        }
-                        if character.accessory != .none {
-                            badgeText(accessoryEmoji(character.accessory), tint: Theme.textSecondary)
-                        }
-                        if character.jobRole.usesExtraTokensWarning {
-                            badgeText("추가 토큰", tint: Theme.yellow)
-                        }
-                    }
-                }
-            }
-
-            Text(character.jobRole.description)
-                .font(Theme.mono(8))
-                .foregroundColor(Theme.textSecondary)
-                .lineLimit(2)
-                .frame(maxWidth: .infinity, minHeight: 30, alignment: .topLeading)
-
-            if isHired {
-                HStack(spacing: 8) {
+                    // Role badge - full width with no truncation
                     Menu {
                         ForEach(WorkerJob.allCases) { role in
-                            Button {
-                                registry.setJobRole(role, for: character.id)
-                            } label: {
+                            Button { registry.setJobRole(role, for: character.id) } label: {
                                 Label(role.displayName, systemImage: role.icon)
                             }
                         }
                     } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "briefcase.fill")
-                            Text("직업 설정")
-                                .font(Theme.mono(8, weight: .bold))
-                        }
-                        .foregroundColor(roleTint)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(roleTint.opacity(0.08))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(roleTint.opacity(0.18), lineWidth: 0.7)
-                                )
-                        )
+                        Label(character.jobRole.displayName, systemImage: character.jobRole.icon)
+                            .font(Theme.mono(8, weight: .bold))
+                            .foregroundColor(roleTint)
+                            .padding(.horizontal, 6).padding(.vertical, 3)
+                            .background(roleTint.opacity(0.1)).cornerRadius(5)
                     }
                     .menuStyle(.borderlessButton)
+                    .fixedSize()
+                }
 
-                    Button(action: { registry.setVacation(!character.isOnVacation, for: character.id) }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: character.isOnVacation ? "airplane.arrival" : "airplane.departure")
-                            Text(character.isOnVacation ? "업무 복귀" : "휴가")
-                                .font(Theme.mono(8, weight: .bold))
-                        }
-                        .foregroundColor(character.isOnVacation ? Theme.green : Theme.orange)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill((character.isOnVacation ? Theme.green : Theme.orange).opacity(0.08))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke((character.isOnVacation ? Theme.green : Theme.orange).opacity(0.18), lineWidth: 0.7)
-                                )
-                        )
+                Spacer(minLength: 0)
+
+                // Status indicators (compact, right-aligned)
+                VStack(alignment: .trailing, spacing: 4) {
+                    if character.isOnVacation {
+                        Text("휴가").font(Theme.mono(7, weight: .bold)).foregroundColor(Theme.orange)
+                            .padding(.horizontal, 5).padding(.vertical, 2)
+                            .background(Theme.orange.opacity(0.1)).cornerRadius(4)
                     }
-                    .buttonStyle(.plain)
+                    if character.jobRole.usesExtraTokensWarning {
+                        Image(systemName: "bolt.fill").font(.system(size: 8)).foregroundColor(Theme.yellow.opacity(0.6))
+                    }
                 }
             }
 
-            Spacer(minLength: 0)
+            // Actions (compact)
+            if isHired {
+                HStack(spacing: 6) {
+                    Button(action: { registry.setVacation(!character.isOnVacation, for: character.id) }) {
+                        Text(character.isOnVacation ? "복귀" : "휴가")
+                            .font(Theme.mono(8, weight: .medium))
+                            .foregroundColor(character.isOnVacation ? Theme.green : Theme.textDim)
+                    }.buttonStyle(.plain)
 
-            Button(action: { isHired ? registry.fire(character.id) : registry.hire(character.id) }) {
-                Text(isHired ? "해고" : "고용")
-                    .font(Theme.mono(10, weight: .bold))
-                    .foregroundColor(isHired ? Theme.red : Theme.green)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(isHired ? Theme.red.opacity(0.08) : Theme.green.opacity(0.08))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .stroke(isHired ? Theme.red.opacity(0.16) : Theme.green.opacity(0.16), lineWidth: 0.7)
-                            )
-                    )
+                    Spacer()
+
+                    Button(action: { registry.fire(character.id) }) {
+                        Text("해고").font(Theme.mono(8, weight: .medium)).foregroundColor(Theme.red.opacity(0.7))
+                    }.buttonStyle(.plain)
+                }
+            } else {
+                Button(action: { registry.hire(character.id) }) {
+                    Text("고용")
+                        .font(Theme.mono(9, weight: .bold))
+                        .foregroundColor(Theme.green)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                        .background(RoundedRectangle(cornerRadius: 6).fill(Theme.green.opacity(0.08)))
+                }
+                .buttonStyle(.plain)
+                .disabled(!registry.canHire(character.id))
+                .opacity(registry.canHire(character.id) ? 1 : 0.4)
             }
-            .buttonStyle(.plain)
-            .disabled(!isHired && !registry.canHire(character.id))
-            .opacity((!isHired && !registry.canHire(character.id)) ? 0.45 : 1)
         }
-        .padding(14)
+        .padding(10)
         .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: 12).fill(Theme.bgCard)
-                if isHired {
-                    VStack { RoundedRectangle(cornerRadius: 1).fill(
-                        LinearGradient(colors: [shirtColor.opacity(0.5), shirtColor.opacity(0.1)], startPoint: .leading, endPoint: .trailing)
-                    ).frame(height: 2).padding(.horizontal, 12); Spacer() }
-                }
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(isHired ? shirtColor.opacity(isHovered ? 0.4 : 0.2) : Theme.border.opacity(isHovered ? 0.4 : 0.15), lineWidth: isHired ? 1 : 0.5)
-            }
+            RoundedRectangle(cornerRadius: 10).fill(Theme.bgCard)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(isHired ? shirtColor.opacity(isHovered ? 0.35 : 0.15) : Theme.border.opacity(isHovered ? 0.3 : 0.1), lineWidth: isHired ? 1 : 0.5)
+                )
         )
-        .frame(maxWidth: .infinity, minHeight: 256, idealHeight: 272, alignment: .top)
-        .opacity(isHired ? 1 : 0.65)
-        .shadow(color: isHired && isHovered ? shirtColor.opacity(0.15) : .clear, radius: 8)
-        .scaleEffect(isHovered ? 1.03 : 1.0)
+        .opacity(isHired ? 1 : 0.7)
+        .scaleEffect(isHovered ? 1.02 : 1.0)
         .animation(.easeOut(duration: 0.12), value: isHovered)
         .onHover { isHovered = $0 }
     }
@@ -1814,7 +1725,7 @@ struct LockedCharacterCard: View {
                 ZStack {
                     Circle().fill(Theme.bgCard.opacity(0.8)).frame(width: 30, height: 30)
                     Circle().stroke(Theme.yellow.opacity(0.3), lineWidth: 1).frame(width: 30, height: 30)
-                    Image(systemName: "lock.fill").font(.system(size: 12)).foregroundColor(Theme.yellow.opacity(0.6))
+                    Image(systemName: "lock.fill").font(.system(size: Theme.iconSize(12))).foregroundColor(Theme.yellow.opacity(0.6))
                 }
             }
             .frame(width: 52, height: 68)
@@ -1826,7 +1737,7 @@ struct LockedCharacterCard: View {
 
             // 필요 업적 힌트
             VStack(spacing: 2) {
-                Image(systemName: "trophy.fill").font(.system(size: 8)).foregroundColor(Theme.yellow.opacity(0.35))
+                Image(systemName: "trophy.fill").font(.system(size: Theme.iconSize(8))).foregroundColor(Theme.yellow.opacity(0.35))
                 if let name = registry.requiredAchievementName(character) {
                     Text(name).font(Theme.mono(6, weight: .medium)).foregroundColor(Theme.yellow.opacity(0.3)).lineLimit(1)
                 }

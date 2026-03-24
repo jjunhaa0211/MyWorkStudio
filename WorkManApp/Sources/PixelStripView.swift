@@ -11,6 +11,104 @@ struct PixelStripView: View {
 
     let timer = Timer.publish(every: 1.0 / 8.0, on: .main, in: .common).autoconnect()
 
+    // MARK: - Pre-allocated Colors (avoid per-frame Color(hex:) allocations)
+
+    // Sunny / Clear Sky
+    private static let sunYellow = Color(hex: "ffe840")
+    private static let sunGlowLight = Color(hex: "fff8d0")
+    private static let sunGlowMid = Color(hex: "ffee70")
+    private static let cloudShadow = Color(hex: "4a90d9")
+    private static let birdColor = Color(hex: "304060")
+
+    // Sunset / Golden Hour
+    private static let sunsetOrange = Color(hex: "ffa030")
+    private static let sunsetRed = Color(hex: "ff5020")
+    private static let goldenSun = Color(hex: "ffc040")
+    private static let goldenSunBright = Color(hex: "ffe070")
+    private static let sunsetSunBright = Color(hex: "ff6030")
+    private static let goldenReflect = Color(hex: "ffc050")
+    private static let sunsetReflect = Color(hex: "ff5030")
+    private static let goldenCloudDark = Color(hex: "804020")
+    private static let sunsetCloudDark = Color(hex: "601020")
+    private static let goldenCloudBright = Color(hex: "ffc050")  // same as goldenReflect
+    private static let sunsetCloudBright = Color(hex: "ff6040")
+    private static let goldenHorizonA = Color(hex: "ff8030")
+    private static let sunsetHorizonA = Color(hex: "ff3020")
+    private static let goldenHorizonB = Color(hex: "ffa040")
+    private static let sunsetHorizonB = Color(hex: "ff5030")  // same as sunsetReflect
+    private static let goldenHorizonC = Color(hex: "ffc060")
+    private static let sunsetHorizonC = Color(hex: "ff7040")
+    private static let sunsetSunFaint = Color(hex: "ff4020")
+
+    // Dusk
+    private static let crescentMoon = Color(hex: "e8ecf8")
+    private static let duskPurple = Color(hex: "6040a0")
+
+    // Moonlit
+    private static let moonHalo = Color(hex: "c8d8f8")
+    private static let moonMid = Color(hex: "d0e0ff")
+    private static let moonBright = Color(hex: "e8f0ff")
+    private static let moonBeam = Color(hex: "c0d0ff")
+    private static let fireflyGreen = Color(hex: "e0ff80")
+
+    // Aurora
+    private static let auroraColors: [Color] = [Color(hex: "30ff70"), Color(hex: "20e0a0"), Color(hex: "40a0ff"), Color(hex: "8060ff"), Color(hex: "c040ff")]
+
+    // Milky Way
+    private static let milkyBand = Color(hex: "b0c0ff")
+    private static let milkyAccent = Color(hex: "d0a0ff")
+
+    // Storm
+    private static let stormCloud = Color(hex: "181e2a")
+    private static let lightningFlash = Color(hex: "e8f0ff")
+
+    // Rain
+    private static let rainCloud = Color(hex: "384858")
+    private static let raindrop = Color(hex: "80a8c8")
+    private static let rainSplash = Color(hex: "a0c0d8")
+    private static let puddleColor = Color(hex: "6090b0")
+
+    // Cherry Blossom
+    private static let softSunWarm = Color(hex: "fff8e8")
+    private static let softSunGlow = Color(hex: "fff0d0")
+    private static let branchBrown = Color(hex: "6a4030")
+    private static let blossomPink = Color(hex: "ffa0b8")
+
+    // Autumn
+    private static let autumnSunA = Color(hex: "e08030")
+    private static let autumnSunB = Color(hex: "e09040")
+    private static let leafColors: [Color] = [Color(hex: "d04818"), Color(hex: "e08828"), Color(hex: "c8501c"), Color(hex: "b8901c")]
+
+    // Forest
+    private static let trunkGreen = Color(hex: "2a3020")
+    private static let sunRayGreen = Color(hex: "80c060")
+
+    // Neon City
+    private static let neonBuildingDark = Color(hex: "080614")
+    private static let neonPink = Color(hex: "ff40a0")
+    private static let neonCyan = Color(hex: "40e0ff")
+    private static let neonYellow = Color(hex: "f0e040")
+    private static let neonGreen = Color(hex: "60ff80")
+    private static let neonWindowColors: [Color] = [Color(hex: "ff40a0"), Color(hex: "40e0ff"), Color(hex: "f0e040"), Color(hex: "60ff80")]
+
+    // Ocean
+    private static let oceanSunLight = Color(hex: "fff8d0")
+    private static let oceanSunBright = Color(hex: "fff8e0")
+    private static let oceanWaveA = Color(hex: "60b0e8")
+    private static let oceanWaveB = Color(hex: "3080c0")
+
+    // Desert
+    private static let desertSunMid = Color(hex: "ffe860")
+    private static let desertSunBright = Color(hex: "fff0a0")
+    private static let duneSand = Color(hex: "c09050")
+
+    // Volcano
+    private static let volcanoGlow = Color(hex: "ff2000")
+    private static let lavaA = Color(hex: "ff3010")
+    private static let lavaB = Color(hex: "ff6020")
+    private static let emberColor = Color(hex: "ff6020")  // same as lavaB
+    private static let ashColor = Color(hex: "804030")
+
     // backgroundTheme, isDarkMode를 읽어야 Canvas가 변경 시 다시 그려짐
     private var bgKey: String { "\(settings.backgroundTheme)_\(settings.isDarkMode)" }
 
@@ -186,21 +284,21 @@ struct PixelStripView: View {
                 let ry = 4 + sunR + CGFloat(sin(angle)) * sunR * 5
                 var rp = Path(); rp.move(to: CGPoint(x: sunX + sunR, y: 4 + sunR))
                 rp.addLine(to: CGPoint(x: rx - 2, y: ry)); rp.addLine(to: CGPoint(x: rx + 2, y: ry)); rp.closeSubpath()
-                context.fill(rp, with: .color(Color(hex: "ffe840").opacity(0.025)))
+                context.fill(rp, with: .color(Self.sunYellow.opacity(0.025)))
             }
             // Sun glow
             context.fill(Path(ellipseIn: CGRect(x: sunX - sunR * 2.5, y: 4 - sunR * 1.5, width: sunR * 5, height: sunR * 5)),
-                         with: .color(Color(hex: "fff8d0").opacity(0.08)))
+                         with: .color(Self.sunGlowLight.opacity(0.08)))
             context.fill(Path(ellipseIn: CGRect(x: sunX - sunR * 1.2, y: 4 - sunR * 0.2, width: sunR * 2.4, height: sunR * 2.4)),
-                         with: .color(Color(hex: "ffee70").opacity(0.25)))
+                         with: .color(Self.sunGlowMid.opacity(0.25)))
             context.fill(Path(ellipseIn: CGRect(x: sunX, y: 4 + sunR * 0.4, width: sunR * 2, height: sunR * 2)),
-                         with: .color(Color(hex: "ffe840").opacity(0.9)))
+                         with: .color(Self.sunYellow.opacity(0.9)))
             // Layered clouds (with shadow)
             for i in 0..<7 {
                 let fi = CGFloat(i)
                 let cx = (fi * 140 + CGFloat(frame / 2) * (0.06 + fi * 0.015) + fi * 35).truncatingRemainder(dividingBy: w + 80) - 40
                 let cy = 5 + fi * 7; let cw = 30 + fi * 5; let depth = 0.48 - fi * 0.035
-                context.fill(Path(ellipseIn: CGRect(x: cx + 1, y: cy + 2, width: cw, height: 9)), with: .color(Color(hex: "4a90d9").opacity(0.05)))
+                context.fill(Path(ellipseIn: CGRect(x: cx + 1, y: cy + 2, width: cw, height: 9)), with: .color(Self.cloudShadow.opacity(0.05)))
                 context.fill(Path(ellipseIn: CGRect(x: cx, y: cy, width: cw, height: 9)), with: .color(.white.opacity(depth)))
                 context.fill(Path(ellipseIn: CGRect(x: cx + cw * 0.2, y: cy - 4, width: cw * 0.65, height: 8)), with: .color(.white.opacity(depth * 0.8)))
                 context.fill(Path(ellipseIn: CGRect(x: cx + cw * 0.45, y: cy - 2, width: cw * 0.4, height: 7)), with: .color(.white.opacity(depth * 0.6)))
@@ -212,7 +310,7 @@ struct PixelStripView: View {
                 let by = 12 + fi * 8
                 var bird = Path(); bird.move(to: CGPoint(x: bx - 3, y: by + 1))
                 bird.addLine(to: CGPoint(x: bx, y: by)); bird.addLine(to: CGPoint(x: bx + 3, y: by + 1))
-                context.stroke(bird, with: .color(Color(hex: "304060").opacity(0.18)), lineWidth: 0.6)
+                context.stroke(bird, with: .color(Self.birdColor.opacity(0.18)), lineWidth: 0.6)
             }
 
         // ── 노을 / 골든아워 ──
@@ -221,15 +319,15 @@ struct PixelStripView: View {
             let sunCX = w * (isGolden ? 0.45 : 0.38); let sunY = h - 6
             // Horizon warm glow
             context.fill(Path(ellipseIn: CGRect(x: sunCX - w * 0.35, y: sunY - h * 0.3, width: w * 0.7, height: h * 0.65)),
-                         with: .color(Color(hex: isGolden ? "ffa030" : "ff5020").opacity(0.12)))
+                         with: .color((isGolden ? Self.sunsetOrange : Self.sunsetRed).opacity(0.12)))
             // Sun
             context.fill(Path(ellipseIn: CGRect(x: sunCX - 20, y: sunY - 16, width: 40, height: 40)),
-                         with: .color(Color(hex: isGolden ? "ffc040" : "ff4020").opacity(0.15)))
+                         with: .color((isGolden ? Self.goldenSun : Self.sunsetSunFaint).opacity(0.15)))
             context.fill(Path(ellipseIn: CGRect(x: sunCX - 10, y: sunY - 6, width: 20, height: 20)),
-                         with: .color(Color(hex: isGolden ? "ffe070" : "ff6030").opacity(0.8)))
+                         with: .color((isGolden ? Self.goldenSunBright : Self.sunsetSunBright).opacity(0.8)))
             // Sun reflection pillar
             context.fill(Path(CGRect(x: sunCX - 3, y: sunY + 4, width: 6, height: h - sunY)),
-                         with: .color(Color(hex: isGolden ? "ffc050" : "ff5030").opacity(0.08)))
+                         with: .color((isGolden ? Self.goldenReflect : Self.sunsetReflect).opacity(0.08)))
             // Cloud silhouettes (dark bottom, bright edge)
             for i in 0..<7 {
                 let fi = CGFloat(i)
@@ -237,18 +335,18 @@ struct PixelStripView: View {
                 let cy = h * 0.2 + fi * 6; let cw = 35 + fi * 6
                 // Dark base
                 context.fill(Path(ellipseIn: CGRect(x: cx, y: cy + 1, width: cw, height: 7)),
-                             with: .color(Color(hex: isGolden ? "804020" : "601020").opacity(0.12)))
+                             with: .color((isGolden ? Self.goldenCloudDark : Self.sunsetCloudDark).opacity(0.12)))
                 // Bright top edge
                 context.fill(Path(ellipseIn: CGRect(x: cx + 2, y: cy - 1, width: cw - 4, height: 5)),
-                             with: .color(Color(hex: isGolden ? "ffc050" : "ff6040").opacity(0.18)))
+                             with: .color((isGolden ? Self.goldenCloudBright : Self.sunsetCloudBright).opacity(0.18)))
             }
             // Horizon glow (3 layers)
             context.fill(Path(CGRect(x: 0, y: h - 8, width: w, height: 8)),
-                         with: .color(Color(hex: isGolden ? "ff8030" : "ff3020").opacity(0.1)))
+                         with: .color((isGolden ? Self.goldenHorizonA : Self.sunsetHorizonA).opacity(0.1)))
             context.fill(Path(CGRect(x: 0, y: h - 4, width: w, height: 4)),
-                         with: .color(Color(hex: isGolden ? "ffa040" : "ff5030").opacity(0.2)))
+                         with: .color((isGolden ? Self.goldenHorizonB : Self.sunsetHorizonB).opacity(0.2)))
             context.fill(Path(CGRect(x: 0, y: h - 1, width: w, height: 1)),
-                         with: .color(Color(hex: isGolden ? "ffc060" : "ff7040").opacity(0.35)))
+                         with: .color((isGolden ? Self.goldenHorizonC : Self.sunsetHorizonC).opacity(0.35)))
 
         // ── 황혼 ──
         case .dusk:
@@ -262,23 +360,23 @@ struct PixelStripView: View {
             }
             // Crescent moon
             context.fill(Path(ellipseIn: CGRect(x: w * 0.82, y: 6, width: 14, height: 14)),
-                         with: .color(Color(hex: "e8ecf8").opacity(0.7)))
+                         with: .color(Self.crescentMoon.opacity(0.7)))
             context.fill(Path(ellipseIn: CGRect(x: w * 0.82 + 3, y: 4, width: 14, height: 14)),
                          with: .color(Color(hex: theme.skyColors.top).opacity(0.95)))
             // Horizon purple glow
             context.fill(Path(CGRect(x: 0, y: h * 0.7, width: w, height: h * 0.3)),
-                         with: .color(Color(hex: "6040a0").opacity(0.08)))
+                         with: .color(Self.duskPurple.opacity(0.08)))
 
         // ── 달빛 ──
         case .moonlit:
             // Moon + halo
             let mx = w * 0.72
             context.fill(Path(ellipseIn: CGRect(x: mx - 18, y: -2, width: 36, height: 36)),
-                         with: .color(Color(hex: "c8d8f8").opacity(0.05)))
+                         with: .color(Self.moonHalo.opacity(0.05)))
             context.fill(Path(ellipseIn: CGRect(x: mx - 10, y: 2, width: 20, height: 20)),
-                         with: .color(Color(hex: "d0e0ff").opacity(0.12)))
+                         with: .color(Self.moonMid.opacity(0.12)))
             context.fill(Path(ellipseIn: CGRect(x: mx - 7, y: 5, width: 14, height: 14)),
-                         with: .color(Color(hex: "e8f0ff").opacity(0.85)))
+                         with: .color(Self.moonBright.opacity(0.85)))
             // Soft stars
             for i in 0..<25 {
                 let fi = CGFloat(i); let sx = (fi * 43 + 11).truncatingRemainder(dividingBy: w)
@@ -292,17 +390,17 @@ struct PixelStripView: View {
             beam.addLine(to: CGPoint(x: mx - w * 0.12, y: h))
             beam.addLine(to: CGPoint(x: mx + w * 0.12, y: h))
             beam.closeSubpath()
-            context.fill(beam, with: .color(Color(hex: "c0d0ff").opacity(0.02)))
+            context.fill(beam, with: .color(Self.moonBeam.opacity(0.02)))
             // Ground reflection
             context.fill(Path(ellipseIn: CGRect(x: mx - 20, y: h - 3, width: 40, height: 4)),
-                         with: .color(Color(hex: "c0d0ff").opacity(0.06)))
+                         with: .color(Self.moonBeam.opacity(0.06)))
             // Fireflies
             for i in 0..<5 {
                 let fi = CGFloat(i)
                 let fx = (fi * 170 + sin(Double(frame) * 0.03 + Double(i) * 2) * 30).truncatingRemainder(dividingBy: w)
                 let fy = h * 0.5 + CGFloat(sin(Double(frame) * 0.02 + Double(i) * 1.5)) * h * 0.15
                 let a = 0.15 + sin(Double(frame) * 0.06 + Double(i) * 3) * 0.1
-                context.fill(Path(ellipseIn: CGRect(x: CGFloat(fx), y: fy, width: 2, height: 2)), with: .color(Color(hex: "e0ff80").opacity(a)))
+                context.fill(Path(ellipseIn: CGRect(x: CGFloat(fx), y: fy, width: 2, height: 2)), with: .color(Self.fireflyGreen.opacity(a)))
             }
 
         // ── 별밤 ──
@@ -342,8 +440,7 @@ struct PixelStripView: View {
                 if a > 0.04 { context.fill(Path(CGRect(x: sx, y: sy, width: 1, height: 1)), with: .color(.white.opacity(a))) }
             }
             // Aurora curtains (5 layers, flowing)
-            let auroraColors: [Color] = [Color(hex: "30ff70"), Color(hex: "20e0a0"), Color(hex: "40a0ff"), Color(hex: "8060ff"), Color(hex: "c040ff")]
-            for (ci, ac) in auroraColors.enumerated() {
+            for (ci, ac) in Self.auroraColors.enumerated() {
                 let cfi = CGFloat(ci)
                 for x in stride(from: CGFloat(0), to: w, by: 5) {
                     let yBase = h * (0.12 + cfi * 0.08)
@@ -371,11 +468,11 @@ struct PixelStripView: View {
                 let yCenter = h * (0.55 - ratio * 0.35) + sin(Double(x) * 0.008) * Double(h) * 0.04
                 let bandW: CGFloat = 16 + sin(Double(x) * 0.01) * 4
                 context.fill(Path(CGRect(x: x, y: CGFloat(yCenter) - bandW / 2, width: 3, height: bandW)),
-                             with: .color(Color(hex: "b0c0ff").opacity(0.035)))
+                             with: .color(Self.milkyBand.opacity(0.035)))
                 // Color variation in band
                 if Int(x) % 8 == 0 {
                     context.fill(Path(CGRect(x: x, y: CGFloat(yCenter) - 2, width: 2, height: 4)),
-                                 with: .color(Color(hex: "d0a0ff").opacity(0.025)))
+                                 with: .color(Self.milkyAccent.opacity(0.025)))
                 }
             }
 
@@ -390,7 +487,7 @@ struct PixelStripView: View {
                     let cy = lfi * 12 + fi * 5 + 2
                     let cw = 30 + fi * 6 + lfi * 10
                     context.fill(Path(ellipseIn: CGRect(x: cx, y: cy, width: cw, height: 10 + lfi * 3)),
-                                 with: .color(Color(hex: "181e2a").opacity(0.35 + Double(layer) * 0.12)))
+                                 with: .color(Self.stormCloud.opacity(0.35 + Double(layer) * 0.12)))
                 }
             }
             // Lightning (more dramatic)
@@ -400,7 +497,7 @@ struct PixelStripView: View {
                 bolt.addLine(to: CGPoint(x: lx + 4, y: h * 0.3))
                 bolt.addLine(to: CGPoint(x: lx - 2, y: h * 0.3))
                 bolt.addLine(to: CGPoint(x: lx + 3, y: h * 0.65))
-                context.stroke(bolt, with: .color(Color(hex: "e8f0ff").opacity(0.6)), lineWidth: 1.5)
+                context.stroke(bolt, with: .color(Self.lightningFlash.opacity(0.6)), lineWidth: 1.5)
                 // Flash
                 context.fill(Path(CGRect(x: 0, y: 0, width: w, height: h)), with: .color(.white.opacity(0.04)))
             }
@@ -412,7 +509,7 @@ struct PixelStripView: View {
                 let fi = CGFloat(i)
                 let cx = (fi * 110 + CGFloat(frame) * 0.04 + 20).truncatingRemainder(dividingBy: w + 50) - 25
                 context.fill(Path(ellipseIn: CGRect(x: cx, y: fi * 5, width: 45, height: 10)),
-                             with: .color(Color(hex: "384858").opacity(0.45)))
+                             with: .color(Self.rainCloud.opacity(0.45)))
             }
             // Rain (angled, layered)
             for i in 0..<40 {
@@ -423,7 +520,7 @@ struct PixelStripView: View {
                 let a = i % 3 == 0 ? 0.35 : 0.2
                 var drop = Path(); drop.move(to: CGPoint(x: rx, y: ry))
                 drop.addLine(to: CGPoint(x: rx - 1.5, y: ry + len))
-                context.stroke(drop, with: .color(Color(hex: "80a8c8").opacity(a)), lineWidth: 0.8)
+                context.stroke(drop, with: .color(Self.raindrop.opacity(a)), lineWidth: 0.8)
             }
             // Splash particles at ground
             for i in 0..<10 {
@@ -431,7 +528,7 @@ struct PixelStripView: View {
                 let sx = (fi * 89 + CGFloat(frame) * 0.5).truncatingRemainder(dividingBy: w)
                 if (frame + i * 7) % 20 < 4 {
                     context.fill(Path(ellipseIn: CGRect(x: sx - 1, y: h - 3, width: 3, height: 1.5)),
-                                 with: .color(Color(hex: "a0c0d8").opacity(0.2)))
+                                 with: .color(Self.rainSplash.opacity(0.2)))
                 }
             }
             // Puddle reflections
@@ -440,7 +537,7 @@ struct PixelStripView: View {
                 let px = fi * (w / 4) + 30
                 let pw: CGFloat = 20 + fi * 8
                 context.fill(Path(ellipseIn: CGRect(x: px, y: h - 2, width: pw, height: 3)),
-                             with: .color(Color(hex: "6090b0").opacity(0.08)))
+                             with: .color(Self.puddleColor.opacity(0.08)))
             }
 
         // ── 눈 ──
@@ -472,9 +569,9 @@ struct PixelStripView: View {
         case .cherryBlossom:
             // Soft sun
             context.fill(Path(ellipseIn: CGRect(x: w * 0.72 - 10, y: 2, width: 20, height: 20)),
-                         with: .color(Color(hex: "fff8e8").opacity(0.7)))
+                         with: .color(Self.softSunWarm.opacity(0.7)))
             context.fill(Path(ellipseIn: CGRect(x: w * 0.72 - 18, y: -6, width: 36, height: 36)),
-                         with: .color(Color(hex: "fff0d0").opacity(0.12)))
+                         with: .color(Self.softSunGlow.opacity(0.12)))
             // Cherry tree branches (top corners)
             for side in 0..<2 {
                 let baseX: CGFloat = side == 0 ? -5 : w - 25
@@ -483,12 +580,12 @@ struct PixelStripView: View {
                     let bx = baseX + (side == 0 ? bf * 12 : -bf * 12)
                     let by = bf * 5
                     context.fill(Path(CGRect(x: bx, y: by, width: 18, height: 2)),
-                                 with: .color(Color(hex: "6a4030").opacity(0.2)))
+                                 with: .color(Self.branchBrown.opacity(0.2)))
                     // Blossom clusters on branches
                     for c in 0..<3 {
                         let cx = bx + CGFloat(c) * 6 + 2
                         context.fill(Path(ellipseIn: CGRect(x: cx, y: by - 2, width: 5, height: 4)),
-                                     with: .color(Color(hex: "ffa0b8").opacity(0.3)))
+                                     with: .color(Self.blossomPink.opacity(0.3)))
                     }
                 }
             }
@@ -509,11 +606,11 @@ struct PixelStripView: View {
             // Low warm sun
             let sunCX = w * 0.65
             context.fill(Path(ellipseIn: CGRect(x: sunCX - 14, y: h - 18, width: 28, height: 28)),
-                         with: .color(Color(hex: "e08030").opacity(0.5)))
+                         with: .color(Self.autumnSunA.opacity(0.5)))
             context.fill(Path(ellipseIn: CGRect(x: sunCX - 25, y: h - 30, width: 50, height: 50)),
-                         with: .color(Color(hex: "e09040").opacity(0.08)))
+                         with: .color(Self.autumnSunB.opacity(0.08)))
             // Leaves (3 colors, spin feel)
-            let leafColors = [Color(hex: "d04818"), Color(hex: "e08828"), Color(hex: "c8501c"), Color(hex: "b8901c")]
+            let leafColors = Self.leafColors
             for i in 0..<18 {
                 let fi = CGFloat(i)
                 let drift = sin(Double(frame) * 0.02 + Double(i) * 2.3) * 12
@@ -536,7 +633,7 @@ struct PixelStripView: View {
                 let trunkW: CGFloat = 3 + fi.truncatingRemainder(dividingBy: 2) * 2
                 // Trunk
                 context.fill(Path(CGRect(x: tx + 4, y: h - treeH * 0.3, width: trunkW, height: treeH * 0.3)),
-                             with: .color(Color(hex: "2a3020").opacity(0.3)))
+                             with: .color(Self.trunkGreen.opacity(0.3)))
                 // Canopy (triangular)
                 var tree = Path()
                 tree.move(to: CGPoint(x: tx - 2, y: h - treeH * 0.25))
@@ -549,7 +646,7 @@ struct PixelStripView: View {
             for i in 0..<4 {
                 let rx = w * (0.2 + CGFloat(i) * 0.18)
                 context.fill(Path(CGRect(x: rx, y: 0, width: 3, height: h)),
-                             with: .color(Color(hex: "80c060").opacity(0.03)))
+                             with: .color(Self.sunRayGreen.opacity(0.03)))
             }
 
         // ── 네온시티 ──
@@ -561,9 +658,9 @@ struct PixelStripView: View {
                 let bw = w / CGFloat(bCount) - 2
                 let bh: CGFloat = 12 + fi.truncatingRemainder(dividingBy: 5) * 7 + (i % 3 == 0 ? 10 : 0)
                 context.fill(Path(CGRect(x: bx, y: h - bh, width: bw, height: bh)),
-                             with: .color(Color(hex: "080614").opacity(0.75)))
+                             with: .color(Self.neonBuildingDark.opacity(0.75)))
                 // Windows (multi-color)
-                let windowColors = [Color(hex: "ff40a0"), Color(hex: "40e0ff"), Color(hex: "f0e040"), Color(hex: "60ff80")]
+                let windowColors = Self.neonWindowColors
                 for wy in stride(from: h - bh + 3, to: h - 2, by: 4) {
                     for wx in stride(from: bx + 2, to: bx + bw - 2, by: 4) {
                         let on = (Int(fi) + Int(wy) + Int(wx)) % 3 != 0
@@ -577,11 +674,11 @@ struct PixelStripView: View {
             // Neon glow lines
             let nP = sin(Double(frame) * 0.05)
             context.fill(Path(CGRect(x: 0, y: h - 3, width: w, height: 3)),
-                         with: .color(Color(hex: "ff40a0").opacity(0.2 + nP * 0.06)))
+                         with: .color(Self.neonPink.opacity(0.2 + nP * 0.06)))
             context.fill(Path(CGRect(x: 0, y: h - 1, width: w, height: 1)),
-                         with: .color(Color(hex: "40e0ff").opacity(0.12 + nP * 0.04)))
+                         with: .color(Self.neonCyan.opacity(0.12 + nP * 0.04)))
             // Neon signs on buildings
-            let signs = [(w * 0.15, Color(hex: "ff40a0")), (w * 0.45, Color(hex: "40e0ff")), (w * 0.7, Color(hex: "f0e040"))]
+            let signs = [(w * 0.15, Self.neonPink), (w * 0.45, Self.neonCyan), (w * 0.7, Self.neonYellow)]
             for (sx, sc) in signs {
                 let sy = h - 20 - CGFloat(Int(sx) % 3) * 6
                 let pulse = 0.3 + sin(Double(frame) * 0.08 + Double(sx) * 0.01) * 0.15
@@ -592,7 +689,7 @@ struct PixelStripView: View {
             for i in 0..<6 {
                 let fi = CGFloat(i)
                 let px = fi * (w / 6) + 10
-                let rc = i % 2 == 0 ? Color(hex: "ff40a0") : Color(hex: "40e0ff")
+                let rc = i % 2 == 0 ? Self.neonPink : Self.neonCyan
                 context.fill(Path(ellipseIn: CGRect(x: px, y: h - 1, width: 15, height: 2)), with: .color(rc.opacity(0.06)))
             }
 
@@ -600,9 +697,9 @@ struct PixelStripView: View {
         case .ocean:
             // Sun
             context.fill(Path(ellipseIn: CGRect(x: w * 0.6 - 4, y: 4, width: 24, height: 24)),
-                         with: .color(Color(hex: "fff8d0").opacity(0.1)))
+                         with: .color(Self.oceanSunLight.opacity(0.1)))
             context.fill(Path(ellipseIn: CGRect(x: w * 0.6, y: 6, width: 16, height: 16)),
-                         with: .color(Color(hex: "fff8e0").opacity(0.7)))
+                         with: .color(Self.oceanSunBright.opacity(0.7)))
             // Sun sparkle on water
             let sparkX = w * 0.6 + 8
             for i in 0..<8 {
@@ -631,7 +728,7 @@ struct PixelStripView: View {
                     let yOff = sin(Double(x) * 0.03 + Double(frame) * speed + Double(wave) * 1.2) * amp
                     let a = 0.08 - Double(wave) * 0.01
                     context.fill(Path(CGRect(x: x, y: waveY + CGFloat(yOff), width: 5, height: 2)),
-                                 with: .color(Color(hex: wave < 3 ? "60b0e8" : "3080c0").opacity(a)))
+                                 with: .color((wave < 3 ? Self.oceanWaveA : Self.oceanWaveB).opacity(a)))
                 }
             }
 
@@ -640,11 +737,11 @@ struct PixelStripView: View {
             // Blazing sun
             let sunCX = w * 0.55
             context.fill(Path(ellipseIn: CGRect(x: sunCX - 25, y: -8, width: 50, height: 50)),
-                         with: .color(Color(hex: "fff8d0").opacity(0.08)))
+                         with: .color(Self.oceanSunLight.opacity(0.08)))
             context.fill(Path(ellipseIn: CGRect(x: sunCX - 12, y: 3, width: 24, height: 24)),
-                         with: .color(Color(hex: "ffe860").opacity(0.2)))
+                         with: .color(Self.desertSunMid.opacity(0.2)))
             context.fill(Path(ellipseIn: CGRect(x: sunCX - 8, y: 7, width: 16, height: 16)),
-                         with: .color(Color(hex: "fff0a0").opacity(0.85)))
+                         with: .color(Self.desertSunBright.opacity(0.85)))
             // Heat shimmer (more visible)
             for x in stride(from: CGFloat(0), to: w, by: 5) {
                 let yOff = sin(Double(x) * 0.04 + Double(frame) * 0.07) * 2
@@ -655,20 +752,20 @@ struct PixelStripView: View {
             for x in stride(from: CGFloat(0), to: w, by: 3) {
                 let duneY = h - 3 - sin(Double(x) * 0.015) * 4
                 context.fill(Path(CGRect(x: x, y: CGFloat(duneY), width: 4, height: CGFloat(h - duneY))),
-                             with: .color(Color(hex: "c09050").opacity(0.08)))
+                             with: .color(Self.duneSand.opacity(0.08)))
             }
 
         // ── 화산 ──
         case .volcano:
             // Red sky glow
             context.fill(Path(ellipseIn: CGRect(x: w * 0.25, y: h * 0.4, width: w * 0.5, height: h * 0.6)),
-                         with: .color(Color(hex: "ff2000").opacity(0.06)))
+                         with: .color(Self.volcanoGlow.opacity(0.06)))
             // Lava glow (pulsing)
             let pulse = 0.12 + sin(Double(frame) * 0.04) * 0.06
             context.fill(Path(CGRect(x: 0, y: h - 6, width: w, height: 6)),
-                         with: .color(Color(hex: "ff3010").opacity(pulse)))
+                         with: .color(Self.lavaA.opacity(pulse)))
             context.fill(Path(CGRect(x: 0, y: h - 3, width: w, height: 3)),
-                         with: .color(Color(hex: "ff6020").opacity(pulse * 0.6)))
+                         with: .color(Self.lavaB.opacity(pulse * 0.6)))
             // Ash & embers rising
             for i in 0..<18 {
                 let fi = CGFloat(i)
@@ -676,7 +773,7 @@ struct PixelStripView: View {
                 let ay = (CGFloat(frame) * (0.2 + Double(i % 3) * 0.1) + fi * 17).truncatingRemainder(dividingBy: max(1, h))
                 let aY = h - ay
                 let isEmber = i % 4 == 0
-                let c = isEmber ? Color(hex: "ff6020") : Color(hex: "804030")
+                let c = isEmber ? Self.emberColor : Self.ashColor
                 let a = isEmber ? 0.45 : 0.2
                 let sz: CGFloat = isEmber ? 2 : 1
                 context.fill(Path(CGRect(x: ax, y: aY, width: sz, height: sz)), with: .color(c.opacity(a)))
@@ -801,7 +898,7 @@ struct PixelStripView: View {
         // 프로젝트 이름
         context.draw(
             Text(group.projectName)
-                .font(.system(size: 7, weight: isActive ? .bold : .regular, design: .monospaced))
+                .font(Theme.mono(7, weight: isActive ? .bold : .regular))
                 .foregroundColor(isActive ? Theme.textPrimary : Theme.textSecondary),
             at: CGPoint(x: x + 33, y: floorY + 26)
         )
@@ -809,7 +906,7 @@ struct PixelStripView: View {
         if group.tabs.count > 1 {
             context.draw(
                 Text("x\(group.tabs.count)")
-                    .font(.system(size: 6, weight: .bold, design: .monospaced))
+                    .font(Theme.mono(6, weight: .bold))
                     .foregroundColor(Theme.cyan),
                 at: CGPoint(x: x + 33, y: floorY + 36)
             )
@@ -822,7 +919,7 @@ struct PixelStripView: View {
                          with: .color(Theme.green.opacity(0.15)))
             context.draw(
                 Text("DONE")
-                    .font(.system(size: 7, weight: .bold, design: .monospaced))
+                    .font(Theme.mono(7, weight: .bold))
                     .foregroundColor(Theme.green),
                 at: CGPoint(x: x + 33, y: badgeY + 2)
             )
@@ -1149,7 +1246,7 @@ struct PixelStripView: View {
 
         // 이름
         context.draw(
-            Text(tab.workerName).font(.system(size: 7, weight: isActive ? .bold : .regular, design: .monospaced))
+            Text(tab.workerName).font(Theme.mono(7, weight: isActive ? .bold : .regular))
                 .foregroundColor(isActive ? tab.workerColor : Theme.textSecondary),
             at: CGPoint(x: x + 8 * s, y: y + 21 * s + 5))
 
@@ -1212,7 +1309,7 @@ struct PixelStripView: View {
                              with: .color(bubbleColor))
                 context.stroke(Path(roundedRect: CGRect(x: bx, y: by, width: bw, height: 14), cornerRadius: 4),
                                with: .color(textColor.opacity(0.3)), lineWidth: 0.5)
-                context.draw(Text(txt).font(.system(size: 7, weight: .bold, design: .monospaced)).foregroundColor(textColor),
+                context.draw(Text(txt).font(Theme.mono(7, weight: .bold)).foregroundColor(textColor),
                     at: CGPoint(x: bx + bw / 2, y: by + 7))
             }
         }
@@ -1291,11 +1388,11 @@ struct PixelStripView: View {
                 if i % 2 == 0 { px(9, 5, 2, 3, skin); px(9, 5, 3, 2, Color(hex: "e0d8d0")) }
                 let zzPhase = Double(frame) * 0.08 + Double(i) * 2
                 if frame % 40 < 28 {
-                    context.draw(Text("z").font(.system(size: 5, weight: .bold)).foregroundColor(Theme.textDim.opacity(0.5)),
+                    context.draw(Text("z").font(Theme.scaled(5, weight: .bold)).foregroundColor(Theme.textDim.opacity(0.5)),
                         at: CGPoint(x: bx + 10 * s, y: by - 3 + sin(zzPhase) * 2))
-                    context.draw(Text("z").font(.system(size: 4, weight: .bold)).foregroundColor(Theme.textDim.opacity(0.35)),
+                    context.draw(Text("z").font(Theme.scaled(4, weight: .bold)).foregroundColor(Theme.textDim.opacity(0.35)),
                         at: CGPoint(x: bx + 11 * s, y: by - 8 + sin(zzPhase + 0.5) * 1.5))
-                    context.draw(Text("Z").font(.system(size: 4, weight: .bold)).foregroundColor(Theme.textDim.opacity(0.2)),
+                    context.draw(Text("Z").font(Theme.scaled(4, weight: .bold)).foregroundColor(Theme.textDim.opacity(0.2)),
                         at: CGPoint(x: bx + 12 * s, y: by - 12 + sin(zzPhase + 1.0) * 1))
                 }
             }
@@ -1304,7 +1401,7 @@ struct PixelStripView: View {
         if !breakTabs.isEmpty {
             context.draw(
                 Text("\(breakTabs.count)명 휴식 중")
-                    .font(.system(size: 6, weight: .medium, design: .monospaced))
+                    .font(Theme.mono(6, weight: .medium))
                     .foregroundColor(Theme.textDim),
                 at: CGPoint(x: b.rx + b.roomW * 0.4, y: floorY + 22)
             )
@@ -1364,7 +1461,7 @@ struct PixelStripView: View {
             VStack {
                 HStack(spacing: 10) {
                     HStack(spacing: 6) {
-                        Image(systemName: "hand.draw.fill").font(.system(size: 10)).foregroundColor(Theme.yellow)
+                        Image(systemName: "hand.draw.fill").font(.system(size: Theme.iconSize(10))).foregroundColor(Theme.yellow)
                         Text("가구 배치 모드").font(Theme.mono(10, weight: .bold)).foregroundColor(Theme.textOnAccent)
                     }
                     Text("— 드래그하여 이동").font(Theme.mono(9)).foregroundColor(Theme.textOnAccent.opacity(0.6))
@@ -1396,8 +1493,8 @@ struct PixelStripView: View {
             .overlay(
                 VStack(spacing: 1) {
                     Image(systemName: "arrow.up.and.down.and.arrow.left.and.right")
-                        .font(.system(size: 7)).foregroundColor(isDragging ? Theme.yellow : Theme.accent)
-                    Text(item.name).font(.system(size: 6, weight: .bold, design: .monospaced))
+                        .font(.system(size: Theme.iconSize(7))).foregroundColor(isDragging ? Theme.yellow : Theme.accent)
+                    Text(item.name).font(Theme.mono(6, weight: .bold))
                         .foregroundColor(isDragging ? Theme.yellow : Theme.accent)
                 }
             )

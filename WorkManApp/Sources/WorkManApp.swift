@@ -101,7 +101,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        SessionManager.shared.saveSessions()
+        SessionManager.shared.saveSessions(immediately: true)
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -113,27 +113,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         let alert = NSAlert()
         alert.messageText = "진행 중인 작업이 \(runningTabs.count)개 있습니다"
-        alert.informativeText = "앱을 종료하면 현재 진행 중인 작업은 완료되지 않습니다.\n모든 작업을 취소하고 변경사항을 작업 전 상태로 되돌릴 수 있습니다."
+        alert.informativeText = "앱을 종료하면 현재 진행 중인 작업은 완료되지 않습니다.\n자동 롤백은 하지 않고, 복구 폴더를 만든 뒤 안전하게 중단할 수 있습니다."
         alert.alertStyle = .warning
-        alert.addButton(withTitle: "모든 작업 취소 후 종료")
+        alert.addButton(withTitle: "백업 후 중단하고 종료")
         alert.addButton(withTitle: "그대로 종료")
         alert.addButton(withTitle: "취소")
 
         let response = alert.runModal()
         switch response {
         case .alertFirstButtonReturn:
-            // 모든 진행 중인 작업을 취소하고 git 롤백
+            // 모든 진행 중인 작업을 백업한 뒤 중단
             for tab in runningTabs {
-                tab.cancelAndRevert()
+                _ = SessionStore.shared.writeRecoveryBundle(for: tab, reason: "앱 종료 전 진행 중 작업 백업")
+                tab.forceStop()
             }
-            manager.saveSessions()
+            manager.saveSessions(immediately: true)
             return .terminateNow
         case .alertSecondButtonReturn:
             // 롤백 없이 그대로 종료
             for tab in runningTabs {
                 tab.forceStop()
             }
-            manager.saveSessions()
+            manager.saveSessions(immediately: true)
             return .terminateNow
         default:
             // 취소 - 종료하지 않음

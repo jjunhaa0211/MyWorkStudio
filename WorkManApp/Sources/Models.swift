@@ -62,6 +62,11 @@ enum ClaudeModel: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var icon: String { switch self { case .opus: return "🟣"; case .sonnet: return "🔵"; case .haiku: return "🟢" } }
     var displayName: String { rawValue.capitalized }
+
+    static func detect(from value: String) -> ClaudeModel? {
+        let lowered = value.lowercased()
+        return allCases.first { lowered.contains($0.rawValue) }
+    }
 }
 
 enum EffortLevel: String, CaseIterable, Identifiable {
@@ -583,6 +588,12 @@ class TerminalTab: ObservableObject, Identifiable {
     var outputText: String { blocks.map { $0.content }.joined(separator: "\n") }
     var masterFD: Int32 = -1
 
+    // ── Raw Terminal Mode (PTY) ──
+    @Published var rawOutput: String = ""
+    @Published var rawScrollTrigger: Int = 0
+    var isRawMode: Bool = false
+    private var rawMasterFD: Int32 = -1
+
     var initialPrompt: String?
     var characterId: String?  // CharacterRegistry 연동
     var automationSourceTabId: String?
@@ -633,9 +644,147 @@ class TerminalTab: ObservableObject, Identifiable {
     // ── 크롬 윈도우 캡처 ──
     @Published var chromeScreenshot: CGImage?
 
-    init(id: String, projectName: String, projectPath: String, workerName: String, workerColor: Color) {
+    init(id: String = UUID().uuidString, projectName: String, projectPath: String, workerName: String, workerColor: Color) {
         self.id = id; self.projectName = projectName; self.projectPath = projectPath
         self.workerName = workerName; self.workerColor = workerColor
+    }
+
+    private func sessionStartSummary(modelLabel: String? = nil) -> String {
+        let resolvedModel = modelLabel.flatMap { ClaudeModel.detect(from: $0) } ?? selectedModel
+        let resolvedLabel = modelLabel ?? resolvedModel.displayName
+        return "\(resolvedModel.icon) \(resolvedLabel) · \(effortLevel.icon) \(effortLevel.rawValue) · v\(ClaudeInstallChecker.shared.version)"
+    }
+
+    private func sanitizeTerminalText(_ text: String) -> String {
+        let normalized = text
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+        let ansiPattern = "\u{001B}\\[[0-9;?]*[ -/]*[@-~]"
+        return normalized
+            .replacingOccurrences(of: ansiPattern, with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func updateReportedModel(_ reportedModel: String) {
+        if let resolvedModel = ClaudeModel.detect(from: reportedModel) {
+            selectedModel = resolvedModel
+        }
+        if let first = blocks.first, case .sessionStart = first.blockType {
+            let displayLabel = ClaudeModel.detect(from: reportedModel)?.displayName ?? reportedModel
+            first.content = sessionStartSummary(modelLabel: displayLabel)
+        }
+    }
+
+    var persistedSessionId: String? { sessionId }
+
+    func applySavedSessionConfiguration(_ saved: SavedSession) {
+        if let raw = saved.selectedModel, let model = ClaudeModel(rawValue: raw) {
+            selectedModel = model
+        }
+        if let raw = saved.effortLevel, let level = EffortLevel(rawValue: raw) {
+            effortLevel = level
+        }
+        if let raw = saved.outputMode, let mode = OutputMode(rawValue: raw) {
+            outputMode = mode
+        }
+        if let raw = saved.permissionMode, let mode = PermissionMode(rawValue: raw) {
+            permissionMode = mode
+        }
+
+        tokenLimit = saved.tokenLimit ?? tokenLimit
+        systemPrompt = saved.systemPrompt ?? ""
+        maxBudgetUSD = saved.maxBudgetUSD ?? 0
+        allowedTools = saved.allowedTools ?? ""
+        disallowedTools = saved.disallowedTools ?? ""
+        additionalDirs = saved.additionalDirs ?? []
+        continueSession = saved.continueSession ?? false
+        useWorktree = saved.useWorktree ?? false
+        fallbackModel = saved.fallbackModel ?? ""
+        sessionName = saved.sessionName ?? ""
+        jsonSchema = saved.jsonSchema ?? ""
+        mcpConfigPaths = saved.mcpConfigPaths ?? []
+        customAgent = saved.customAgent ?? ""
+        customAgentsJSON = saved.customAgentsJSON ?? ""
+        pluginDirs = saved.pluginDirs ?? []
+        customTools = saved.customTools ?? ""
+        enableChrome = saved.enableChrome ?? true
+        forkSession = saved.forkSession ?? false
+        fromPR = saved.fromPR ?? ""
+        enableBrief = saved.enableBrief ?? false
+        tmuxMode = saved.tmuxMode ?? false
+        strictMcpConfig = saved.strictMcpConfig ?? false
+        settingSources = saved.settingSources ?? ""
+        settingsFileOrJSON = saved.settingsFileOrJSON ?? ""
+        betaHeaders = saved.betaHeaders ?? ""
+
+        branch = saved.branch
+        if let savedCharacterId = saved.characterId,
+           let savedCharacter = CharacterRegistry.shared.character(with: savedCharacterId),
+           savedCharacter.isHired,
+           !savedCharacter.isOnVacation {
+            characterId = savedCharacterId
+        }
+        if let savedSessionId = saved.sessionId, !savedSessionId.isEmpty {
+            sessionId = savedSessionId
+        }
+    }
+
+    func restoreSavedSessionSnapshot(_ saved: SavedSession) {
+        tokensUsed = saved.tokensUsed
+        inputTokensUsed = saved.inputTokensUsed ?? 0
+        if let savedOutputTokens = saved.outputTokensUsed {
+            outputTokensUsed = savedOutputTokens
+        } else {
+            outputTokensUsed = max(0, saved.tokensUsed - inputTokensUsed)
+        }
+        totalCost = saved.totalCost ?? 0
+        commandCount = saved.commandCount ?? commandCount
+        errorCount = saved.errorCount ?? errorCount
+        completedPromptCount = saved.completedPromptCount ?? completedPromptCount
+        lastResultText = saved.lastResultText ?? ""
+        lastPromptText = saved.lastPrompt ?? ""
+        fileChanges = saved.fileChanges?.map(\.fileChangeRecord) ?? []
+        startTime = saved.startTime
+        lastActivityTime = saved.lastActivityTime ?? saved.startTime
+        initialPrompt = nil
+        isCompleted = false
+        isClaude = true
+        isRunning = true
+        startError = nil
+
+        if let summaryFiles = saved.summaryFiles {
+            summary = SessionSummary(
+                filesModified: summaryFiles,
+                duration: saved.summaryDuration ?? 0,
+                tokenCount: saved.summaryTokens ?? saved.tokensUsed,
+                cost: saved.totalCost ?? 0,
+                lastLines: [],
+                commandCount: saved.commandCount ?? 0,
+                errorCount: saved.errorCount ?? 0,
+                timestamp: saved.lastActivityTime ?? saved.startTime
+            )
+        }
+    }
+
+    func appendRestorationNotice(from saved: SavedSession, recoveryBundleURL: URL?) {
+        var details: [String] = ["자동으로 다시 실행하지 않았습니다."]
+
+        if let lastPrompt = saved.lastPrompt, !lastPrompt.isEmpty {
+            details.append("마지막 입력: \(String(lastPrompt.prefix(180)))")
+        } else if let initialPrompt = saved.initialPrompt, !initialPrompt.isEmpty {
+            details.append("초기 입력: \(String(initialPrompt.prefix(180)))")
+        }
+
+        if let recoveryBundleURL {
+            details.append("복구 폴더: \(recoveryBundleURL.path)")
+        }
+
+        if saved.sessionId != nil && (saved.continueSession ?? false) {
+            details.append("다음 입력부터 이전 대화를 이어서 보낼 수 있습니다.")
+        }
+
+        let title = saved.wasProcessing == true ? "중단된 세션 복원" : "이전 세션 복원"
+        appendBlock(.status(message: title), content: details.joined(separator: "\n"))
     }
 
     var workerState: WorkerState {
@@ -668,8 +817,15 @@ class TerminalTab: ObservableObject, Identifiable {
             }
             return
         }
+
+        // Raw terminal mode: PTY 기반 인터랙티브 실행
+        if AppSettings.shared.rawTerminalMode {
+            startRawTerminal()
+            return
+        }
+
         appendBlock(.sessionStart(model: selectedModel.displayName, sessionId: ""),
-                     content: "\(selectedModel.icon) \(selectedModel.displayName) · \(effortLevel.icon) \(effortLevel.rawValue) · v\(checker.version)")
+                     content: sessionStartSummary())
         refreshGitInfo()
 
         // 초기 프롬프트가 있으면 자동 실행
@@ -680,10 +836,151 @@ class TerminalTab: ObservableObject, Identifiable {
         }
     }
 
+    // MARK: - Raw Terminal (PTY)
+
+    private func startRawTerminal() {
+        isRawMode = true
+        isProcessing = true
+        claudeActivity = .running
+
+        let master = posix_openpt(O_RDWR | O_NOCTTY)
+        guard master >= 0 else {
+            appendBlock(.error(message: "PTY 생성 실패"), content: "posix_openpt failed")
+            return
+        }
+        guard grantpt(master) == 0, unlockpt(master) == 0,
+              let slaveNamePtr = ptsname(master) else {
+            close(master)
+            appendBlock(.error(message: "PTY 설정 실패"), content: "grantpt/unlockpt failed")
+            return
+        }
+        let slaveName = String(cString: slaveNamePtr)
+        let slave = open(slaveName, O_RDWR)
+        guard slave >= 0 else {
+            close(master)
+            appendBlock(.error(message: "PTY slave 열기 실패"))
+            return
+        }
+
+        // 터미널 크기 설정
+        var ws = winsize(ws_row: 50, ws_col: 120, ws_xpixel: 0, ws_ypixel: 0)
+        _ = ioctl(master, TIOCSWINSZ, &ws)
+
+        rawMasterFD = master
+
+        let path = FileManager.default.fileExists(atPath: projectPath) ? projectPath : NSHomeDirectory()
+
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/bin/zsh")
+        proc.arguments = ["-f", "-c", "claude"]
+        proc.currentDirectoryURL = URL(fileURLWithPath: path)
+        proc.standardInput = FileHandle(fileDescriptor: slave, closeOnDealloc: false)
+        proc.standardOutput = FileHandle(fileDescriptor: slave, closeOnDealloc: false)
+        proc.standardError = FileHandle(fileDescriptor: slave, closeOnDealloc: false)
+
+        var env = ProcessInfo.processInfo.environment
+        env["PATH"] = Self.buildFullPATH()
+        env["TERM"] = "xterm-256color"
+        env["LANG"] = "en_US.UTF-8"
+        proc.environment = env
+
+        currentProcess = proc
+
+        // master FD에서 읽기 (백그라운드)
+        DispatchQueue.global(qos: .userInteractive).async { [weak self] in
+            let bufferSize = 8192
+            let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
+            defer { buffer.deallocate() }
+
+            while true {
+                let bytesRead = Darwin.read(master, buffer, bufferSize)
+                if bytesRead <= 0 { break }
+                let data = Data(bytes: buffer, count: bytesRead)
+                if let text = String(data: data, encoding: .utf8) {
+                    DispatchQueue.main.async {
+                        self?.appendRawChunk(text)
+                    }
+                }
+            }
+
+            DispatchQueue.main.async {
+                self?.isProcessing = false
+                self?.claudeActivity = .idle
+            }
+        }
+
+        do {
+            try proc.run()
+            close(slave) // parent에서 slave 닫기
+        } catch {
+            close(slave)
+            close(master)
+            rawMasterFD = -1
+            appendBlock(.error(message: "Claude 실행 실패"), content: error.localizedDescription)
+        }
+    }
+
+    func writeRawInput(_ text: String) {
+        guard rawMasterFD >= 0, let data = text.data(using: .utf8) else { return }
+        data.withUnsafeBytes { ptr in
+            guard let base = ptr.baseAddress else { return }
+            _ = Darwin.write(rawMasterFD, base, ptr.count)
+        }
+    }
+
+    func sendRawSignal(_ signal: UInt8) {
+        guard rawMasterFD >= 0 else { return }
+        var byte = signal
+        Darwin.write(rawMasterFD, &byte, 1)
+    }
+
+    /// ANSI 코드를 보존하면서 \r 줄 덮어쓰기 처리
+    private func appendRawChunk(_ text: String) {
+        let chars = Array(text)
+        var i = 0
+        while i < chars.count {
+            let c = chars[i]
+            if c == "\r" {
+                if i + 1 < chars.count && chars[i + 1] == "\n" {
+                    rawOutput.append("\n")
+                    i += 2
+                } else {
+                    // \r 단독: 현재 줄 시작으로 이동 (덮어쓰기)
+                    if let lastNL = rawOutput.lastIndex(of: "\n") {
+                        rawOutput = String(rawOutput[...lastNL])
+                    } else {
+                        rawOutput = ""
+                    }
+                    i += 1
+                }
+            } else {
+                rawOutput.append(c)
+                i += 1
+            }
+        }
+
+        // 메모리 보호: 200KB 초과 시 줄 단위로 앞부분 제거
+        if rawOutput.count > 200_000 {
+            let cutTarget = rawOutput.count - 150_000
+            if let cutIdx = rawOutput.index(rawOutput.startIndex, offsetBy: cutTarget, limitedBy: rawOutput.endIndex),
+               let nlIdx = rawOutput[cutIdx...].firstIndex(of: "\n") {
+                rawOutput = String(rawOutput[rawOutput.index(after: nlIdx)...])
+            }
+        }
+
+        rawScrollTrigger += 1
+    }
+
     // MARK: - Send Prompt (stream-json 이벤트 스트림)
 
     func sendPrompt(_ prompt: String, permissionOverride: PermissionMode? = nil, bypassWorkflowRouting: Bool = false) {
         guard !prompt.isEmpty else { return }
+
+        // Raw terminal mode: PTY에 직접 전송
+        if isRawMode {
+            writeRawInput(prompt + "\n")
+            return
+        }
 
         if !bypassWorkflowRouting,
            permissionOverride == nil,
@@ -712,6 +1009,7 @@ class TerminalTab: ObservableObject, Identifiable {
         budgetStopIssued = false
 
         appendBlock(.userPrompt, content: prompt)
+        initialPrompt = nil
         lastPromptText = prompt
         isProcessing = true
         claudeActivity = .thinking
@@ -723,7 +1021,7 @@ class TerminalTab: ObservableObject, Identifiable {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
 
-            var cmd = "cd \(self.shellEscape(path)) && claude -p --output-format stream-json --verbose"
+            var cmd = "claude -p --output-format stream-json --verbose"
 
             // 권한 모드
             cmd += " --permission-mode \(effectivePermissionMode.rawValue)"
@@ -814,7 +1112,7 @@ class TerminalTab: ObservableObject, Identifiable {
             let outPipe = Pipe()
             let errPipe = Pipe()
             proc.executableURL = URL(fileURLWithPath: "/bin/zsh")
-            proc.arguments = ["-il", "-c", cmd]
+            proc.arguments = ["-f", "-c", cmd]
             proc.currentDirectoryURL = URL(fileURLWithPath: path)
             var env = ProcessInfo.processInfo.environment
             env["PATH"] = Self.buildFullPATH()
@@ -827,33 +1125,36 @@ class TerminalTab: ObservableObject, Identifiable {
             // stderr 캡처 (에러 진단용)
             errPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
                 let data = handle.availableData
-                guard !data.isEmpty, let text = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
-                      !text.isEmpty else { return }
+                guard !data.isEmpty,
+                      let rawText = String(data: data, encoding: .utf8) else { return }
                 DispatchQueue.main.async {
+                    let text = self?.sanitizeTerminalText(rawText) ?? rawText.trimmingCharacters(in: .whitespacesAndNewlines)
                     // JSON 스트림이 아닌 진짜 에러만 표시
-                    if !text.hasPrefix("{") && !text.contains("node:") {
+                    if !text.isEmpty && !text.hasPrefix("{") && !text.contains("node:") {
                         self?.appendBlock(.error(message: "stderr"), content: text)
                     }
                 }
             }
 
             var jsonBuffer = ""
+            let bufferQueue = DispatchQueue(label: "com.workman.jsonBuffer")
 
             outPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
                 let data = handle.availableData
                 guard !data.isEmpty, let chunk = String(data: data, encoding: .utf8) else { return }
-                jsonBuffer += chunk
+                bufferQueue.sync {
+                    jsonBuffer += chunk
 
-                // 줄 단위로 JSON 파싱 → 즉시 UI 반영
-                while let nl = jsonBuffer.range(of: "\n") {
-                    let line = String(jsonBuffer[jsonBuffer.startIndex..<nl.lowerBound])
-                    jsonBuffer = String(jsonBuffer[nl.upperBound...])
-                    guard !line.trimmingCharacters(in: .whitespaces).isEmpty,
-                          let ld = line.data(using: .utf8),
-                          let json = try? JSONSerialization.jsonObject(with: ld) as? [String: Any] else { continue }
+                    while let nl = jsonBuffer.range(of: "\n") {
+                        let line = String(jsonBuffer[jsonBuffer.startIndex..<nl.lowerBound])
+                        jsonBuffer = String(jsonBuffer[nl.upperBound...])
+                        guard !line.trimmingCharacters(in: .whitespaces).isEmpty,
+                              let ld = line.data(using: .utf8),
+                              let json = try? JSONSerialization.jsonObject(with: ld) as? [String: Any] else { continue }
 
-                    DispatchQueue.main.async { [weak self] in
-                        self?.handleStreamEvent(json)
+                        DispatchQueue.main.async { [weak self] in
+                            self?.handleStreamEvent(json)
+                        }
                     }
                 }
             }
@@ -896,10 +1197,7 @@ class TerminalTab: ObservableObject, Identifiable {
         case "system":
             if let sid = json["session_id"] as? String { sessionId = sid }
             if let model = json["model"] as? String {
-                // 세션 시작 블록 업데이트
-                if let first = blocks.first, case .sessionStart = first.blockType {
-                    first.content += " · \(model)"
-                }
+                updateReportedModel(model)
             }
 
         case "assistant":
@@ -1002,8 +1300,23 @@ class TerminalTab: ObservableObject, Identifiable {
             totalCost += cost
             TokenTracker.shared.recordCost(cost)
 
-            // result 이벤트에서도 usage 파싱
-            if let usage = json["usage"] as? [String: Any] {
+            // result 이벤트에서 토큰 파싱 — total_*를 우선 사용 (이중 카운팅 방지)
+            let hasTotals = json["total_input_tokens"] as? Int != nil
+            if hasTotals,
+               let totalInput = json["total_input_tokens"] as? Int,
+               let totalOutput = json["total_output_tokens"] as? Int {
+                // 권위적 전체 값 → 현재 누적과의 차이만 TokenTracker에 기록
+                let diffIn = max(0, totalInput - inputTokensUsed)
+                let diffOut = max(0, totalOutput - outputTokensUsed)
+                if diffIn > 0 || diffOut > 0 {
+                    TokenTracker.shared.recordTokens(input: diffIn, output: diffOut)
+                }
+                inputTokensUsed = totalInput
+                outputTokensUsed = totalOutput
+                tokensUsed = totalInput + totalOutput
+                enforceTokenBudgetIfNeeded()
+            } else if let usage = json["usage"] as? [String: Any] {
+                // total_*가 없을 때만 증분 usage 사용
                 let input = usage["input_tokens"] as? Int ?? 0
                 let output = usage["output_tokens"] as? Int ?? 0
                 if input > 0 || output > 0 {
@@ -1011,21 +1324,6 @@ class TerminalTab: ObservableObject, Identifiable {
                     outputTokensUsed += output
                     tokensUsed = inputTokensUsed + outputTokensUsed
                     TokenTracker.shared.recordTokens(input: input, output: output)
-                    enforceTokenBudgetIfNeeded()
-                }
-            }
-            // total_input_tokens / total_output_tokens (일부 Claude Code 버전)
-            if let totalInput = json["total_input_tokens"] as? Int, let totalOutput = json["total_output_tokens"] as? Int {
-                // 전체 값이 현재 누적보다 크면 갱신
-                if totalInput > inputTokensUsed || totalOutput > outputTokensUsed {
-                    let diffIn = max(0, totalInput - inputTokensUsed)
-                    let diffOut = max(0, totalOutput - outputTokensUsed)
-                    if diffIn > 0 || diffOut > 0 {
-                        TokenTracker.shared.recordTokens(input: diffIn, output: diffOut)
-                    }
-                    inputTokensUsed = totalInput
-                    outputTokensUsed = totalOutput
-                    tokensUsed = totalInput + totalOutput
                     enforceTokenBudgetIfNeeded()
                 }
             }
@@ -1079,17 +1377,20 @@ class TerminalTab: ObservableObject, Identifiable {
             let stderr = result["stderr"] as? String ?? ""
             let interrupted = result["interrupted"] as? Bool ?? false
             let isError = (result["is_error"] as? Bool) ?? isToolResultError(from: json)
+            let cleanedStdout = sanitizeTerminalText(stdout)
+            let cleanedStderr = sanitizeTerminalText(stderr)
 
-            if !stdout.isEmpty {
-                appendBlock(.toolOutput, content: stdout)
+            if !cleanedStdout.isEmpty {
+                appendBlock(.toolOutput, content: cleanedStdout)
             }
-            if !stderr.isEmpty {
+            if !cleanedStderr.isEmpty {
                 errorCount += 1
-                appendBlock(.toolError, content: stderr)
+                appendBlock(.toolError, content: cleanedStderr)
             } else if isError, let message = extractToolResultText(from: json) {
+                let cleanedMessage = sanitizeTerminalText(message)
                 errorCount += 1
-                appendBlock(.toolError, content: message)
-                recordPermissionDenialIfNeeded(message: message, toolUseId: toolUseId)
+                appendBlock(.toolError, content: cleanedMessage)
+                recordPermissionDenialIfNeeded(message: cleanedMessage, toolUseId: toolUseId)
             }
 
             if interrupted {
@@ -1107,14 +1408,15 @@ class TerminalTab: ObservableObject, Identifiable {
         }
 
         if let message = extractToolResultText(from: json) {
-            let isError = isToolResultError(from: json) || message.lowercased().contains("error:")
+            let cleanedMessage = sanitizeTerminalText(message)
+            let isError = isToolResultError(from: json) || cleanedMessage.lowercased().contains("error:")
             if isError {
                 errorCount += 1
-                appendBlock(.toolError, content: message)
-                recordPermissionDenialIfNeeded(message: message, toolUseId: toolUseId)
+                appendBlock(.toolError, content: cleanedMessage)
+                recordPermissionDenialIfNeeded(message: cleanedMessage, toolUseId: toolUseId)
                 appendBlock(.toolEnd(success: false))
-            } else if !message.isEmpty {
-                appendBlock(.toolOutput, content: message)
+            } else if !cleanedMessage.isEmpty {
+                appendBlock(.toolOutput, content: cleanedMessage)
                 appendBlock(.toolEnd(success: true))
             }
 
@@ -1389,6 +1691,11 @@ class TerminalTab: ObservableObject, Identifiable {
     }
 
     func cancelProcessing() {
+        if isRawMode {
+            // Raw mode: Ctrl+C 전송
+            sendRawSignal(3) // ETX (Ctrl+C)
+            return
+        }
         currentProcess?.terminate(); currentProcess = nil
         isProcessing = false; claudeActivity = .idle
         finalizeParallelTasks(as: .failed)
@@ -1396,6 +1703,12 @@ class TerminalTab: ObservableObject, Identifiable {
     }
 
     func forceStop() {
+        // Raw mode PTY 정리
+        if isRawMode && rawMasterFD >= 0 {
+            close(rawMasterFD)
+            rawMasterFD = -1
+            isRawMode = false
+        }
         if let proc = currentProcess, proc.isRunning {
             proc.terminate()
             let pid = proc.processIdentifier
@@ -1412,6 +1725,7 @@ class TerminalTab: ObservableObject, Identifiable {
     /// 작업을 강제 중지하고 git 변경사항을 작업 전 상태로 롤백
     func cancelAndRevert() {
         forceStop()
+        let recoveryBundleURL = SessionStore.shared.writeRecoveryBundle(for: self, reason: "작업 취소 전 변경사항 백업")
         guard gitInfo.isGitRepo else { return }
         let p = projectPath
         // 작업 중 변경된 파일만 복원
@@ -1424,7 +1738,11 @@ class TerminalTab: ObservableObject, Identifiable {
         for filePath in newFiles {
             _ = Self.shellSync("git -C \"\(p)\" clean -f -- \"\(filePath)\" 2>/dev/null")
         }
-        appendBlock(.status(message: "작업 취소 및 변경사항 롤백 완료"))
+        if let recoveryBundleURL {
+            appendBlock(.status(message: "작업 취소 및 변경사항 롤백 완료"), content: "백업 폴더: \(recoveryBundleURL.path)")
+        } else {
+            appendBlock(.status(message: "작업 취소 및 변경사항 롤백 완료"))
+        }
     }
 
     func clearBlocks() { blocks.removeAll() }
@@ -1666,7 +1984,7 @@ class TerminalTab: ObservableObject, Identifiable {
         let p = Process(); let pipe = Pipe()
         p.standardOutput = pipe; p.standardError = FileHandle.nullDevice
         p.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        p.arguments = ["-il", "-c", command]  // -i (interactive) + -l (login) 모두 사용
+        p.arguments = ["-f", "-c", command]
         var env = ProcessInfo.processInfo.environment
         env["PATH"] = buildFullPATH()
         p.environment = env

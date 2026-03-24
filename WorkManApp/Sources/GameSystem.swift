@@ -69,7 +69,9 @@ struct WorkerLevel {
 
     static func progress(_ xp: Int) -> Double {
         let cur = forXP(xp)
-        let nextIdx = min(cur.level, levels.count - 1)
+        guard let curIdx = levels.firstIndex(where: { $0.level == cur.level }) else { return 1.0 }
+        let nextIdx = curIdx + 1
+        guard nextIdx < levels.count else { return 1.0 }
         let next = levels[nextIdx]
         if next.xpRequired <= cur.xpRequired { return 1.0 }
         return Double(xp - cur.xpRequired) / Double(next.xpRequired - cur.xpRequired)
@@ -77,7 +79,8 @@ struct WorkerLevel {
 
     static func nextLevel(_ xp: Int) -> WorkerLevel? {
         let cur = forXP(xp)
-        let nextIdx = cur.level
+        guard let curIdx = levels.firstIndex(where: { $0.level == cur.level }) else { return nil }
+        let nextIdx = curIdx + 1
         return nextIdx < levels.count ? levels[nextIdx] : nil
     }
 }
@@ -276,7 +279,7 @@ class AchievementManager: ObservableObject {
         let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f
     }()
 
-    var unlockedCount: Int { achievements.filter { $0.unlocked }.count }
+    @Published var unlockedCount: Int = 0
     var currentLevel: WorkerLevel { WorkerLevel.forXP(totalXP) }
 
     init() { loadState() }
@@ -285,6 +288,7 @@ class AchievementManager: ObservableObject {
         guard let idx = achievements.firstIndex(where: { $0.id == id && !$0.unlocked }) else { return }
         achievements[idx].unlocked = true
         achievements[idx].unlockedAt = Date()
+        unlockedCount += 1
         let unlockedAchievement = achievements[idx]
         enqueueRecentUnlock(unlockedAchievement)
         addXP(unlockedAchievement.xpReward)
@@ -580,6 +584,7 @@ class AchievementManager: ObservableObject {
                 }
             }
         }
+        unlockedCount = achievements.filter { $0.unlocked }.count
     }
 
     private func enqueueRecentUnlock(_ achievement: Achievement) {
@@ -626,7 +631,7 @@ struct AchievementToastView: View {
                     Circle()
                         .fill(achievement.rarity.color.opacity(0.16))
                     Text(achievement.icon)
-                        .font(.system(size: 15))
+                        .font(Theme.scaled(15))
                 }
                 .frame(width: 28, height: 28)
 
@@ -643,7 +648,7 @@ struct AchievementToastView: View {
                 Spacer(minLength: 8)
 
                 Image(systemName: "xmark")
-                    .font(.system(size: 8, weight: .bold))
+                    .font(.system(size: Theme.iconSize(8), weight: .bold))
                     .foregroundColor(Theme.textDim.opacity(0.8))
             }
             .padding(.horizontal, 10)
@@ -681,7 +686,7 @@ struct XPBarView: View {
         let level = WorkerLevel.forXP(xp)
         let progress = WorkerLevel.progress(xp)
         HStack(spacing: 6) {
-            Text(level.badge).font(.system(size: 12))
+            Text(level.badge).font(Theme.scaled(12))
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
                     Text("Lv.\(level.level) \(level.title)")
@@ -790,10 +795,10 @@ struct AchievementCollectionView: View {
                 progressRing(fraction: progressFraction)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("ACHIEVEMENTS")
-                        .font(.system(size: 13, weight: .heavy, design: .monospaced))
+                        .font(Theme.mono(13, weight: .heavy))
                         .foregroundColor(Theme.textPrimary).tracking(2)
                     Text("\(mgr.unlockedCount)개 달성 / 총 \(mgr.achievements.count)개")
-                        .font(.system(size: 11, design: .monospaced))
+                        .font(Theme.mono(11))
                         .foregroundColor(Theme.textSecondary)
                 }
             }
@@ -819,7 +824,7 @@ struct AchievementCollectionView: View {
             // 닫기 버튼
             Button(action: { dismiss() }) {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 18))
+                    .font(.system(size: Theme.iconSize(18)))
                     .foregroundColor(Theme.textDim.opacity(0.5))
             }
             .buttonStyle(.plain)
@@ -840,9 +845,9 @@ struct AchievementCollectionView: View {
                 .rotationEffect(.degrees(-90))
             VStack(spacing: 0) {
                 Text("\(completionPercent)")
-                    .font(.system(size: 15, weight: .black, design: .monospaced))
+                    .font(Theme.mono(15, weight: .black))
                     .foregroundColor(Theme.yellow)
-                Text("%").font(.system(size: 7, weight: .bold, design: .monospaced))
+                Text("%").font(Theme.mono(7, weight: .bold))
                     .foregroundColor(Theme.yellow.opacity(0.5))
             }
         }
@@ -854,15 +859,15 @@ struct AchievementCollectionView: View {
                 Circle()
                     .fill(RadialGradient(colors: [Theme.yellow.opacity(0.12), .clear], center: .center, startRadius: 0, endRadius: 20))
                     .frame(width: 38, height: 38)
-                Text(level.badge).font(.system(size: 20))
+                Text(level.badge).font(Theme.scaled(20))
             }
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 3) {
                     Text("Lv.\(level.level)")
-                        .font(.system(size: 11, weight: .black, design: .monospaced))
+                        .font(Theme.mono(11, weight: .black))
                         .foregroundColor(Theme.yellow)
                     Text(level.title)
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .font(Theme.mono(10, weight: .semibold))
                         .foregroundColor(Theme.textPrimary)
                 }
                 GeometryReader { geo in
@@ -876,9 +881,9 @@ struct AchievementCollectionView: View {
                 }.frame(height: 4)
                 if let next = next {
                     Text("\(mgr.totalXP) / \(next.xpRequired) XP")
-                        .font(.system(size: 7, design: .monospaced)).foregroundColor(Theme.textDim)
+                        .font(Theme.mono(7)).foregroundColor(Theme.textDim)
                 } else {
-                    Text("MAX LEVEL").font(.system(size: 7, weight: .bold, design: .monospaced)).foregroundColor(Theme.yellow)
+                    Text("MAX LEVEL").font(Theme.mono(7, weight: .bold)).foregroundColor(Theme.yellow)
                 }
             }
         }
@@ -891,9 +896,9 @@ struct AchievementCollectionView: View {
 
     private func statPill(icon: String, value: String, label: String, color: Color) -> some View {
         VStack(spacing: 2) {
-            Text(icon).font(.system(size: 10))
-            Text(value).font(.system(size: 10, weight: .bold, design: .monospaced)).foregroundColor(color)
-            Text(label).font(.system(size: 7, design: .monospaced)).foregroundColor(Theme.textDim)
+            Text(icon).font(Theme.scaled(10))
+            Text(value).font(Theme.mono(10, weight: .bold)).foregroundColor(color)
+            Text(label).font(Theme.mono(7)).foregroundColor(Theme.textDim)
         }
     }
 
@@ -912,9 +917,9 @@ struct AchievementCollectionView: View {
 
             Button(action: { withAnimation(.easeInOut(duration: 0.15)) { showUnlockedOnly.toggle() } }) {
                 HStack(spacing: 5) {
-                    Image(systemName: showUnlockedOnly ? "eye.fill" : "eye").font(.system(size: 11))
+                    Image(systemName: showUnlockedOnly ? "eye.fill" : "eye").font(.system(size: Theme.iconSize(11)))
                     Text(showUnlockedOnly ? "달성만" : "전부 보기")
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .font(Theme.mono(11, weight: .medium))
                 }
                 .foregroundColor(showUnlockedOnly ? Theme.accent : Theme.textDim)
                 .padding(.horizontal, 12).padding(.vertical, 7)
@@ -933,9 +938,9 @@ struct AchievementCollectionView: View {
         return Button(action: { withAnimation(.easeInOut(duration: 0.15)) { selectedRarity = rarity } }) {
             HStack(spacing: 6) {
                 if let r = rarity { Circle().fill(r.color).frame(width: 7, height: 7) }
-                Text(label).font(.system(size: 11, weight: isSelected ? .bold : .medium, design: .monospaced))
+                Text(label).font(Theme.mono(11, weight: isSelected ? .bold : .medium))
                 Text("\(unlocked)/\(count)")
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .font(Theme.mono(10, weight: .bold))
                     .foregroundColor(isSelected ? color : Theme.textDim)
             }
             .foregroundColor(isSelected ? color : Theme.textSecondary)
@@ -989,11 +994,11 @@ struct AchievementCollectionView: View {
         HStack(spacing: 8) {
             RoundedRectangle(cornerRadius: 2).fill(rarity.color).frame(width: 3, height: 14)
             Text(rarity.rawValue.uppercased())
-                .font(.system(size: 10, weight: .heavy, design: .monospaced))
+                .font(Theme.mono(10, weight: .heavy))
                 .foregroundColor(rarity.color).tracking(2)
 
             Text("\(unlocked)/\(total)")
-                .font(.system(size: 8, weight: .bold, design: .monospaced))
+                .font(Theme.mono(8, weight: .bold))
                 .foregroundColor(rarity.color)
                 .padding(.horizontal, 6).padding(.vertical, 2)
                 .background(Capsule().fill(rarity.color.opacity(0.1)).overlay(Capsule().stroke(rarity.color.opacity(0.2), lineWidth: 0.5)))
@@ -1009,8 +1014,8 @@ struct AchievementCollectionView: View {
 
             if unlocked == total && total > 0 {
                 HStack(spacing: 3) {
-                    Image(systemName: "checkmark.seal.fill").font(.system(size: 9)).foregroundColor(Theme.green)
-                    Text("COMPLETE").font(.system(size: 7, weight: .heavy, design: .monospaced)).foregroundColor(Theme.green).tracking(1)
+                    Image(systemName: "checkmark.seal.fill").font(.system(size: Theme.iconSize(9))).foregroundColor(Theme.green)
+                    Text("COMPLETE").font(Theme.mono(7, weight: .heavy)).foregroundColor(Theme.green).tracking(1)
                 }
             }
         }
@@ -1087,13 +1092,13 @@ struct AchievementDetailCard: View {
                 HStack(spacing: 5) {
                     Circle().fill(achievement.rarity.color).frame(width: 7, height: 7)
                     Text(achievement.rarity.rawValue.uppercased())
-                        .font(.system(size: 9, weight: .heavy, design: .monospaced))
+                        .font(Theme.mono(9, weight: .heavy))
                         .foregroundColor(achievement.rarity.color).tracking(2)
                 }
                 Spacer()
                 Button(action: onClose) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.system(size: Theme.iconSize(10), weight: .bold))
                         .foregroundColor(Theme.textDim.opacity(0.6))
                         .frame(width: 24, height: 24)
                         .background(Circle().fill(Theme.bgSurface.opacity(0.5)))
@@ -1118,7 +1123,7 @@ struct AchievementDetailCard: View {
                     .stroke(achievement.rarity.color.opacity(0.08), lineWidth: 1)
                     .frame(width: 100, height: 100)
                 Text(achievement.icon)
-                    .font(.system(size: 52))
+                    .font(Theme.scaled(52))
                     .scaleEffect(appeared ? 1.0 : 0.5)
                     .opacity(appeared ? 1 : 0)
             }
@@ -1126,13 +1131,13 @@ struct AchievementDetailCard: View {
 
             // ── 이름 ──
             Text(achievement.name)
-                .font(.system(size: 18, weight: .bold, design: .monospaced))
+                .font(Theme.mono(18, weight: .bold))
                 .foregroundColor(Theme.textPrimary)
                 .padding(.top, 4)
 
             // ── 설명 ──
             Text(achievement.description)
-                .font(.system(size: 12, design: .monospaced))
+                .font(Theme.mono(12))
                 .foregroundColor(Theme.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24).padding(.top, 6)
@@ -1185,10 +1190,10 @@ struct AchievementDetailCard: View {
     private func detailItem(label: String, value: String, color: Color) -> some View {
         VStack(spacing: 3) {
             Text(label)
-                .font(.system(size: 7, weight: .medium, design: .monospaced))
+                .font(Theme.mono(7, weight: .medium))
                 .foregroundColor(Theme.textDim).tracking(0.5)
             Text(value)
-                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .font(Theme.mono(11, weight: .bold))
                 .foregroundColor(color)
         }
         .frame(maxWidth: .infinity)
@@ -1253,25 +1258,25 @@ struct AchievementCard: View {
                 Circle()
                     .fill(RadialGradient(colors: [achievement.rarity.color.opacity(0.2), .clear], center: .center, startRadius: 0, endRadius: 20))
                     .frame(width: 36, height: 36)
-                Text(achievement.icon).font(.system(size: 20))
+                Text(achievement.icon).font(Theme.scaled(20))
             }
             Text(achievement.name)
-                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .font(Theme.mono(9, weight: .bold))
                 .foregroundColor(Theme.textPrimary)
                 .lineLimit(1)
             Text(achievement.description)
-                .font(.system(size: 7, design: .monospaced))
+                .font(Theme.mono(7))
                 .foregroundColor(Theme.textSecondary)
                 .lineLimit(2).multilineTextAlignment(.center)
                 .frame(minHeight: 18)
             HStack(spacing: 3) {
-                Image(systemName: "checkmark.circle.fill").font(.system(size: 6)).foregroundColor(Theme.green)
+                Image(systemName: "checkmark.circle.fill").font(.system(size: Theme.iconSize(6))).foregroundColor(Theme.green)
                 if let date = achievement.unlockedAt {
-                    Text(fmtDate(date)).font(.system(size: 6, design: .monospaced)).foregroundColor(Theme.textDim)
+                    Text(fmtDate(date)).font(Theme.mono(6)).foregroundColor(Theme.textDim)
                 }
                 Spacer()
                 Text("+\(achievement.xpReward)")
-                    .font(.system(size: 7, weight: .bold, design: .monospaced))
+                    .font(Theme.mono(7, weight: .bold))
                     .foregroundColor(Theme.yellow.opacity(0.8))
             }
         }
@@ -1284,22 +1289,22 @@ struct AchievementCard: View {
             ZStack {
                 Circle().fill(Theme.bgSurface.opacity(0.3)).frame(width: 30, height: 30)
                 Circle().stroke(Theme.border.opacity(0.15), style: StrokeStyle(lineWidth: 1, dash: [3, 3])).frame(width: 30, height: 30)
-                Image(systemName: "lock.fill").font(.system(size: 9)).foregroundColor(Theme.textDim.opacity(0.2))
+                Image(systemName: "lock.fill").font(.system(size: Theme.iconSize(9))).foregroundColor(Theme.textDim.opacity(0.2))
             }
             Text("???")
-                .font(.system(size: 8, weight: .medium, design: .monospaced))
+                .font(Theme.mono(8, weight: .medium))
                 .foregroundColor(Theme.textDim.opacity(0.3))
             if isHovered {
                 Text(achievement.description)
-                    .font(.system(size: 6.5, design: .monospaced))
+                    .font(Theme.mono(6.5))
                     .foregroundColor(Theme.textDim.opacity(0.45))
                     .lineLimit(2).multilineTextAlignment(.center)
                     .transition(.opacity)
             }
             Spacer(minLength: 0)
             HStack(spacing: 2) {
-                Image(systemName: "star.fill").font(.system(size: 5)).foregroundColor(Theme.yellow.opacity(0.15))
-                Text("+\(achievement.xpReward)").font(.system(size: 6.5, design: .monospaced)).foregroundColor(Theme.yellow.opacity(0.15))
+                Image(systemName: "star.fill").font(.system(size: Theme.iconSize(5))).foregroundColor(Theme.yellow.opacity(0.15))
+                Text("+\(achievement.xpReward)").font(Theme.mono(6.5)).foregroundColor(Theme.yellow.opacity(0.15))
                 Spacer()
             }
         }

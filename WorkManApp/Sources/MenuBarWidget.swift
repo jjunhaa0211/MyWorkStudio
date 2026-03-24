@@ -6,6 +6,7 @@ import AppKit
 class MenuBarManager: ObservableObject {
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
+    private var updateTimer: Timer?
 
     func setup() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -32,7 +33,7 @@ class MenuBarManager: ObservableObject {
         self.popover = popover
 
         // 주기적으로 메뉴바 타이틀 업데이트 (5초 간격)
-        Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+        updateTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
             self?.updateTitle()
         }
     }
@@ -121,7 +122,7 @@ struct MenuBarPopoverView: View {
 
                     if manager.userVisibleTabs.isEmpty {
                         VStack(spacing: 8) {
-                            Image(systemName: "hammer.fill").font(.system(size: 16, weight: .medium)).foregroundColor(Theme.accent)
+                            Image(systemName: "hammer.fill").font(.system(size: Theme.iconSize(16), weight: .medium)).foregroundColor(Theme.accent)
                             Text("활성 세션 없음").font(Theme.mono(10)).foregroundColor(Theme.textDim)
                             Text(AppSettings.shared.appDisplayName).font(Theme.mono(8)).foregroundColor(Theme.textDim.opacity(0.5))
                         }
@@ -144,7 +145,7 @@ struct MenuBarPopoverView: View {
 
     private var headerSection: some View {
         HStack(spacing: 8) {
-            Image(systemName: "hammer.fill").font(.system(size: 11, weight: .medium)).foregroundColor(Theme.accent)
+            Image(systemName: "hammer.fill").font(.system(size: Theme.iconSize(11), weight: .medium)).foregroundColor(Theme.accent)
             VStack(alignment: .leading, spacing: 1) {
                 Text(AppSettings.shared.appDisplayName).font(Theme.mono(12, weight: .bold)).foregroundColor(Theme.accent)
                 Text(AppSettings.shared.companyName.isEmpty ? "Claude Code Manager" : AppSettings.shared.companyName)
@@ -231,7 +232,7 @@ struct MenuBarPopoverView: View {
     private func statItem(icon: String, label: String, value: String, color: Color) -> some View {
         VStack(spacing: 2) {
             HStack(spacing: 2) {
-                Image(systemName: icon).font(.system(size: 7, weight: .bold)).foregroundColor(color)
+                Image(systemName: icon).font(.system(size: Theme.iconSize(7), weight: .bold)).foregroundColor(color)
                 Text(value).font(Theme.mono(9, weight: .bold)).foregroundColor(color)
             }
             Text(label).font(Theme.mono(6)).foregroundColor(Theme.textDim)
@@ -243,7 +244,7 @@ struct MenuBarPopoverView: View {
 
     private func sectionHeader(_ title: String, icon: String, color: Color, count: Int) -> some View {
         HStack(spacing: 4) {
-            Image(systemName: icon).font(.system(size: 8)).foregroundColor(color)
+            Image(systemName: icon).font(.system(size: Theme.iconSize(8))).foregroundColor(color)
             Text(title).font(Theme.mono(8, weight: .bold)).foregroundColor(color)
             Spacer()
             Text("\(count)").font(Theme.mono(7, weight: .bold)).foregroundColor(color.opacity(0.7))
@@ -264,7 +265,7 @@ struct MenuBarPopoverView: View {
                 }
             }) {
                 HStack(spacing: 4) {
-                    Image(systemName: "macwindow").font(.system(size: 9))
+                    Image(systemName: "macwindow").font(.system(size: Theme.iconSize(9)))
                     Text("\(AppSettings.shared.appDisplayName) 열기").font(Theme.mono(9, weight: .medium))
                 }
                 .foregroundColor(Theme.accent)
@@ -274,7 +275,7 @@ struct MenuBarPopoverView: View {
 
             Button(action: { SessionManager.shared.refresh() }) {
                 HStack(spacing: 4) {
-                    Image(systemName: "arrow.clockwise").font(.system(size: 9))
+                    Image(systemName: "arrow.clockwise").font(.system(size: Theme.iconSize(9)))
                     Text("새로고침").font(Theme.mono(9, weight: .medium))
                 }
                 .foregroundColor(Theme.textSecondary)
@@ -383,7 +384,7 @@ struct MenuBarSessionRow: View {
             HStack(spacing: 6) {
                 if tab.gitInfo.isGitRepo && !tab.gitInfo.branch.isEmpty {
                     HStack(spacing: 2) {
-                        Image(systemName: "arrow.triangle.branch").font(.system(size: 7)).foregroundColor(Theme.cyan.opacity(0.7))
+                        Image(systemName: "arrow.triangle.branch").font(.system(size: Theme.iconSize(7))).foregroundColor(Theme.cyan.opacity(0.7))
                         Text(tab.gitInfo.branch).font(Theme.mono(7)).foregroundColor(Theme.cyan.opacity(0.7)).lineLimit(1)
                     }
                 }
@@ -392,21 +393,21 @@ struct MenuBarSessionRow: View {
 
                 if !tab.fileChanges.isEmpty {
                     HStack(spacing: 2) {
-                        Image(systemName: "doc.fill").font(.system(size: 6)).foregroundColor(Theme.green.opacity(0.7))
+                        Image(systemName: "doc.fill").font(.system(size: Theme.iconSize(6))).foregroundColor(Theme.green.opacity(0.7))
                         Text("\(Set(tab.fileChanges.map(\.fileName)).count)").font(Theme.mono(7)).foregroundColor(Theme.green.opacity(0.7))
                     }
                 }
 
                 if tab.commandCount > 0 {
                     HStack(spacing: 2) {
-                        Image(systemName: "terminal").font(.system(size: 6)).foregroundColor(Theme.textDim)
+                        Image(systemName: "terminal").font(.system(size: Theme.iconSize(6))).foregroundColor(Theme.textDim)
                         Text("\(tab.commandCount)").font(Theme.mono(7)).foregroundColor(Theme.textDim)
                     }
                 }
 
                 if tab.errorCount > 0 {
                     HStack(spacing: 2) {
-                        Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 6)).foregroundColor(Theme.red.opacity(0.7))
+                        Image(systemName: "exclamationmark.triangle.fill").font(.system(size: Theme.iconSize(6))).foregroundColor(Theme.red.opacity(0.7))
                         Text("\(tab.errorCount)").font(Theme.mono(7)).foregroundColor(Theme.red.opacity(0.7))
                     }
                 }
