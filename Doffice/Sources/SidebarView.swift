@@ -36,7 +36,7 @@ private struct CollapsibleSidebarPanel<Content: View>: View {
                 content
             }
         }
-        .appPanelStyle(padding: 12, radius: 14, fill: Theme.bgCard.opacity(0.98), strokeOpacity: 0.2, shadow: false)
+        .appPanelStyle(padding: Theme.sp3, radius: Theme.cornerLarge, fill: Theme.bgCard, strokeOpacity: Theme.borderDefault, shadow: false)
     }
 }
 
@@ -107,6 +107,8 @@ struct SidebarView: View {
     @State private var draggingTabId: String?
     @State private var showHistory: Bool = false
     @State private var searchQuery: String = ""
+    @State private var isMultiSelectMode = false
+    @State private var selectedTabIds: Set<String> = []
     @AppStorage("workman.sidebarStatusFilter") private var statusFilterRaw: String = SessionStatusFilter.all.rawValue
     @AppStorage("workman.sidebarSortOption") private var sortOptionRaw: String = SidebarSortOption.recent.rawValue
 
@@ -171,22 +173,29 @@ struct SidebarView: View {
                     Image(systemName: "clock.arrow.circlepath").font(Theme.chrome(9))
                         .foregroundColor(showHistory ? Theme.accent : Theme.textDim)
                 }.buttonStyle(.plain).help("세션 히스토리")
+                Button(action: { isMultiSelectMode.toggle(); if !isMultiSelectMode { selectedTabIds.removeAll() } }) {
+                    Image(systemName: isMultiSelectMode ? "checkmark.circle.fill" : "checkmark.circle")
+                        .font(.system(size: Theme.chromeIconSize(11)))
+                        .foregroundColor(isMultiSelectMode ? Theme.accent : Theme.textDim)
+                }
+                .buttonStyle(.plain)
+                .help("일괄 선택 모드")
                 Text("\(manager.userVisibleTabCount)")
-                    .font(Theme.chrome(10)).foregroundColor(Theme.textDim)
-                    .padding(.horizontal, 5).padding(.vertical, 1)
-                    .background(Theme.bgSurface).cornerRadius(3)
+                    .font(Theme.chrome(9, weight: .medium)).foregroundColor(Theme.textDim)
+                    .padding(.horizontal, Theme.sp1 + 2).padding(.vertical, 1)
+                    .background(RoundedRectangle(cornerRadius: Theme.cornerSmall).fill(Theme.bgSurface))
             }
-            .padding(.horizontal, 14).padding(.vertical, 10)
+            .padding(.horizontal, Theme.sp3).padding(.vertical, Theme.sp2)
 
             if showHistory { SessionHistoryView() }
 
             newSessionQuickAction
-                .padding(.horizontal, 10)
-                .padding(.bottom, 8)
+                .padding(.horizontal, Theme.sp2)
+                .padding(.bottom, Theme.sp2)
 
             sessionExplorerPanel
-                .padding(.horizontal, 10)
-                .padding(.bottom, 8)
+                .padding(.horizontal, Theme.sp2)
+                .padding(.bottom, Theme.sp2)
 
             // "전체" 버튼
             if manager.selectedGroupPath != nil {
@@ -220,6 +229,25 @@ struct SidebarView: View {
                         }
                     }
                 }.padding(.horizontal, 8).padding(.vertical, 4)
+            }
+
+            if isMultiSelectMode && !selectedTabIds.isEmpty {
+                HStack(spacing: 8) {
+                    Text("\(selectedTabIds.count)개 선택").font(Theme.chrome(9, weight: .bold)).foregroundColor(Theme.accent)
+                    Spacer()
+                    Button(action: { batchRestart() }) {
+                        Image(systemName: "arrow.clockwise").font(.system(size: 10))
+                    }.buttonStyle(.plain).help("재시작")
+                    Button(action: { batchStop() }) {
+                        Image(systemName: "stop.fill").font(.system(size: 10)).foregroundColor(Theme.red)
+                    }.buttonStyle(.plain).help("중지")
+                    Button(action: { batchClose() }) {
+                        Image(systemName: "xmark").font(.system(size: 10)).foregroundColor(Theme.red)
+                    }.buttonStyle(.plain).help("닫기")
+                }
+                .padding(.horizontal, 12).padding(.vertical, 8)
+                .background(Theme.bgCard)
+                .overlay(Rectangle().fill(Theme.border).frame(height: 1), alignment: .top)
             }
 
             Spacer(minLength: 0)
@@ -513,6 +541,35 @@ struct SidebarView: View {
     @State private var showAccessorySheet = false
     @State private var showReportSheet = false
 
+    private func batchRestart() {
+        for id in selectedTabIds {
+            if let tab = manager.tabs.first(where: { $0.id == id }) {
+                tab.stop()
+                tab.start()
+            }
+        }
+        selectedTabIds.removeAll()
+        isMultiSelectMode = false
+    }
+
+    private func batchStop() {
+        for id in selectedTabIds {
+            if let tab = manager.tabs.first(where: { $0.id == id }) {
+                tab.forceStop()
+            }
+        }
+        selectedTabIds.removeAll()
+        isMultiSelectMode = false
+    }
+
+    private func batchClose() {
+        for id in selectedTabIds {
+            manager.removeTab(id)
+        }
+        selectedTabIds.removeAll()
+        isMultiSelectMode = false
+    }
+
     private var managementButtons: some View {
         VStack(spacing: 6) {
             utilityButton(title: "캐릭터 관리", icon: "person.2.fill", countText: "\(CharacterRegistry.shared.hiredCharacters.count)/\(CharacterRegistry.shared.allCharacters.count)", tone: .accent) { showCharacterSheet = true }
@@ -561,8 +618,8 @@ struct SidebarView: View {
             }
             .foregroundColor(Theme.textSecondary)
             .padding(.vertical, 9).padding(.horizontal, 12)
-            .background(RoundedRectangle(cornerRadius: 8).fill(Theme.bgSurface.opacity(0.35))
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.border.opacity(0.2), lineWidth: 0.5)))
+            .background(RoundedRectangle(cornerRadius: 8).fill(Theme.bgSurface.opacity(0.5))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.border, lineWidth: 1)))
         }
         .buttonStyle(.plain)
     }
@@ -703,11 +760,11 @@ struct SidebarView: View {
             .padding(.vertical, 10)
             .padding(.horizontal, 12)
             .background(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: Theme.cornerLarge)
                     .fill(Theme.bgSurface.opacity(0.5))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: Theme.cornerLarge)
                     .stroke(Theme.border.opacity(0.22), lineWidth: 1)
             )
         }
@@ -732,32 +789,21 @@ struct ReportCenterView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // ── Header ──
-            HStack(spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10).fill(Theme.cyan.opacity(0.1)).frame(width: 38, height: 38)
-                    Image(systemName: "doc.richtext.fill").font(.system(size: 16)).foregroundColor(Theme.cyan)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 8) {
-                        Text("REPORTS").font(Theme.mono(14, weight: .black)).foregroundColor(Theme.textPrimary)
-                        Text("\(reports.count)").font(Theme.mono(10, weight: .bold)).foregroundColor(Theme.cyan)
-                            .padding(.horizontal, 6).padding(.vertical, 2)
-                            .background(Capsule().fill(Theme.cyan.opacity(0.1)))
-                    }
-                    Text("보고자가 작성한 보고서 열람 및 관리").font(Theme.mono(9)).foregroundColor(Theme.textDim)
-                }
-                Spacer()
-                Button(action: { dismiss() }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: Theme.iconSize(18)))
-                        .foregroundColor(Theme.textDim.opacity(0.4))
-                }.buttonStyle(.plain)
-            }
-            .padding(.horizontal, 20).padding(.vertical, 14)
-            .background(Theme.bgCard)
-
-            Rectangle().fill(Theme.border).frame(height: 1)
+            DSModalHeader(
+                icon: "doc.richtext.fill",
+                iconColor: Theme.cyan,
+                title: "보고서",
+                subtitle: "보고자가 작성한 보고서 열람 및 관리",
+                trailing: AnyView(
+                    Text("\(reports.count)")
+                        .font(Theme.mono(10, weight: .bold))
+                        .foregroundColor(Theme.cyan)
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(RoundedRectangle(cornerRadius: Theme.cornerSmall).fill(Theme.accentBg(Theme.cyan)))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.cornerSmall).stroke(Theme.accentBorder(Theme.cyan), lineWidth: 1))
+                ),
+                onClose: { dismiss() }
+            )
 
             // ── Content ──
             HStack(spacing: 0) {
@@ -1227,9 +1273,15 @@ struct SessionCard: View {
                         .lineLimit(1)
                 }
             }
-            .padding(.horizontal, 10).padding(.vertical, 7)
-            .background(RoundedRectangle(cornerRadius: 8).fill(isSelected ? Theme.bgSelected : Theme.bgSurface.opacity(0.5))
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(isSelected ? Theme.accent.opacity(0.3) : .clear, lineWidth: 1)))
+            .padding(.horizontal, Theme.sp3).padding(.vertical, Theme.sp2)
+            .background(
+                RoundedRectangle(cornerRadius: Theme.cornerLarge)
+                    .fill(isSelected ? Theme.bgSelected : .clear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.cornerLarge)
+                    .stroke(isSelected ? Theme.border : .clear, lineWidth: 1)
+            )
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(tab.projectName) 세션")

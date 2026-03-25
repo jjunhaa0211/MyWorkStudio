@@ -3476,7 +3476,7 @@ struct NewTabSheet: View {
 
             content()
         }
-        .appPanelStyle(fill: Theme.bgCard.opacity(0.98), strokeOpacity: 0.22)
+        .appPanelStyle(fill: Theme.bgCard.opacity(0.98), strokeOpacity: Theme.borderDefault)
     }
 
     private func optionGroup<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {

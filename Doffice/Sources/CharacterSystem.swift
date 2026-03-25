@@ -769,28 +769,13 @@ struct CharacterCollectionView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack(spacing: 12) {
-                ZStack {
-                    Circle().fill(Theme.accent.opacity(0.1)).frame(width: 40, height: 40)
-                    Image(systemName: "person.3.fill").font(.system(size: Theme.iconSize(14))).foregroundColor(Theme.accent)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("CHARACTERS").font(Theme.mono(12, weight: .heavy)).foregroundColor(Theme.textPrimary).tracking(1.5)
-                    Text("\(registry.hiredCharacters.count)명 고용 / \(registry.allCharacters.count)명 전체")
-                        .font(Theme.monoSmall).foregroundColor(Theme.textDim)
-                }
-                Spacer()
-
-                // Close button
-                Button(action: { dismiss() }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 18))
-                        .foregroundColor(Theme.textDim.opacity(0.5))
-                }.buttonStyle(.plain).help("닫기")
-            }
-            .padding(.horizontal, 20).padding(.vertical, 14)
-            .background(Theme.bgCard)
+            DSModalHeader(
+                icon: "person.3.fill",
+                iconColor: Theme.accent,
+                title: "캐릭터",
+                subtitle: "\(registry.hiredCharacters.count)명 고용 / \(registry.allCharacters.count)명 전체",
+                onClose: { dismiss() }
+            )
 
             // Species filter row – compact wrapping grid
             let allSpecies = WorkerCharacter.Species.allCases
@@ -940,7 +925,7 @@ struct CharacterCollectionView: View {
             .background(
                 RoundedRectangle(cornerRadius: 6)
                     .fill(active ? Theme.accent.opacity(0.12) : Theme.bgCard.opacity(0.5))
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(active ? Theme.accent.opacity(0.4) : Theme.border.opacity(0.15), lineWidth: active ? 1.5 : 0.5))
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(active ? Theme.accent.opacity(0.4) : Theme.border.opacity(0.15), lineWidth: 1))
             )
         }
         .buttonStyle(.plain)

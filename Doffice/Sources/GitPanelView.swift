@@ -106,6 +106,8 @@ struct GitPanelView: View {
 
             if projectPath.isEmpty {
                 emptyState("탭을 선택하세요", icon: "arrow.triangle.branch")
+            } else if git.lastError == "Git이 설치되지 않았습니다" {
+                emptyState("Git이 설치되지 않았습니다.\n터미널에서 Xcode Command Line Tools를 설치하세요:\nxcode-select --install", icon: "exclamationmark.triangle")
             } else {
                 GeometryReader { geo in
                     HStack(spacing: 0) {

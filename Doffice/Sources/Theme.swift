@@ -997,26 +997,51 @@ enum Theme {
     private static var chromeScale: CGFloat { 1 + (scale - 1) * 0.5 }
 
     // ═══════════════════════════════════════════════════════
-    // Vercel Geist Design System
+    // 도피스 디자인 시스템 (Vercel Geist 재해석)
+    //
+    // 철학: 도피스의 세계관 + Vercel급 컴포넌트 정제도
+    // - 순수 블랙/그레이스케일 surface 계층
+    // - 얇은 1px border로 구조 표현, 그림자 없음
+    // - 색상은 상태 표시에만 절제하여 사용
+    // - UI는 산세리프, 코드/터미널만 monospaced
+    // - 도트 캐릭터 영역은 그대로 보존
     // ═══════════════════════════════════════════════════════
 
-    // ── Backgrounds (Geist: --ds-background, --accents) ──
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 1. COLOR TOKENS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    // ── Background Surfaces (4-layer depth system) ──
+    // Layer 0: App background (deepest)
     static var bg: Color { dark ? Color(hex: "000000") : Color(hex: "fafafa") }
+    // Layer 1: Card / elevated panel
     static var bgCard: Color { dark ? Color(hex: "0a0a0a") : Color(hex: "ffffff") }
+    // Layer 2: Raised surface / nested element
     static var bgSurface: Color { dark ? Color(hex: "111111") : Color(hex: "f5f5f5") }
-    static var bgTerminal: Color { dark ? Color(hex: "000000") : Color(hex: "fafafa") }
-    static var bgInput: Color { dark ? Color(hex: "0a0a0a") : Color(hex: "ffffff") }
+    // Layer 3: Tertiary surface (badges, code blocks)
+    static var bgTertiary: Color { dark ? Color(hex: "1a1a1a") : Color(hex: "ebebeb") }
+
+    // ── Functional backgrounds ──
+    static var bgTerminal: Color { dark ? Color(hex: "0a0a0a") : Color(hex: "fafafa") }
+    static var bgInput: Color { dark ? Color(hex: "000000") : Color(hex: "ffffff") }
     static var bgHover: Color { dark ? Color(hex: "1a1a1a") : Color(hex: "f0f0f0") }
     static var bgSelected: Color { dark ? Color(hex: "1a1a1a") : Color(hex: "eaeaea") }
+    static var bgPressed: Color { dark ? Color(hex: "222222") : Color(hex: "e5e5e5") }
+    static var bgDisabled: Color { dark ? Color(hex: "0a0a0a") : Color(hex: "f5f5f5") }
+    static var bgOverlay: Color { dark ? Color(hex: "000000").opacity(0.7) : Color(hex: "000000").opacity(0.4) }
 
-    // ── Borders (Geist: --accents-2, --accents-3) ──
-    static var border: Color { dark ? Color(hex: "333333") : Color(hex: "eaeaea") }
-    static var borderActive: Color { dark ? Color(hex: "666666") : Color(hex: "999999") }
+    // ── Borders (single-weight system: always 1px, vary opacity) ──
+    static var border: Color { dark ? Color(hex: "282828") : Color(hex: "e5e5e5") }
+    static var borderStrong: Color { dark ? Color(hex: "3e3e3e") : Color(hex: "d0d0d0") }
+    static var borderActive: Color { dark ? Color(hex: "555555") : Color(hex: "999999") }
+    static var borderSubtle: Color { dark ? Color(hex: "1e1e1e") : Color(hex: "eeeeee") }
+    static var focusRing: Color { Color(hex: "0070f3").opacity(0.5) }
 
-    // ── Text (Geist: --geist-foreground scale) ──
+    // ── Text (5-step hierarchy) ──
     static var textPrimary: Color { dark ? Color(hex: "ededed") : Color(hex: "171717") }
-    static var textSecondary: Color { dark ? Color(hex: "a1a1a1") : Color(hex: "666666") }
-    static var textDim: Color { dark ? Color(hex: "666666") : Color(hex: "999999") }
+    static var textSecondary: Color { dark ? Color(hex: "a1a1a1") : Color(hex: "636363") }
+    static var textDim: Color { dark ? Color(hex: "707070") : Color(hex: "8f8f8f") }
+    static var textMuted: Color { dark ? Color(hex: "484848") : Color(hex: "b0b0b0") }
     static var textTerminal: Color { dark ? Color(hex: "ededed") : Color(hex: "171717") }
 
     // ── System ──
@@ -1024,45 +1049,118 @@ enum Theme {
     static var overlay: Color { dark ? .white : .black }
     static var overlayBg: Color { dark ? .black : .white }
 
-    // ── Accents (Geist: semantic colors, muted for Vercel feel) ──
-    static var accent: Color { dark ? Color(hex: "0070f3") : Color(hex: "0070f3") }  // Vercel Blue
+    // ── Semantic Accents ──
+    static var accent: Color { dark ? Color(hex: "3291ff") : Color(hex: "0070f3") }
     static var green: Color { dark ? Color(hex: "3ecf8e") : Color(hex: "18a058") }
-    static var red: Color { dark ? Color(hex: "ee5555") : Color(hex: "e5484d") }
+    static var red: Color { dark ? Color(hex: "f14c4c") : Color(hex: "e5484d") }
     static var yellow: Color { dark ? Color(hex: "f5a623") : Color(hex: "ca8a04") }
     static var purple: Color { dark ? Color(hex: "8e4ec6") : Color(hex: "6e56cf") }
     static var orange: Color { dark ? Color(hex: "f97316") : Color(hex: "e5560a") }
     static var cyan: Color { dark ? Color(hex: "06b6d4") : Color(hex: "0891b2") }
     static var pink: Color { dark ? Color(hex: "e54d9e") : Color(hex: "d23197") }
 
-    // ── Typography (Geist: system sans-serif for UI, mono for code) ──
-    static var monoTiny: Font { .system(size: round(9 * scale), weight: .regular, design: .monospaced) }
-    static var monoSmall: Font { .system(size: round(10 * scale), weight: .regular, design: .monospaced) }
-    static var monoNormal: Font { .system(size: round(12 * scale), weight: .regular, design: .monospaced) }
+    // ── Semantic accent backgrounds (soft fills for badges/indicators) ──
+    static func accentBg(_ color: Color) -> Color { color.opacity(dark ? 0.12 : 0.08) }
+    static func accentBorder(_ color: Color) -> Color { color.opacity(dark ? 0.25 : 0.2) }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 2. TYPOGRAPHY SYSTEM
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //
+    // UI text: system sans-serif (.default)
+    // Code/terminal/git hash: monospaced (.monospaced)
+    // Pixel world labels: monospaced bold (preserved)
+    //
+    // Scale hierarchy:
+    //   display: 18   title: 14   heading: 12   body: 11
+    //   small: 10     micro: 9    tiny: 8
+
+    // Pre-scaled convenience fonts
+    static var monoTiny: Font { .system(size: round(8 * scale), design: .monospaced) }
+    static var monoSmall: Font { .system(size: round(10 * scale), design: .monospaced) }
+    static var monoNormal: Font { .system(size: round(12 * scale), design: .monospaced) }
     static var monoBold: Font { .system(size: round(11 * scale), weight: .semibold, design: .monospaced) }
     static var pixel: Font { .system(size: round(8 * chromeScale), weight: .bold, design: .monospaced) }
 
-    /// UI 텍스트용 (Geist Sans 대체 — 시스템 산세리프)
+    /// Primary UI text (Geist Sans equivalent — system san-serif)
     static func mono(_ baseSize: CGFloat, weight: Font.Weight = .regular) -> Font {
         .system(size: round(baseSize * scale), weight: weight, design: .default)
     }
 
-    /// 코드/터미널 전용 monospaced
+    /// Code, terminal, git hashes, file paths
     static func code(_ baseSize: CGFloat, weight: Font.Weight = .regular) -> Font {
         .system(size: round(baseSize * scale), weight: weight, design: .monospaced)
     }
 
+    /// General scaled font
     static func scaled(_ baseSize: CGFloat, weight: Font.Weight = .regular, design: Font.Design = .default) -> Font {
         .system(size: round(baseSize * scale), weight: weight, design: design)
     }
 
+    /// Chrome-only font (sidebar, toolbar — less aggressive scaling)
     static func chrome(_ baseSize: CGFloat, weight: Font.Weight = .regular) -> Font {
         .system(size: round(baseSize * chromeScale), weight: weight, design: .default)
     }
 
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 3. SPACING & SIZING
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //
+    // 4px base grid. All spacing in multiples of 4.
+    //
+    // Naming: sp1=4, sp2=8, sp3=12, sp4=16, sp5=20, sp6=24, sp8=32
+
+    static let sp1: CGFloat = 4
+    static let sp2: CGFloat = 8
+    static let sp3: CGFloat = 12
+    static let sp4: CGFloat = 16
+    static let sp5: CGFloat = 20
+    static let sp6: CGFloat = 24
+    static let sp8: CGFloat = 32
+
+    // Row heights
+    static let rowCompact: CGFloat = 28     // dense list rows, sidebar items
+    static let rowDefault: CGFloat = 36     // standard list rows, table rows
+    static let rowComfortable: CGFloat = 44 // touch-friendly / spacious rows
+
+    // Panel padding
+    static let panelPadding: CGFloat = 16
+    static let cardPadding: CGFloat = 12
+    static let toolbarHeight: CGFloat = 36
+    static let sidebarItemHeight: CGFloat = 30
+
+    // Icon sizes
     static func iconSize(_ baseSize: CGFloat) -> CGFloat { round(baseSize * scale) }
     static func chromeIconSize(_ baseSize: CGFloat) -> CGFloat { round(baseSize * chromeScale) }
 
-    // ── Worker Colors (preserved for dot characters) ──
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 4. RADIUS / BORDER / SURFACE
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //
+    // Radius: tight and precise, never bubbly
+    // Border: always 1px, full color (no opacity tricks)
+    // Shadow: none (depth = border + surface color)
+
+    static let cornerSmall: CGFloat = 5     // badges, tags, small chips
+    static let cornerMedium: CGFloat = 6    // buttons, inputs, select
+    static let cornerLarge: CGFloat = 8     // cards, panels, dialogs
+    static let cornerXL: CGFloat = 12       // modals, sheets, large containers
+
+    // Border defaults (for modifier compatibility)
+    static let borderDefault: CGFloat = 1.0
+    static let borderActiveOpacity: CGFloat = 1.0
+    static let borderLight: CGFloat = 0.6
+
+    // Interaction state opacities (consistent across all components)
+    static let hoverOpacity: CGFloat = 0.08
+    static let activeOpacity: CGFloat = 0.12
+    static let strokeActiveOpacity: CGFloat = 0.25
+    static let strokeInactiveOpacity: CGFloat = 0.15
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 5. PRESERVED TOKENS (pixel world)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
     static var workerColors: [Color] {
         dark ? [
             Color(hex: "ee7878"), Color(hex: "68d498"), Color(hex: "eebb50"),
@@ -1075,20 +1173,10 @@ enum Theme {
         ]
     }
 
-    // ── Gradients ──
     static var bgGradient: LinearGradient {
         dark ? LinearGradient(colors: [Color(hex: "000000"), Color(hex: "0a0a0a")], startPoint: .top, endPoint: .bottom)
              : LinearGradient(colors: [Color(hex: "ffffff"), Color(hex: "fafafa")], startPoint: .top, endPoint: .bottom)
     }
-
-    // ── Design Tokens (Vercel: minimal radius, no shadow) ──
-    static let cornerSmall: CGFloat = 6
-    static let cornerMedium: CGFloat = 8
-    static let cornerLarge: CGFloat = 10
-
-    static let borderDefault: CGFloat = 1.0   // Vercel uses full-opacity thin borders
-    static let borderActiveOpacity: CGFloat = 1.0
-    static let borderLight: CGFloat = 0.5
 }
 
 enum AppChromeTone: Equatable {
@@ -1115,27 +1203,35 @@ enum AppChromeTone: Equatable {
     }
 }
 
-// Vercel-style: border-only panels, no shadows, flat surfaces
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 도피스 컴포넌트 시스템 (Vercel-grade)
+//
+// 원칙:
+// - 그림자 없음. depth = surface color + border
+// - 보더는 항상 1px, Theme.border 사용
+// - 배경은 surface 계층으로만 표현
+// - prominent 버튼만 채색, 나머지는 border-only
+// - hover/selected/pressed는 bgHover/bgSelected/bgPressed 사용
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// MARK: - Panel Modifier (카드, 섹션, 패널)
+
 private struct AppPanelModifier: ViewModifier {
     let padding: CGFloat
     let radius: CGFloat
     let fill: Color
-    let strokeOpacity: Double
-    let shadow: Bool  // ignored — Vercel style has no shadows
+    let strokeOpacity: Double  // kept for API compat, border uses Theme.border
+    let shadow: Bool           // ignored — no shadows in this system
 
     func body(content: Content) -> some View {
         content
             .padding(padding)
-            .background(
-                RoundedRectangle(cornerRadius: radius)
-                    .fill(fill)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: radius)
-                    .stroke(Theme.border, lineWidth: 1)
-            )
+            .background(RoundedRectangle(cornerRadius: radius).fill(fill))
+            .overlay(RoundedRectangle(cornerRadius: radius).stroke(Theme.border, lineWidth: 1))
     }
 }
+
+// MARK: - Field Modifier (텍스트 입력, 셀렉트)
 
 private struct AppFieldModifier: ViewModifier {
     let emphasized: Bool
@@ -1143,18 +1239,14 @@ private struct AppFieldModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: radius)
-                    .fill(Theme.bgInput)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: radius)
-                    .stroke(emphasized ? Theme.accent : Theme.border, lineWidth: 1)
-            )
+            .padding(.horizontal, Theme.sp3)
+            .padding(.vertical, Theme.sp2)
+            .background(RoundedRectangle(cornerRadius: radius).fill(Theme.bgInput))
+            .overlay(RoundedRectangle(cornerRadius: radius).stroke(emphasized ? Theme.accent : Theme.border, lineWidth: 1))
     }
 }
+
+// MARK: - Button Surface Modifier
 
 private struct AppButtonSurfaceModifier: ViewModifier {
     let tone: AppChromeTone
@@ -1163,35 +1255,37 @@ private struct AppButtonSurfaceModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         let tint = tone.color
-        let r = compact ? Theme.cornerSmall : Theme.cornerMedium
+        let r: CGFloat = Theme.cornerMedium
 
         content
-            .foregroundColor(prominent ? Theme.textOnAccent : (tone == .neutral ? Theme.textPrimary : tint))
-            .padding(.horizontal, compact ? 10 : 14)
-            .padding(.vertical, compact ? 6 : 8)
+            .foregroundColor(prominent ? Theme.textOnAccent : (tone == .neutral ? Theme.textSecondary : tint))
+            .padding(.horizontal, compact ? Theme.sp2 : Theme.sp3)
+            .padding(.vertical, compact ? Theme.sp1 + 1 : Theme.sp2 - 1)
             .background(
                 RoundedRectangle(cornerRadius: r)
-                    .fill(prominent ? tint : (tone == .neutral ? Theme.bgSurface : tint.opacity(0.1)))
+                    .fill(prominent ? tint : (tone == .neutral ? .clear : Theme.accentBg(tint)))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: r)
-                    .stroke(prominent ? .clear : Theme.border, lineWidth: 1)
+                    .stroke(prominent ? tint.opacity(0.2) : Theme.border, lineWidth: 1)
             )
     }
 }
 
+// MARK: - View Extensions
+
 extension View {
     func appPanelStyle(
-        padding: CGFloat = 16,
+        padding: CGFloat = Theme.panelPadding,
         radius: CGFloat = Theme.cornerLarge,
         fill: Color = Theme.bgCard,
         strokeOpacity: Double = Theme.borderDefault,
-        shadow: Bool = true
+        shadow: Bool = false
     ) -> some View {
         modifier(AppPanelModifier(padding: padding, radius: radius, fill: fill, strokeOpacity: strokeOpacity, shadow: shadow))
     }
 
-    func appFieldStyle(emphasized: Bool = false, radius: CGFloat = 10) -> some View {
+    func appFieldStyle(emphasized: Bool = false, radius: CGFloat = CGFloat(Theme.cornerMedium)) -> some View {
         modifier(AppFieldModifier(emphasized: emphasized, radius: radius))
     }
 
@@ -1202,7 +1296,27 @@ extension View {
     ) -> some View {
         modifier(AppButtonSurfaceModifier(tone: tone, prominent: prominent, compact: compact))
     }
+
+    /// Vercel-style divider (subtle horizontal line)
+    func appDivider() -> some View {
+        self.overlay(alignment: .bottom) {
+            Rectangle().fill(Theme.border).frame(height: 1)
+        }
+    }
+
+    /// Sidebar hover highlight
+    func sidebarRowStyle(isSelected: Bool = false, isHovered: Bool = false) -> some View {
+        self
+            .padding(.horizontal, Theme.sp2)
+            .padding(.vertical, Theme.sp1 + 1)
+            .background(
+                RoundedRectangle(cornerRadius: Theme.cornerMedium)
+                    .fill(isSelected ? Theme.bgSelected : (isHovered ? Theme.bgHover : .clear))
+            )
+    }
 }
+
+// MARK: - Status Badge (Vercel-style: tight, border-accented)
 
 struct AppStatusBadge: View {
     let title: String
@@ -1211,26 +1325,76 @@ struct AppStatusBadge: View {
     var compact: Bool = true
 
     var body: some View {
-        HStack(spacing: 5) {
+        HStack(spacing: 3) {
             Image(systemName: symbol)
-                .font(.system(size: compact ? Theme.chromeIconSize(8) : Theme.iconSize(9), weight: .bold))
+                .font(.system(size: compact ? Theme.chromeIconSize(8) : Theme.iconSize(9), weight: .medium))
             Text(title)
-                .font(compact ? Theme.chrome(8, weight: .bold) : Theme.mono(8, weight: .bold))
+                .font(compact ? Theme.chrome(8, weight: .medium) : Theme.mono(9, weight: .medium))
                 .lineLimit(1)
         }
         .foregroundColor(tint)
-        .padding(.horizontal, compact ? 7 : 8)
-        .padding(.vertical, compact ? 4 : 5)
+        .padding(.horizontal, compact ? Theme.sp1 + 2 : Theme.sp2)
+        .padding(.vertical, compact ? 2 : 3)
         .background(
-            Capsule()
-                .fill(tint.opacity(0.10))
+            RoundedRectangle(cornerRadius: Theme.cornerSmall)
+                .fill(Theme.accentBg(tint))
         )
         .overlay(
-            Capsule()
-                .stroke(tint.opacity(0.18), lineWidth: 1)
+            RoundedRectangle(cornerRadius: Theme.cornerSmall)
+                .stroke(Theme.accentBorder(tint), lineWidth: 1)
         )
     }
 }
+
+// MARK: - Status Dot (Vercel deployments style: tiny colored circle)
+
+struct AppStatusDot: View {
+    let color: Color
+    var size: CGFloat = 6
+
+    var body: some View {
+        Circle().fill(color).frame(width: size, height: size)
+    }
+}
+
+// MARK: - Section Header (Vercel panel headers)
+
+struct AppSectionHeader: View {
+    let title: String
+    var count: Int? = nil
+    var action: (() -> Void)? = nil
+    var actionLabel: String = ""
+
+    var body: some View {
+        HStack(spacing: Theme.sp2) {
+            Text(title.uppercased())
+                .font(Theme.chrome(9, weight: .semibold))
+                .foregroundColor(Theme.textDim)
+                .tracking(0.5)
+            if let count {
+                Text("\(count)")
+                    .font(Theme.chrome(8, weight: .bold))
+                    .foregroundColor(Theme.textMuted)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 1)
+                    .background(RoundedRectangle(cornerRadius: 3).fill(Theme.bgTertiary))
+            }
+            Spacer()
+            if let action, !actionLabel.isEmpty {
+                Button(action: action) {
+                    Text(actionLabel)
+                        .font(Theme.chrome(9, weight: .medium))
+                        .foregroundColor(Theme.textDim)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, Theme.sp3)
+        .padding(.vertical, Theme.sp2)
+    }
+}
+
+// MARK: - Empty State (Vercel: minimal, informative)
 
 struct AppEmptyStateView: View {
     let title: String
@@ -1239,29 +1403,374 @@ struct AppEmptyStateView: View {
     var tint: Color = Theme.textDim
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: Theme.sp3) {
             Image(systemName: symbol)
-                .font(.system(size: Theme.iconSize(18), weight: .medium))
-                .foregroundColor(tint.opacity(0.85))
-            Text(title)
-                .font(Theme.mono(10, weight: .bold))
-                .foregroundColor(Theme.textPrimary)
-            Text(message)
-                .font(Theme.mono(8))
-                .foregroundColor(Theme.textDim)
-                .multilineTextAlignment(.center)
+                .font(.system(size: Theme.iconSize(20), weight: .light))
+                .foregroundColor(tint.opacity(0.5))
+            VStack(spacing: Theme.sp1) {
+                Text(title)
+                    .font(Theme.mono(11, weight: .medium))
+                    .foregroundColor(Theme.textSecondary)
+                Text(message)
+                    .font(Theme.mono(9))
+                    .foregroundColor(Theme.textDim)
+                    .multilineTextAlignment(.center)
+            }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 18)
-        .padding(.horizontal, 12)
+        .padding(.vertical, Theme.sp8)
+        .padding(.horizontal, Theme.sp4)
+    }
+}
+
+// MARK: - Key-Value Row (for stats, metadata display)
+
+struct AppKeyValueRow: View {
+    let key: String
+    let value: String
+    var valueColor: Color = Theme.textPrimary
+    var mono: Bool = false
+
+    var body: some View {
+        HStack {
+            Text(key)
+                .font(Theme.mono(10))
+                .foregroundColor(Theme.textDim)
+            Spacer()
+            Text(value)
+                .font(mono ? Theme.code(10, weight: .medium) : Theme.mono(10, weight: .medium))
+                .foregroundColor(valueColor)
+        }
+        .padding(.vertical, 3)
+    }
+}
+
+// MARK: - Inline Code Block
+
+struct AppInlineCode: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(Theme.code(10))
+            .foregroundColor(Theme.textPrimary)
+            .padding(.horizontal, Theme.sp1 + 1)
+            .padding(.vertical, 1)
+            .background(RoundedRectangle(cornerRadius: 3).fill(Theme.bgTertiary))
+            .overlay(RoundedRectangle(cornerRadius: 3).stroke(Theme.borderSubtle, lineWidth: 1))
+    }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// MARK: - 통합 모달 시스템 (DSModal)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// 모든 시트/모달이 동일한 구조를 따름:
+// DSModalShell > DSModalHeader > Content > DSModalFooter
+// 헤더: 아이콘 + 타이틀 + 서브타이틀 + 닫기 버튼
+// 바디: ScrollView + 섹션들
+// 푸터: 좌측 보조 액션 + 우측 주요 액션
+
+/// 모달 전체 컨테이너
+struct DSModalShell<Content: View>: View {
+    let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            content
+        }
+        .background(Theme.bg)
+    }
+}
+
+/// 통합 모달 헤더
+struct DSModalHeader: View {
+    let icon: String
+    let iconColor: Color
+    let title: String
+    var subtitle: String = ""
+    var trailing: AnyView? = nil
+    var onClose: (() -> Void)? = nil
+
+    var body: some View {
+        HStack(spacing: Theme.sp3) {
+            // 아이콘
+            ZStack {
+                RoundedRectangle(cornerRadius: Theme.cornerMedium)
+                    .fill(Theme.accentBg(iconColor))
+                    .frame(width: 32, height: 32)
+                Image(systemName: icon)
+                    .font(.system(size: Theme.iconSize(14), weight: .medium))
+                    .foregroundColor(iconColor)
+            }
+
+            // 타이틀 영역
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(Theme.mono(13, weight: .semibold))
+                    .foregroundColor(Theme.textPrimary)
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(Theme.mono(10))
+                        .foregroundColor(Theme.textDim)
+                }
+            }
+
+            Spacer()
+
+            // 트레일링 (카운터, 배지 등)
+            if let trailing { trailing }
+
+            // 닫기 버튼
+            if let onClose {
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(Theme.textDim)
+                        .frame(width: 24, height: 24)
+                        .background(RoundedRectangle(cornerRadius: Theme.cornerSmall).fill(Theme.bgSurface))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.cornerSmall).stroke(Theme.border, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, Theme.sp5)
+        .padding(.vertical, Theme.sp4)
+        .background(Theme.bgCard)
+        .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
+    }
+}
+
+/// 모달 푸터 (액션 바)
+struct DSModalFooter<Leading: View, Trailing: View>: View {
+    let leading: Leading
+    let trailing: Trailing
+
+    init(@ViewBuilder leading: () -> Leading, @ViewBuilder trailing: () -> Trailing) {
+        self.leading = leading()
+        self.trailing = trailing()
+    }
+
+    var body: some View {
+        HStack(spacing: Theme.sp2) {
+            leading
+            Spacer()
+            trailing
+        }
+        .padding(.horizontal, Theme.sp5)
+        .padding(.vertical, Theme.sp3)
+        .background(Theme.bgCard)
+        .overlay(alignment: .top) { Rectangle().fill(Theme.border).frame(height: 1) }
+    }
+}
+
+/// 모달 내부 섹션 (통합 settingsSection 대체)
+struct DSSection<Content: View>: View {
+    let title: String
+    var subtitle: String = ""
+    let content: Content
+
+    init(title: String, subtitle: String = "", @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.subtitle = subtitle
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.sp3) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(Theme.mono(11, weight: .semibold))
+                    .foregroundColor(Theme.textPrimary)
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(Theme.mono(9))
+                        .foregroundColor(Theme.textDim)
+                }
+            }
+            content
+        }
+        .padding(Theme.sp4)
+        .background(RoundedRectangle(cornerRadius: Theme.cornerLarge).fill(Theme.bgCard))
+        .overlay(RoundedRectangle(cornerRadius: Theme.cornerLarge).stroke(Theme.border, lineWidth: 1))
+    }
+}
+
+/// 탭 바 (설정, 필터 등에서 사용)
+struct DSTabBar: View {
+    let tabs: [(String, String)]  // (icon, label)
+    @Binding var selectedIndex: Int
+
+    var body: some View {
+        HStack(spacing: 1) {
+            ForEach(Array(tabs.enumerated()), id: \.offset) { index, tab in
+                Button(action: { selectedIndex = index }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: tab.0)
+                            .font(.system(size: Theme.chromeIconSize(9), weight: .medium))
+                        Text(tab.1)
+                            .font(Theme.chrome(9, weight: index == selectedIndex ? .semibold : .regular))
+                    }
+                    .foregroundColor(index == selectedIndex ? Theme.textPrimary : Theme.textDim)
+                    .padding(.horizontal, Theme.sp3)
+                    .padding(.vertical, Theme.sp2)
+                    .background(
+                        RoundedRectangle(cornerRadius: Theme.cornerMedium)
+                            .fill(index == selectedIndex ? Theme.bgSurface : .clear)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Theme.cornerMedium)
+                            .stroke(index == selectedIndex ? Theme.border : .clear, lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(2)
+        .background(RoundedRectangle(cornerRadius: Theme.cornerLarge).fill(Theme.bgCard))
+        .overlay(RoundedRectangle(cornerRadius: Theme.cornerLarge).stroke(Theme.border, lineWidth: 1))
+    }
+}
+
+/// 통합 필터 칩
+struct DSFilterChip: View {
+    let label: String
+    let isSelected: Bool
+    var count: Int? = nil
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Text(label)
+                    .font(Theme.chrome(9, weight: isSelected ? .semibold : .regular))
+                if let count {
+                    Text("\(count)")
+                        .font(Theme.chrome(8, weight: .bold))
+                        .foregroundColor(Theme.textMuted)
+                }
+            }
+            .foregroundColor(isSelected ? Theme.textPrimary : Theme.textDim)
+            .padding(.horizontal, Theme.sp3)
+            .padding(.vertical, Theme.sp1 + 2)
+            .background(
+                RoundedRectangle(cornerRadius: Theme.cornerMedium)
+                    .fill(isSelected ? Theme.bgSurface : .clear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.cornerMedium)
+                    .stroke(isSelected ? Theme.border : Theme.borderSubtle, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// 통합 리스트 행 컴포넌트
+struct DSListRow<Leading: View, Trailing: View>: View {
+    let leading: Leading
+    let title: String
+    var subtitle: String = ""
+    let trailing: Trailing
+    var isSelected: Bool = false
+
+    init(title: String, subtitle: String = "", isSelected: Bool = false, @ViewBuilder leading: () -> Leading, @ViewBuilder trailing: () -> Trailing) {
+        self.title = title
+        self.subtitle = subtitle
+        self.isSelected = isSelected
+        self.leading = leading()
+        self.trailing = trailing()
+    }
+
+    var body: some View {
+        HStack(spacing: Theme.sp3) {
+            leading
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(Theme.mono(10, weight: .medium))
+                    .foregroundColor(Theme.textPrimary)
+                    .lineLimit(1)
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(Theme.mono(9))
+                        .foregroundColor(Theme.textDim)
+                        .lineLimit(1)
+                }
+            }
+            Spacer()
+            trailing
+        }
+        .padding(.horizontal, Theme.sp3)
+        .padding(.vertical, Theme.sp2)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Theme.bgSurface.opacity(0.65))
+            RoundedRectangle(cornerRadius: Theme.cornerMedium)
+                .fill(isSelected ? Theme.bgSelected : .clear)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Theme.border.opacity(0.22), lineWidth: 1)
+            RoundedRectangle(cornerRadius: Theme.cornerMedium)
+                .stroke(isSelected ? Theme.border : .clear, lineWidth: 1)
         )
+        .contentShape(Rectangle())
+    }
+}
+
+/// 통합 stat/metric 카드
+struct DSStatCard: View {
+    let title: String
+    let value: String
+    var subtitle: String = ""
+    var icon: String = ""
+    var tint: Color = Theme.textPrimary
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.sp2) {
+            HStack(spacing: Theme.sp1) {
+                if !icon.isEmpty {
+                    Image(systemName: icon)
+                        .font(.system(size: Theme.iconSize(9)))
+                        .foregroundColor(Theme.textDim)
+                }
+                Text(title)
+                    .font(Theme.mono(9))
+                    .foregroundColor(Theme.textDim)
+            }
+            Text(value)
+                .font(Theme.mono(16, weight: .semibold))
+                .foregroundColor(tint)
+            if !subtitle.isEmpty {
+                Text(subtitle)
+                    .font(Theme.mono(9))
+                    .foregroundColor(Theme.textDim)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Theme.sp3)
+        .background(RoundedRectangle(cornerRadius: Theme.cornerLarge).fill(Theme.bgCard))
+        .overlay(RoundedRectangle(cornerRadius: Theme.cornerLarge).stroke(Theme.border, lineWidth: 1))
+    }
+}
+
+/// 통합 프로그레스 바
+struct DSProgressBar: View {
+    let value: Double  // 0.0 ~ 1.0
+    var tint: Color = Theme.accent
+    var height: CGFloat = 4
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: height / 2)
+                    .fill(Theme.bgSurface)
+                RoundedRectangle(cornerRadius: height / 2)
+                    .fill(tint)
+                    .frame(width: geo.size.width * min(max(value, 0), 1))
+            }
+        }
+        .frame(height: height)
     }
 }
 
@@ -1286,48 +1795,34 @@ struct SettingsView: View {
     @State private var showTokenResetConfirm = false
     @State private var showTemplateResetConfirm = false
 
+    private let settingsTabs: [(String, String)] = [
+        ("slider.horizontal.3", "일반"), ("paintbrush.fill", "화면"), ("building.2.fill", "오피스"),
+        ("bolt.fill", "토큰"), ("externaldrive.fill", "데이터"), ("doc.text.fill", "양식"),
+        ("cup.and.saucer.fill", "후원하기"), ("lock.shield.fill", "보안")
+    ]
+
     var body: some View {
-        VStack(spacing: 0) {
-            // 헤더
-            HStack {
-                Image(systemName: "gearshape.fill")
-                    .font(.system(size: Theme.iconSize(14), weight: .bold))
-                    .foregroundColor(Theme.accent)
-                Text("설정")
-                    .font(Theme.mono(15, weight: .black))
-                    .foregroundColor(Theme.textPrimary)
-                Spacer()
-                Button(action: { dismiss() }) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: Theme.iconSize(11), weight: .bold))
-                        .foregroundColor(Theme.textDim)
-                        .frame(width: 24, height: 24)
-                        .background(Circle().fill(Theme.bgSurface))
-                }
-                .buttonStyle(.plain)
-                .keyboardShortcut(.escape)
-            }
-            .padding(.horizontal, 20).padding(.top, 18).padding(.bottom, 12)
+        DSModalShell {
+            DSModalHeader(
+                icon: "gearshape.fill",
+                iconColor: Theme.textSecondary,
+                title: "설정",
+                onClose: { dismiss() }
+            )
+            .keyboardShortcut(.escape)
 
             // 탭 바
-            HStack(spacing: 0) {
-                settingsTabButton("일반", icon: "slider.horizontal.3", tab: 0)
-                settingsTabButton("화면", icon: "paintbrush.fill", tab: 1)
-                settingsTabButton("오피스", icon: "building.2.fill", tab: 2)
-                settingsTabButton("토큰", icon: "bolt.fill", tab: 3)
-                settingsTabButton("데이터", icon: "externaldrive.fill", tab: 4)
-                settingsTabButton("양식", icon: "doc.text.fill", tab: 5)
-                settingsTabButton("후원하기", icon: "cup.and.saucer.fill", tab: 6)
-                settingsTabButton("보안", icon: "lock.shield.fill", tab: 7)
+            ScrollView(.horizontal, showsIndicators: false) {
+                DSTabBar(tabs: settingsTabs, selectedIndex: $selectedSettingsTab)
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 8)
+            .padding(.horizontal, Theme.sp4)
+            .padding(.vertical, Theme.sp2)
 
-            Rectangle().fill(Theme.border.opacity(0.5)).frame(height: 1)
+            Rectangle().fill(Theme.border).frame(height: 1)
 
             // 탭 내용
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: 14) {
+                VStack(spacing: Theme.sp4) {
                     switch selectedSettingsTab {
                     case 0: generalTab
                     case 1: displayTab
@@ -1340,10 +1835,10 @@ struct SettingsView: View {
                     default: generalTab
                     }
                 }
-                .padding(18)
+                .padding(Theme.sp5)
             }
         }
-        .frame(width: 560, height: 660)
+        .frame(width: 580, height: 680)
         .background(Theme.bg)
         .onAppear {
             settings.ensureCoffeeSupportPreset()
@@ -2127,19 +2622,20 @@ struct SettingsView: View {
         subtitle: String,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Theme.sp3) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(Theme.mono(11, weight: .bold))
+                    .font(Theme.mono(11, weight: .semibold))
                     .foregroundColor(Theme.textPrimary)
                 Text(subtitle)
-                    .font(Theme.mono(8))
+                    .font(Theme.mono(9))
                     .foregroundColor(Theme.textDim)
             }
-
             content()
         }
-        .appPanelStyle(fill: Theme.bgCard.opacity(0.98), strokeOpacity: Theme.borderDefault)
+        .padding(Theme.sp4)
+        .background(RoundedRectangle(cornerRadius: Theme.cornerLarge).fill(Theme.bgCard))
+        .overlay(RoundedRectangle(cornerRadius: Theme.cornerLarge).stroke(Theme.border, lineWidth: 1))
     }
 
     private func securityRow<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
@@ -2871,26 +3367,24 @@ struct AccessoryView: View {
     @Environment(\.dismiss) var dismiss
     @State private var selectedTab = 0  // 0=악세서리, 1=배경
 
+    private let accessoryTabs: [(String, String)] = [("sofa.fill", "악세서리"), ("photo.fill", "배경")]
+
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack {
-                Text("🛋️").font(.system(size: Theme.iconSize(16)))
-                Text("꾸미기").font(Theme.mono(14, weight: .bold)).foregroundColor(Theme.textPrimary)
-                Spacer()
-                Button(action: { dismiss() }) {
-                    Image(systemName: "xmark.circle.fill").font(.system(size: Theme.iconSize(16))).foregroundColor(Theme.textDim)
-                }.buttonStyle(.plain)
-            }.padding(.bottom, 12)
+            DSModalHeader(
+                icon: "paintpalette.fill",
+                iconColor: Theme.purple,
+                title: "꾸미기",
+                subtitle: "오피스 악세서리 및 배경 관리",
+                onClose: { dismiss() }
+            )
 
             // 탭 선택
-            HStack(spacing: 0) {
-                tabButton("악세서리", icon: "sofa.fill", tab: 0)
-                tabButton("배경", icon: "photo.fill", tab: 1)
-            }
-            .background(Theme.bgSurface)
-            .cornerRadius(8)
-            .padding(.bottom, 12)
+            DSTabBar(tabs: accessoryTabs, selectedIndex: $selectedTab)
+                .padding(.horizontal, Theme.sp4)
+                .padding(.vertical, Theme.sp2)
+
+            Rectangle().fill(Theme.border).frame(height: 1)
 
             // 탭 내용
             if selectedTab == 0 {

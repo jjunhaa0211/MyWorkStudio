@@ -440,22 +440,44 @@ struct MainView: View {
 
     // MARK: - Title Bar
 
+    // 타이틀바 공용: 아이콘 버튼
+    private func chromeIconButton(_ icon: String, help: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: Theme.chromeIconSize(12), weight: .medium))
+                .foregroundColor(Theme.textDim)
+                .frame(width: 28, height: 28)
+        }
+        .buttonStyle(.plain)
+        .help(help)
+    }
+
+    // 타이틀바 공용: 작은 pill 배지
+    private func chromePill(_ text: String, color: Color) -> some View {
+        Text(text)
+            .font(Theme.chrome(9, weight: .medium))
+            .foregroundColor(color)
+            .padding(.horizontal, Theme.sp2)
+            .padding(.vertical, 2)
+            .background(RoundedRectangle(cornerRadius: Theme.cornerSmall).fill(Theme.accentBg(color)))
+            .overlay(RoundedRectangle(cornerRadius: Theme.cornerSmall).stroke(Theme.accentBorder(color), lineWidth: 1))
+    }
+
     private var titleBar: some View {
-        HStack(spacing: 8) {
-            Color.clear.frame(width: 68, height: 1) // macOS 신호등 버튼 영역
+        HStack(spacing: Theme.sp2) {
+            Color.clear.frame(width: 68, height: 1)
 
-            Button(action: { withAnimation(.easeInOut(duration: 0.2)) { sidebarCollapsed.toggle() } }) {
-                Image(systemName: sidebarCollapsed ? "sidebar.left" : "sidebar.leading")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(Theme.textDim)
+            chromeIconButton(sidebarCollapsed ? "sidebar.left" : "sidebar.leading", help: sidebarCollapsed ? "사이드바 열기" : "사이드바 닫기") {
+                withAnimation(.easeInOut(duration: 0.2)) { sidebarCollapsed.toggle() }
             }
-            .buttonStyle(.plain)
-            .help(sidebarCollapsed ? "사이드바 열기" : "사이드바 닫기")
 
+            // 앱 이름
             HStack(spacing: 4) {
-                Text(settings.appDisplayName).font(Theme.mono(13, weight: .bold)).foregroundColor(Theme.accent)
+                Text(settings.appDisplayName)
+                    .font(Theme.mono(13, weight: .semibold))
+                    .foregroundColor(Theme.textPrimary)
                 if !settings.companyName.isEmpty {
-                    Text("·").foregroundColor(Theme.textDim).font(Theme.monoTiny)
+                    Text("·").foregroundColor(Theme.textMuted)
                     Text(settings.companyName).font(Theme.mono(9)).foregroundColor(Theme.textDim)
                 }
             }
@@ -468,98 +490,67 @@ struct MainView: View {
                 viewModeButton(icon: "terminal", mode: .terminal, label: "터미널")
             }
             .fixedSize(horizontal: true, vertical: true)
-            .background(RoundedRectangle(cornerRadius: 5).fill(Theme.bgSurface))
-            .overlay(RoundedRectangle(cornerRadius: 5).stroke(Theme.border.opacity(0.3), lineWidth: 0.5))
+            .background(RoundedRectangle(cornerRadius: Theme.cornerMedium).fill(Theme.bgSurface))
+            .overlay(RoundedRectangle(cornerRadius: Theme.cornerMedium).stroke(Theme.border, lineWidth: 1))
 
             Spacer()
 
+            // 업데이트 배지
             if updater.hasUpdate {
                 Button(action: { showUpdateSheet = true }) {
                     HStack(spacing: 4) {
-                        Image(systemName: "arrow.down.circle.fill").font(.system(size: Theme.iconSize(10))).foregroundColor(Theme.green)
-                        Text("v\(updater.latestVersion)").font(Theme.mono(9, weight: .bold)).foregroundColor(Theme.green)
+                        AppStatusDot(color: Theme.green, size: 6)
+                        Text("v\(updater.latestVersion)").font(Theme.chrome(9, weight: .medium)).foregroundColor(Theme.green)
                     }
-                    .padding(.horizontal, 7).padding(.vertical, 3)
-                    .background(Theme.green.opacity(0.1)).cornerRadius(5)
-                    .overlay(RoundedRectangle(cornerRadius: 5).stroke(Theme.green.opacity(0.3), lineWidth: 1))
+                    .padding(.horizontal, Theme.sp2).padding(.vertical, 3)
+                    .background(RoundedRectangle(cornerRadius: Theme.cornerSmall).fill(Theme.accentBg(Theme.green)))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.cornerSmall).stroke(Theme.accentBorder(Theme.green), lineWidth: 1))
                 }.buttonStyle(.plain).help("업데이트 가능")
             }
 
+            // Claude 버전
             if ClaudeInstallChecker.shared.isInstalled {
                 Text("Claude \(ClaudeInstallChecker.shared.version)")
-                    .font(Theme.monoTiny).foregroundColor(Theme.textDim)
+                    .font(Theme.chrome(8)).foregroundColor(Theme.textMuted)
             }
 
+            // 토큰 사용량
             if manager.totalTokensUsed > 0 {
-                HStack(spacing: 5) {
-                    Image(systemName: "bolt.fill").font(Theme.monoTiny).foregroundColor(Theme.yellow)
-                    Text(fmtTok(manager.totalTokensUsed))
-                        .font(Theme.mono(11, weight: .medium)).foregroundColor(Theme.textSecondary)
-                }
-                .padding(.horizontal, 8).padding(.vertical, 3)
-                .background(Theme.bgSurface).cornerRadius(5)
-            }
-
-            let level = AchievementManager.shared.currentLevel
-            Text("Lv.\(level.level) \(level.title)")
-                .font(Theme.mono(9, weight: .bold)).foregroundColor(Theme.yellow)
-                .padding(.horizontal, 6).padding(.vertical, 2)
-                .background(Theme.yellow.opacity(0.1)).cornerRadius(3)
-
-            // 오피스 별도 창 열기 (듀얼 모니터)
-            Button(action: { openOfficeWindow() }) {
                 HStack(spacing: 4) {
-                    Image(systemName: "rectangle.on.rectangle")
-                        .font(.system(size: Theme.iconSize(11), weight: .medium))
-                    Text("분리")
-                        .font(Theme.mono(10, weight: .medium))
+                    Image(systemName: "bolt.fill").font(.system(size: 8)).foregroundColor(Theme.yellow)
+                    Text(fmtTok(manager.totalTokensUsed))
+                        .font(Theme.chrome(10, weight: .medium)).foregroundColor(Theme.textSecondary)
                 }
-                .foregroundColor(Theme.textDim)
-                .padding(.horizontal, 9).padding(.vertical, 5)
-                .background(RoundedRectangle(cornerRadius: 5).fill(Theme.bgSurface))
-                .overlay(RoundedRectangle(cornerRadius: 5).stroke(Theme.border.opacity(0.3), lineWidth: 0.5))
+                .padding(.horizontal, Theme.sp2).padding(.vertical, 3)
+                .background(RoundedRectangle(cornerRadius: Theme.cornerSmall).fill(Theme.bgSurface))
+                .overlay(RoundedRectangle(cornerRadius: Theme.cornerSmall).stroke(Theme.border, lineWidth: 1))
             }
-            .buttonStyle(.plain)
-            .help("오피스를 별도 창으로 분리 (듀얼 모니터)")
 
-            Button(action: { showBugReport = true }) {
-                Image(systemName: "ladybug.fill").font(.system(size: Theme.iconSize(13)))
-                    .foregroundColor(Theme.textDim).padding(6)
-            }.buttonStyle(.plain).help("버그 신고")
+            // 레벨
+            chromePill("Lv.\(AchievementManager.shared.currentLevel.level)", color: Theme.yellow)
 
-            Button(action: { showSettings = true }) {
-                Image(systemName: "gearshape.fill").font(.system(size: Theme.iconSize(13)))
-                    .foregroundColor(Theme.textDim).padding(6)
-            }.buttonStyle(.plain).help("Settings")
-
-            Button(action: { manager.refresh() }) {
-                Image(systemName: "arrow.clockwise").font(.system(size: Theme.iconSize(12), weight: .semibold))
-                    .foregroundColor(Theme.textDim).padding(6)
-            }.buttonStyle(.plain).help("Cmd+R")
-
-            Button(action: {
-                if settings.lockPIN.isEmpty {
-                    settings.isLocked.toggle()
-                } else {
-                    settings.isLocked = true
+            // 유틸리티 버튼들
+            HStack(spacing: 0) {
+                chromeIconButton("rectangle.on.rectangle", help: "오피스 분리") { openOfficeWindow() }
+                chromeIconButton("ladybug.fill", help: "버그 신고") { showBugReport = true }
+                chromeIconButton("gearshape.fill", help: "설정") { showSettings = true }
+                chromeIconButton("arrow.clockwise", help: "새로고침 (⌘R)") { manager.refresh() }
+                chromeIconButton(settings.isLocked ? "lock.fill" : "lock.open", help: "세션 잠금") {
+                    if settings.lockPIN.isEmpty { settings.isLocked.toggle() } else { settings.isLocked = true }
                 }
-            }) {
-                Image(systemName: settings.isLocked ? "lock.fill" : "lock.open")
-                    .font(.system(size: Theme.chromeIconSize(12)))
-                    .foregroundColor(settings.isLocked ? Theme.yellow : Theme.textDim)
             }
-            .buttonStyle(.plain)
-            .help("세션 잠금")
 
+            // 세션 수
             Text("\(manager.userVisibleTabCount)")
-                .font(Theme.mono(11, weight: .bold)).foregroundColor(Theme.textDim)
-                .padding(.horizontal, 6).padding(.vertical, 3)
-                .background(Theme.bgSurface).cornerRadius(4)
+                .font(Theme.chrome(10, weight: .bold)).foregroundColor(Theme.textDim)
+                .padding(.horizontal, Theme.sp2).padding(.vertical, 3)
+                .background(RoundedRectangle(cornerRadius: Theme.cornerSmall).fill(Theme.bgSurface))
+                .overlay(RoundedRectangle(cornerRadius: Theme.cornerSmall).stroke(Theme.border, lineWidth: 1))
         }
-        .padding(.horizontal, 14).frame(height: 36)
+        .padding(.horizontal, Theme.sp3).frame(height: Theme.toolbarHeight)
         .background(Theme.bgCard)
-        .overlay(Rectangle().fill(Theme.border.opacity(0.4)).frame(height: 0.5), alignment: .bottom)
-        .padding(.top, -1) // macOS hiddenTitleBar 상단 틈 제거
+        .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
+        .padding(.top, -1)
     }
 
     // MARK: - Status Bar
@@ -614,13 +605,13 @@ struct MainView: View {
 
             Spacer()
 
-            Text("\u{2318}P palette · \u{2318}T new · \u{2318}J center · \u{2318}1-9 switch · \u{2318}K clear")
-                .font(Theme.monoTiny).foregroundColor(Theme.textDim.opacity(0.6))
+            Text("⌘P palette · ⌘T new · ⌘J center · ⌘1-9 switch · ⌘K clear")
+                .font(Theme.chrome(8)).foregroundColor(Theme.textMuted)
                 .lineLimit(1)
         }
-        .padding(.horizontal, 14).frame(height: 24)
-        .background(Theme.bgCard)
-        .overlay(Rectangle().fill(Theme.textDim.opacity(0.3)).frame(height: 1), alignment: .top)
+        .padding(.horizontal, Theme.sp3).frame(height: 24)
+        .background(Theme.bg)
+        .overlay(alignment: .top) { Rectangle().fill(Theme.border).frame(height: 1) }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("세션 상태 요약")
         .accessibilityValue(statusBarAccessibilitySummary)
@@ -996,43 +987,13 @@ struct BugReportView: View {
 
     var body: some View {
         VStack(spacing: 18) {
-            HStack(alignment: .top, spacing: 12) {
-                HStack(spacing: 10) {
-                    ZStack {
-                        Circle()
-                            .fill(Theme.red.opacity(0.10))
-                            .frame(width: 40, height: 40)
-                        Image(systemName: "ladybug.fill")
-                            .font(.system(size: Theme.iconSize(16), weight: .bold))
-                            .foregroundColor(Theme.red)
-                    }
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("버그 신고")
-                            .font(Theme.mono(14, weight: .bold))
-                            .foregroundColor(Theme.textPrimary)
-                        Text("문제를 빠르게 파악할 수 있도록 핵심 정보만 차분하게 정리해 보내세요.")
-                            .font(Theme.mono(8))
-                            .foregroundColor(Theme.textDim)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-
-                Spacer()
-
-                Button(action: { dismiss() }) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: Theme.iconSize(10), weight: .bold))
-                        .foregroundColor(Theme.textDim)
-                        .frame(width: 30, height: 30)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(Theme.bgSurface)
-                        )
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("버그 신고 닫기")
-            }
+            DSModalHeader(
+                icon: "ladybug.fill",
+                iconColor: Theme.red,
+                title: "버그 신고",
+                subtitle: "문제를 빠르게 파악할 수 있도록 핵심 정보만 정리해 보내세요.",
+                onClose: { dismiss() }
+            )
 
             if sent {
                 VStack(spacing: 12) {

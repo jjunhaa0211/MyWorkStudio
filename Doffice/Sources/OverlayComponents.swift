@@ -24,27 +24,13 @@ struct ActionCenterView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack(spacing: 10) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("ACTION CENTER")
-                        .font(Theme.mono(14, weight: .black))
-                        .foregroundColor(Theme.textPrimary)
-                    Text("승인 대기, 오류, 완료 상태를 한 곳에서 확인합니다.")
-                        .font(Theme.mono(9))
-                        .foregroundColor(Theme.textDim)
-                }
-                Spacer()
-                Button(action: { dismiss() }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: Theme.iconSize(16), weight: .bold))
-                        .foregroundColor(Theme.textDim)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(18)
-
-            Rectangle().fill(Theme.border.opacity(0.6)).frame(height: 1)
+            DSModalHeader(
+                icon: "bell.badge.fill",
+                iconColor: Theme.orange,
+                title: "확인 센터",
+                subtitle: "승인 대기, 오류, 완료 상태를 한 곳에서 확인합니다.",
+                onClose: { dismiss() }
+            )
 
             ScrollView {
                 VStack(spacing: 16) {

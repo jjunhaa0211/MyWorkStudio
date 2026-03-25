@@ -1868,7 +1868,8 @@ class TerminalTab: ObservableObject, Identifiable {
     func appendBlock(_ type: StreamBlock.BlockType, content: String = "") -> StreamBlock {
         if let lastBlock = blocks.last,
            !lastBlock.isComplete,
-           shouldMergeBlock(existing: lastBlock.blockType, new: type) {
+           shouldMergeBlock(existing: lastBlock.blockType, new: type),
+           lastBlock.content.count < 50000 {  // Prevent unbounded growth
             lastBlock.content += "\n" + content
             return lastBlock
         }
@@ -2562,96 +2563,98 @@ extension TerminalTab {
 // ═══════════════════════════════════════════════════════
 
 enum ClaudeUsageFetcher {
-    /// Claude CLI를 인터랙티브로 실행하여 /usage 결과를 캡처
+    /// Claude CLI를 인터랙티브 PTY로 실행하여 /usage 결과를 캡처
     static func fetch() -> String {
-        let claudePath = findClaude()
-        guard let claudePath else {
-            return "❌ Claude CLI를 찾을 수 없습니다.\nPATH가 설정되지 않았을 수 있습니다. 터미널에서 'which claude'로 확인하세요."
-        }
-
-        // claude 실행 파일 존재 확인
-        guard FileManager.default.fileExists(atPath: claudePath) else {
-            return "❌ Claude CLI 경로를 찾았지만 파일이 존재하지 않습니다: \(claudePath)\n재설치가 필요할 수 있습니다: npm install -g @anthropic-ai/claude-code"
+        guard let claudePath = findClaude() else {
+            return "❌ Claude CLI를 찾을 수 없습니다."
         }
 
         var masterFD: Int32 = 0
         var slaveFD: Int32 = 0
         guard openpty(&masterFD, &slaveFD, nil, nil, nil) == 0 else {
-            return "❌ PTY를 열 수 없습니다."
+            return "❌ PTY 열기 실패"
         }
+
+        // 터미널 크기 설정 (충분히 넓게)
+        var winSize = winsize(ws_row: 50, ws_col: 120, ws_xpixel: 0, ws_ypixel: 0)
+        ioctl(masterFD, TIOCSWINSZ, &winSize)
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: claudePath)
         process.environment = ProcessInfo.processInfo.environment
         process.environment?["PATH"] = TerminalTab.buildFullPATH()
         process.environment?["TERM"] = "xterm-256color"
+        process.environment?["COLUMNS"] = "120"
+        process.environment?["LINES"] = "50"
 
         let slaveHandle = FileHandle(fileDescriptor: slaveFD, closeOnDealloc: false)
         process.standardInput = slaveHandle
         process.standardOutput = slaveHandle
         process.standardError = slaveHandle
 
-        do {
-            try process.launch()
-        } catch {
-            close(masterFD)
-            close(slaveFD)
+        do { try process.launch() } catch {
+            close(masterFD); close(slaveFD)
             return "❌ Claude 실행 실패: \(error.localizedDescription)"
         }
-
         close(slaveFD)
 
-        // 시작 대기 (Claude 초기화 완료까지)
+        // 시작 대기
         Thread.sleep(forTimeInterval: 5.0)
         drainFD(masterFD)
 
-        // /usage 전송 — 한 글자씩 보내서 자동완성 활성화 후 Enter
-        for ch in "/usage" {
-            let s = String(ch)
-            _ = s.withCString { ptr in Darwin.write(masterFD, ptr, 1) }
-            Thread.sleep(forTimeInterval: 0.05)
+        // /usage 입력 (Tab으로 자동완성 확정)
+        writeSlow(masterFD, "/usage")
+        Thread.sleep(forTimeInterval: 0.3)
+        _ = Darwin.write(masterFD, "\r", 1)  // Enter
+
+        // 데이터 수집 — 최대 15초, "Esc to cancel" 감지 시 조기 종료
+        var allData = Data()
+        let startTime = Date()
+        while Date().timeIntervalSince(startTime) < 15.0 {
+            Thread.sleep(forTimeInterval: 0.5)
+            var buf = [UInt8](repeating: 0, count: 8192)
+            let flags = fcntl(masterFD, F_GETFL)
+            fcntl(masterFD, F_SETFL, flags | O_NONBLOCK)
+            while true {
+                let n = Darwin.read(masterFD, &buf, buf.count)
+                if n <= 0 { break }
+                allData.append(buf, count: n)
+            }
+            fcntl(masterFD, F_SETFL, flags)
+
+            let partial = String(data: allData, encoding: .utf8) ?? ""
+            if partial.contains("Esc") && partial.contains("cancel") { break }
+            if partial.contains("% used") && partial.contains("Reset") { break }
         }
+
+        // 정리
+        _ = Darwin.write(masterFD, "\u{1b}", 1) // Esc
         Thread.sleep(forTimeInterval: 0.5)
-        // Enter로 자동완성 선택 확정
-        _ = Darwin.write(masterFD, "\r", 1)
-
-        // usage 데이터 로딩 대기
-        Thread.sleep(forTimeInterval: 6.0)
-
-        // 결과를 여러 번 읽기 (데이터가 점진적으로 올 수 있음)
-        var rawOutput = ""
-        for _ in 0..<3 {
-            let chunk = readAllAvailable(masterFD)
-            rawOutput += chunk
-            if rawOutput.contains("% used") || rawOutput.contains("Esc to cancel") { break }
-            Thread.sleep(forTimeInterval: 2.0)
-        }
-
-        // 정리 — Esc로 usage 화면 닫기
-        _ = Darwin.write(masterFD, "\u{1b}", 1)
-        Thread.sleep(forTimeInterval: 1.0)
-        // Ctrl+C + /exit
-        _ = Darwin.write(masterFD, "\u{03}", 1)
+        _ = Darwin.write(masterFD, "\u{03}", 1) // Ctrl+C
+        Thread.sleep(forTimeInterval: 0.3)
+        writeSlow(masterFD, "/exit\r")
         Thread.sleep(forTimeInterval: 0.5)
-        for ch in "/exit\r" {
-            let s = String(ch)
-            _ = s.withCString { ptr in Darwin.write(masterFD, ptr, 1) }
-            Thread.sleep(forTimeInterval: 0.03)
-        }
-        Thread.sleep(forTimeInterval: 1.0)
         process.terminate()
         close(masterFD)
 
-        return parseUsageOutput(rawOutput)
+        let raw = String(data: allData, encoding: .utf8) ?? ""
+        return parseUsageOutput(raw)
     }
 
     private static func findClaude() -> String? {
-        let paths = TerminalTab.buildFullPATH().split(separator: ":").map(String.init)
-        for dir in paths {
+        for dir in TerminalTab.buildFullPATH().split(separator: ":").map(String.init) {
             let p = dir + "/claude"
             if FileManager.default.isExecutableFile(atPath: p) { return p }
         }
         return nil
+    }
+
+    private static func writeSlow(_ fd: Int32, _ text: String) {
+        for ch in text {
+            var c = [UInt8](String(ch).utf8)
+            Darwin.write(fd, &c, c.count)
+            Thread.sleep(forTimeInterval: 0.04)
+        }
     }
 
     private static func drainFD(_ fd: Int32) {
@@ -2662,101 +2665,141 @@ enum ClaudeUsageFetcher {
         fcntl(fd, F_SETFL, flags)
     }
 
-    private static func readAllAvailable(_ fd: Int32) -> String {
-        let flags = fcntl(fd, F_GETFL)
-        fcntl(fd, F_SETFL, flags | O_NONBLOCK)
-        var all = Data()
-        var buf = [UInt8](repeating: 0, count: 4096)
-        while true {
-            let n = Darwin.read(fd, &buf, buf.count)
-            if n <= 0 { break }
-            all.append(buf, count: n)
+    private static func stripANSI(_ raw: String) -> String {
+        // 모든 제어 시퀀스를 바이트 레벨에서 제거
+        var result = ""
+        var i = raw.startIndex
+        while i < raw.endIndex {
+            let ch = raw[i]
+            if ch == "\u{1b}" {
+                // ESC 시퀀스 스킵
+                i = raw.index(after: i)
+                guard i < raw.endIndex else { break }
+                let next = raw[i]
+                if next == "[" || next == "]" {
+                    // CSI / OSC 시퀀스: 종료 문자까지 스킵
+                    i = raw.index(after: i)
+                    while i < raw.endIndex {
+                        let c = raw[i]
+                        i = raw.index(after: i)
+                        if next == "[" && c.isLetter { break }
+                        if next == "]" && (c == "\u{07}" || c == "\u{1b}") { break }
+                    }
+                } else {
+                    // 단일 ESC + 문자
+                    i = raw.index(after: i)
+                }
+            } else if ch.asciiValue ?? 32 < 32 && ch != "\n" {
+                // 제어 문자 스킵 (\r, \t 등)
+                i = raw.index(after: i)
+            } else {
+                result.append(ch)
+                i = raw.index(after: i)
+            }
         }
-        fcntl(fd, F_SETFL, flags)
-        return String(data: all, encoding: .utf8) ?? ""
+        return result
     }
 
     private static func parseUsageOutput(_ raw: String) -> String {
-        // ANSI 이스케이프 코드 제거 (ESC = \u{1b})
-        var text = raw
-        text = text.replacingOccurrences(of: "\u{1b}\\[[0-9;]*[a-zA-Z]", with: "", options: .regularExpression)
-        text = text.replacingOccurrences(of: "\u{1b}\\[\\?[0-9;]*[a-zA-Z]", with: "", options: .regularExpression)
-        text = text.replacingOccurrences(of: "\u{1b}[=>]", with: "", options: .regularExpression)
-        text = text.replacingOccurrences(of: "\\][0-9];[^\u{07}]*\u{07}", with: "", options: .regularExpression)
-        // 추가 정리: 기타 제어 문자
-        text = text.replacingOccurrences(of: "\u{1b}", with: "")
-        text = text.replacingOccurrences(of: "\r", with: "")
+        let text = stripANSI(raw)
 
-        // 핵심 데이터 추출
-        var sections: [(title: String, percent: String, resetInfo: String)] = []
+        // 섹션별 퍼센트 + 리셋 정보 추출
+        struct UsageSection {
+            let label: String
+            let percent: Int
+            let resetInfo: String
+        }
 
-        // "Current session" ~ "XX% used"
-        let patterns: [(key: String, label: String)] = [
-            ("Current session", "📊 현재 세션"),
-            ("Current week (all models)", "📊 이번 주 (전체 모델)"),
-            ("Current week (Sonnet only)", "📊 이번 주 (Sonnet 전용)"),
-            ("Current week (Opus only)", "📊 이번 주 (Opus 전용)"),
+        let sectionKeys: [(key: String, label: String)] = [
+            ("Current session", "현재 세션 (Current Session)"),
+            ("Current week (all models)", "이번 주 — 전체 모델 (All Models)"),
+            ("Current week (Sonnet only)", "이번 주 — Sonnet 전용"),
+            ("Current week (Opus only)", "이번 주 — Opus 전용"),
+            ("Current day", "오늘 (Current Day)"),
         ]
 
-        for (key, label) in patterns {
-            if text.contains(key) {
-                // Find percentage
-                let percentPattern = key + ".*?(\\d+)%\\s*used"
-                if let regex = try? NSRegularExpression(pattern: percentPattern, options: [.dotMatchesLineSeparators]),
-                   let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) {
-                    let percent = (text as NSString).substring(with: match.range(at: 1))
+        var sections: [UsageSection] = []
 
-                    // Find reset info
-                    var resetInfo = ""
-                    let resetPattern = "Resets?\\s+([^\\n]+)"
-                    if let idx = text.range(of: key),
-                       let resetRegex = try? NSRegularExpression(pattern: resetPattern),
-                       let resetMatch = resetRegex.firstMatch(in: text, range: NSRange(idx.upperBound..., in: text)) {
-                        resetInfo = (text as NSString).substring(with: resetMatch.range(at: 1))
-                            .trimmingCharacters(in: .whitespacesAndNewlines)
-                    }
+        for (key, label) in sectionKeys {
+            guard text.contains(key) else { continue }
+            // "XX% used" 찾기
+            let pctPattern = "(\(NSRegularExpression.escapedPattern(for: key))).*?(\\d+)%\\s*used"
+            guard let regex = try? NSRegularExpression(pattern: pctPattern, options: [.dotMatchesLineSeparators]),
+                  let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+                  let pctRange = Range(match.range(at: 2), in: text) else { continue }
+            let pct = Int(text[pctRange]) ?? 0
 
-                    sections.append((label, percent, resetInfo))
+            // "Resets ..." 찾기 — key 이후에서 가장 가까운 것
+            var resetInfo = ""
+            if let keyRange = text.range(of: key) {
+                let after = String(text[keyRange.upperBound...])
+                let resetPattern = "Resets?\\s+(.+?)(?:\\n|$)"
+                if let rRegex = try? NSRegularExpression(pattern: resetPattern),
+                   let rMatch = rRegex.firstMatch(in: after, range: NSRange(after.startIndex..., in: after)),
+                   let rRange = Range(rMatch.range(at: 1), in: after) {
+                    resetInfo = String(after[rRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+                    // 쓸데없는 문자 정리
+                    resetInfo = resetInfo.replacingOccurrences(of: "[^a-zA-Z0-9:/ ().,]", with: "", options: .regularExpression)
                 }
             }
+
+            sections.append(UsageSection(label: label, percent: pct, resetInfo: resetInfo))
         }
 
-        // Extra usage
-        var extraUsage = ""
+        // Extra usage 상태
+        var extraInfo = ""
         if text.contains("Extra usage not enabled") {
-            extraUsage = "Extra usage: 비활성 (/extra-usage로 활성화)"
-        } else if text.contains("Extra usage") {
-            extraUsage = "Extra usage: 활성"
-        }
-
-        if sections.isEmpty {
-            return "📊 Claude 사용량\n\n⚠️ 사용량 데이터를 파싱할 수 없습니다.\n원본:\n\(text.prefix(500))"
-        }
-
-        // 결과 조립
-        var lines = ["📊 Claude 플랜 사용량", "═══════════════════════════════════"]
-
-        for s in sections {
-            let pct = Int(s.percent) ?? 0
-            let barLen = 30
-            let filled = Int(Double(barLen) * Double(pct) / 100.0)
-            let bar = String(repeating: "█", count: filled) + String(repeating: "░", count: barLen - filled)
-
-            lines.append("")
-            lines.append(s.title)
-            lines.append("  \(bar)  \(s.percent)%")
-            if !s.resetInfo.isEmpty {
-                lines.append("  리셋: \(s.resetInfo)")
+            extraInfo = "❌ Extra usage 비활성 · /extra-usage로 활성화"
+        } else if text.contains("extra usage") || text.contains("Extra usage") {
+            if let regex = try? NSRegularExpression(pattern: "Extra usage.*?(\\d+)%", options: [.dotMatchesLineSeparators]),
+               let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+               let pctRange = Range(match.range(at: 1), in: text) {
+                extraInfo = "✅ Extra usage 활성: \(text[pctRange])% 사용"
+            } else {
+                extraInfo = "✅ Extra usage 활성"
             }
         }
 
-        if !extraUsage.isEmpty {
+        // 파싱 실패 시
+        if sections.isEmpty {
+            // 원본에서 핵심만 추출
+            let cleanLines = text.components(separatedBy: "\n")
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty && $0.count > 3 }
+                .filter { !$0.contains("Tips") && !$0.contains("Welcome") && !$0.contains("─") && !$0.contains("╭") && !$0.contains("╰") }
+            if cleanLines.isEmpty {
+                return "📊 Claude 사용량 조회 실패\n\n터미널에서 직접 /usage를 실행해보세요."
+            }
+            return "📊 Claude 사용량\n\n" + cleanLines.prefix(15).joined(separator: "\n")
+        }
+
+        // 예쁜 결과 조립
+        var lines = [
+            "📊 Claude 플랜 사용량",
+            "══════════════════════════════════════",
+        ]
+
+        for s in sections {
+            let barLen = 32
+            let filled = Int(Double(barLen) * Double(s.percent) / 100.0)
+            let bar = String(repeating: "█", count: filled) + String(repeating: "░", count: barLen - filled)
+            let color = s.percent >= 80 ? "🔴" : s.percent >= 50 ? "🟡" : "🟢"
+
             lines.append("")
-            lines.append(extraUsage)
+            lines.append("\(color) \(s.label)")
+            lines.append("  \(bar) \(s.percent)% used")
+            if !s.resetInfo.isEmpty {
+                lines.append("  ⏰ 리셋: \(s.resetInfo)")
+            }
+        }
+
+        if !extraInfo.isEmpty {
+            lines.append("")
+            lines.append(extraInfo)
         }
 
         lines.append("")
-        lines.append("═══════════════════════════════════")
+        lines.append("══════════════════════════════════════")
 
         return lines.joined(separator: "\n")
     }

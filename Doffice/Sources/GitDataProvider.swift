@@ -161,6 +161,15 @@ class GitDataProvider: ObservableObject {
     private var projectPath: String = ""
     private var refreshTimer: AnyCancellable?
 
+    // Git availability check (cached)
+    private static var gitAvailable: Bool?
+    private static func checkGitAvailable() -> Bool {
+        if let cached = gitAvailable { return cached }
+        let result = TerminalTab.shellSync("git --version 2>/dev/null")
+        gitAvailable = result != nil && result!.contains("git version")
+        return gitAvailable!
+    }
+
     // Lane colors — computed each time to respect dark/light mode changes
     static var laneColors: [Color] {
         [Theme.accent, Theme.green, Theme.purple, Theme.orange,
@@ -187,6 +196,12 @@ class GitDataProvider: ObservableObject {
         self.projectPath = projectPath
         commitPage = 0
         allCommitsLoaded = false
+
+        guard Self.checkGitAvailable() else {
+            lastError = "Git이 설치되지 않았습니다"
+            return
+        }
+
         refreshAll()
         refreshTimer = Timer.publish(every: 8, on: .main, in: .common)
             .autoconnect()
@@ -202,6 +217,11 @@ class GitDataProvider: ObservableObject {
 
     func refreshAll() {
         guard !projectPath.isEmpty, !isLoading else { return }
+        guard Self.checkGitAvailable() else {
+            lastError = "Git이 설치되지 않았습니다"
+            isLoading = false
+            return
+        }
         isLoading = true
         lastError = nil
         let path = projectPath

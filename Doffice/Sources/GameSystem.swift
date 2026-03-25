@@ -1251,33 +1251,26 @@ struct AchievementCollectionView: View {
         mgr.achievements.filter { $0.rarity == rarity && (!showUnlockedOnly || $0.unlocked) }
     }
 
-    // 모달 배경 — bg보다 한 톤 더 어둡게
-    private var modalBg: Color {
-        AppSettings.shared.isDarkMode ? Color(hex: "0a0c12") : Color(hex: "f0f0f4")
-    }
-    private var panelBg: Color {
-        AppSettings.shared.isDarkMode ? Color(hex: "10131a") : Color(hex: "f6f6f9")
-    }
-
     var body: some View {
         VStack(spacing: 0) {
-            // ═══════════ 상단: 헤더 영역 ═══════════
-            headerSection
-                .padding(.horizontal, 24).padding(.top, 20).padding(.bottom, 14)
-                .background(
-                    panelBg
-                        .overlay(
-                            // 하단 그라데이션 경계
-                            VStack { Spacer(); LinearGradient(colors: [.clear, Theme.border.opacity(0.15)], startPoint: .top, endPoint: .bottom).frame(height: 1) }
-                        )
-                )
+            DSModalHeader(
+                icon: "trophy.fill",
+                iconColor: Theme.yellow,
+                title: "도전과제",
+                subtitle: "\(mgr.unlockedCount)/\(mgr.achievements.count) 달성 · \(completionPercent)%",
+                trailing: AnyView(
+                    DSProgressBar(value: Double(mgr.unlockedCount) / Double(max(1, mgr.achievements.count)), tint: Theme.yellow)
+                        .frame(width: 80)
+                ),
+                onClose: { dismiss() }
+            )
 
-            // ═══════════ 중단: 필터 바 ═══════════
+            // 필터 바
             filterBar
-                .padding(.horizontal, 24).padding(.vertical, 10)
-                .background(panelBg.opacity(0.7))
+                .padding(.horizontal, Theme.sp5).padding(.vertical, Theme.sp2)
+                .background(Theme.bgCard)
 
-            Rectangle().fill(Theme.border.opacity(0.2)).frame(height: 1)
+            Rectangle().fill(Theme.border).frame(height: 1)
 
             // ═══════════ 본문: 카드 그리드 ═══════════
             ScrollView(.vertical, showsIndicators: true) {
@@ -1303,7 +1296,7 @@ struct AchievementCollectionView: View {
                 .padding(.horizontal, 24).padding(.vertical, 16)
             }
         }
-        .background(modalBg)
+        .background(Theme.bg)
         .overlay(detailOverlay)
     }
 
@@ -1396,8 +1389,8 @@ struct AchievementCollectionView: View {
                 .foregroundColor(showUnlockedOnly ? Theme.accent : Theme.textDim)
                 .padding(.horizontal, 12).padding(.vertical, 7)
                 .background(
-                    Capsule().fill(showUnlockedOnly ? Theme.accent.opacity(0.12) : Theme.bgSurface)
-                        .overlay(Capsule().stroke(showUnlockedOnly ? Theme.accent.opacity(0.3) : Theme.border.opacity(0.2), lineWidth: 0.5))
+                    RoundedRectangle(cornerRadius: Theme.cornerMedium).fill(showUnlockedOnly ? Theme.accent.opacity(0.12) : Theme.bgSurface)
+                        .overlay(RoundedRectangle(cornerRadius: Theme.cornerMedium).stroke(showUnlockedOnly ? Theme.accent.opacity(0.3) : Theme.border.opacity(0.2), lineWidth: 0.5))
                 )
             }.buttonStyle(.plain)
         }
@@ -1418,9 +1411,9 @@ struct AchievementCollectionView: View {
             .foregroundColor(isSelected ? color : Theme.textSecondary)
             .padding(.horizontal, 12).padding(.vertical, 7)
             .background(
-                Capsule()
+                RoundedRectangle(cornerRadius: Theme.cornerMedium)
                     .fill(isSelected ? color.opacity(0.12) : .clear)
-                    .overlay(Capsule().stroke(isSelected ? color.opacity(0.4) : Theme.border.opacity(0.15), lineWidth: isSelected ? 1 : 0.5))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.cornerMedium).stroke(isSelected ? color.opacity(0.4) : Theme.border.opacity(0.15), lineWidth: isSelected ? 1 : 0.5))
             )
         }.buttonStyle(.plain)
     }
