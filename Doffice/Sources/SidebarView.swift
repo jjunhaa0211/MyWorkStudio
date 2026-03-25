@@ -314,6 +314,30 @@ struct SidebarView: View {
                     }
                 }
 
+                // 결제 기간
+                if AppSettings.shared.billingDay > 0 {
+                    Divider().overlay(Theme.border.opacity(0.6))
+                    VStack(spacing: 4) {
+                        HStack {
+                            Text("결제 기간").font(Theme.chrome(9, weight: .medium)).foregroundColor(Theme.textSecondary)
+                            Spacer()
+                            Text(tracker.billingPeriodLabel).font(Theme.chrome(8)).foregroundColor(Theme.textDim)
+                        }
+                        HStack {
+                            Text("토큰").font(Theme.chrome(7)).foregroundColor(Theme.textDim)
+                            Spacer()
+                            Text(tracker.formatTokens(tracker.billingPeriodTokens))
+                                .font(Theme.chrome(10, weight: .bold)).foregroundColor(Theme.orange)
+                        }
+                        HStack {
+                            Text("비용").font(Theme.chrome(7)).foregroundColor(Theme.textDim)
+                            Spacer()
+                            Text(String(format: "$%.4f", tracker.billingPeriodCost))
+                                .font(Theme.chrome(8)).foregroundColor(Theme.yellow)
+                        }
+                    }
+                }
+
                 if manager.totalTokensUsed > 0 {
                     Divider().overlay(Theme.border.opacity(0.6))
                     HStack {

@@ -432,6 +432,7 @@ struct MainView: View {
 
     private var titleBar: some View {
         HStack(spacing: 8) {
+            Color.clear.frame(width: 68, height: 1) // macOS 신호등 버튼 영역
 
             Button(action: { withAnimation(.easeInOut(duration: 0.2)) { sidebarCollapsed.toggle() } }) {
                 Image(systemName: sidebarCollapsed ? "sidebar.left" : "sidebar.leading")

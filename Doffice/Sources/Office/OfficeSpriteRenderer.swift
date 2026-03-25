@@ -111,7 +111,7 @@ struct OfficeSpriteRenderer {
         ctx.translateBy(x: offsetX, y: offsetY)
         ctx.scaleBy(x: scale, y: scale)
         drawZSortedScene(ctx)
-        drawOverlays(ctx)
+        drawOverlays(ctx, viewScale: scale)
     }
 
     // ═══════════════════════════════════════════════════
@@ -2091,7 +2091,11 @@ struct OfficeSpriteRenderer {
         }
     }
 
-    private func drawOverlays(_ ctx: GraphicsContext) {
+    private func drawOverlays(_ ctx: GraphicsContext, viewScale: CGFloat = 1.0) {
+        // 축소 시 라벨 간소화: scale 기준으로 단계적 숨김
+        let showNameLabels = viewScale >= 2.2
+        let showFileLabels = viewScale >= 2.2
+        let showToolBadges = viewScale >= 1.6
         func hasPrimaryBubble(for state: OfficeCharacterState) -> Bool {
             switch state {
             case .thinking, .typing, .reading, .searching, .celebrating, .error, .onBreak:
@@ -2374,7 +2378,7 @@ struct OfficeSpriteRenderer {
                 )
             }
 
-            if let badge = tab.officeLatestToolBadge,
+            if showToolBadges, let badge = tab.officeLatestToolBadge,
                !(badge.label == "DONE" && !tab.officeParallelTasks.isEmpty) {
                 let badgeWidth = max(18, CGFloat(badge.label.count) * 4.4 + 8)
                 let hasTopProjectBadge = tab.automationSourceTabId == nil && char.usesSeatPose
@@ -2394,7 +2398,7 @@ struct OfficeSpriteRenderer {
                 )
             }
 
-            if let fileName = tab.officeLatestFileName,
+            if showFileLabels, let fileName = tab.officeLatestFileName,
                (isSelected || tab.claudeActivity == .writing) {
                 let fileLabel = fileName.prefix(10)
                 let fileWidth = max(24, CGFloat(fileLabel.count) * 4.1 + 8)
@@ -2412,7 +2416,7 @@ struct OfficeSpriteRenderer {
                 )
             }
 
-            if tab.claudeActivity != .idle || tab.isProcessing || char.state == .onBreak || char.socialTimer > 0 || isSelected {
+            if showNameLabels, tab.claudeActivity != .idle || tab.isProcessing || char.state == .onBreak || char.socialTimer > 0 || isSelected {
                 ctx.draw(Text(tab.workerName).font(.system(size: 5, weight: .semibold, design: .monospaced))
                     .foregroundColor(tab.workerColor.opacity(isSelected ? 1 : 0.8)), at: CGPoint(x: bx, y: char.pixelY+6))
             }

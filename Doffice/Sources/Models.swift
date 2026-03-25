@@ -376,6 +376,69 @@ class TokenTracker: ObservableObject {
         return history.filter { dateFormatter.date(from: $0.date).map { $0 >= weekAgo } ?? false }.reduce(0) { $0 + $1.cost }
     }
 
+    // ── 결제 기간 (Billing Period) 사용량 ──
+
+    /// 결제일 기준 이번 달 시작일
+    var billingPeriodStart: Date {
+        let billingDay = max(1, AppSettings.shared.billingDay)
+        let cal = Calendar.current
+        let now = Date()
+        let todayDay = cal.component(.day, from: now)
+        let year = cal.component(.year, from: now)
+        let month = cal.component(.month, from: now)
+
+        if billingDay <= 0 {
+            // 미설정이면 이번 달 1일부터
+            return cal.date(from: DateComponents(year: year, month: month, day: 1))!
+        }
+        if todayDay >= billingDay {
+            // 이번 달 결제일 이후
+            return cal.date(from: DateComponents(year: year, month: month, day: billingDay))!
+        } else {
+            // 아직 결제일 전 → 지난달 결제일부터
+            let lastMonth = cal.date(byAdding: .month, value: -1, to: now)!
+            let lmYear = cal.component(.year, from: lastMonth)
+            let lmMonth = cal.component(.month, from: lastMonth)
+            let maxDay = cal.range(of: .day, in: .month, for: lastMonth)!.upperBound - 1
+            return cal.date(from: DateComponents(year: lmYear, month: lmMonth, day: min(billingDay, maxDay)))!
+        }
+    }
+
+    var billingPeriodTokens: Int {
+        let start = billingPeriodStart
+        return history.filter { dateFormatter.date(from: $0.date).map { $0 >= start } ?? false }.reduce(0) { $0 + $1.totalTokens }
+    }
+
+    var billingPeriodCost: Double {
+        let start = billingPeriodStart
+        return history.filter { dateFormatter.date(from: $0.date).map { $0 >= start } ?? false }.reduce(0) { $0 + $1.cost }
+    }
+
+    var billingPeriodDays: Int {
+        let cal = Calendar.current
+        return cal.dateComponents([.day], from: billingPeriodStart, to: Date()).day ?? 0
+    }
+
+    var billingPeriodLabel: String {
+        let df = DateFormatter()
+        df.dateFormat = "M/d"
+        let start = df.string(from: billingPeriodStart)
+        let billingDay = max(1, AppSettings.shared.billingDay)
+        let cal = Calendar.current
+        let nextBilling = cal.date(byAdding: .month, value: 1, to: billingPeriodStart)
+            ?? cal.date(byAdding: .day, value: 30, to: billingPeriodStart)!
+        let end = df.string(from: cal.date(byAdding: .day, value: -1, to: nextBilling)!)
+        return "\(start) ~ \(end)"
+    }
+
+    var totalAllTimeTokens: Int {
+        history.reduce(0) { $0 + $1.totalTokens }
+    }
+
+    var totalAllTimeCost: Double {
+        history.reduce(0) { $0 + $1.cost }
+    }
+
     private var safeDailyLimit: Int { max(1, dailyTokenLimit) }
     private var safeWeeklyLimit: Int { max(1, weeklyTokenLimit) }
 

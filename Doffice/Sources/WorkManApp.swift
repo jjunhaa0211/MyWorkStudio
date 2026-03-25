@@ -144,6 +144,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var menuBarManager = MenuBarManager()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // 번들 ID 변경 시 이전 데이터 마이그레이션
+        migrateFromOldBundleIfNeeded()
+
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
         menuBarManager.setup()
 
@@ -153,9 +156,96 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Claude 설치 확인
         ClaudeInstallChecker.shared.check()
         if ClaudeInstallChecker.shared.isInstalled {
-            print("[WorkMan] Claude Code \(ClaudeInstallChecker.shared.version) found at \(ClaudeInstallChecker.shared.path)")
+            print("[도피스] Claude Code \(ClaudeInstallChecker.shared.version) found at \(ClaudeInstallChecker.shared.path)")
         } else {
-            print("[WorkMan] ⚠️ Claude Code not installed")
+            print("[도피스] ⚠️ Claude Code not installed")
+        }
+    }
+
+    /// 이전 번들 ID (com.junha.workman)의 UserDefaults 데이터를 현재 앱으로 마이그레이션
+    private func migrateFromOldBundleIfNeeded() {
+        let migrationKey = "doffice.migrated.from.workman"
+        guard !UserDefaults.standard.bool(forKey: migrationKey) else { return }
+
+        // 이전 번들의 UserDefaults 읽기
+        guard let oldDefaults = UserDefaults(suiteName: "com.junha.workman") else {
+            UserDefaults.standard.set(true, forKey: migrationKey)
+            return
+        }
+
+        let oldDict = oldDefaults.dictionaryRepresentation()
+        guard !oldDict.isEmpty else {
+            UserDefaults.standard.set(true, forKey: migrationKey)
+            return
+        }
+
+        // 마이그레이션 대상 키 (중요 데이터)
+        let keysToMigrate = [
+            // 도전과제 & 레벨
+            "WorkManAchievements",
+            // 캐릭터
+            "WorkManCharacters",
+            "WorkManCharacterManualUnlocks",
+            // 토큰 사용량
+            "WorkManTokenHistory",
+            // 감사 로그
+            "WorkManAuditLog",
+            // 앱 설정
+            "isDarkMode", "fontSizeScale", "officeViewMode", "officePreset",
+            "backgroundTheme", "reviewerMaxPasses", "qaMaxPasses",
+            "automationRevisionLimit", "allowParallelSubagents",
+            "terminalSidebarLightweight", "rawTerminalMode",
+            "autoRefreshOnSettingsChange", "appDisplayName", "companyName",
+            "hasCompletedOnboarding",
+            // 커피 지원 & 휴게실
+            "breakRoomShowSofa", "breakRoomShowCoffeeMachine", "breakRoomShowPlant",
+            "breakRoomShowSideTable", "breakRoomShowClock", "breakRoomShowPicture",
+            "breakRoomShowNeonSign", "breakRoomShowRug", "breakRoomShowBookshelf",
+            "breakRoomShowAquarium", "breakRoomShowArcade", "breakRoomShowWhiteboard",
+            "breakRoomShowLamp", "breakRoomShowCat", "breakRoomShowTV",
+            "breakRoomShowFan", "breakRoomShowCalendar", "breakRoomShowPoster",
+            // 토큰 한도
+            "userDailyTokenLimit", "userWeeklyTokenLimit",
+            // 뷰 모드
+            "viewModeRaw", "officeExpanded", "sidebarWidth",
+            // 세션 관련
+            "workman.selectedGroupPath",
+            "workman.sidebarStatusFilter", "workman.sidebarSortOption",
+            // 새 세션 프리셋
+            "workman.new-session.favorite-projects",
+            "workman.new-session.recent-projects",
+            "workman.new-session.last-draft",
+            // 자동화 템플릿
+            "workman.automation.templates.v1",
+            // 오피스 레이아웃
+            "workman.office.layout.cozy.v1",
+            "workman.office.layout.startup.v1",
+            "workman.office.layout.enterprise.v1",
+        ]
+
+        var migratedCount = 0
+        for key in keysToMigrate {
+            if let value = oldDict[key], UserDefaults.standard.object(forKey: key) == nil {
+                UserDefaults.standard.set(value, forKey: key)
+                migratedCount += 1
+            }
+        }
+
+        // @AppStorage 키도 포함: 패턴 매칭으로 나머지 키 마이그레이션
+        for (key, value) in oldDict {
+            if key.hasPrefix("workman.") || key.hasPrefix("WorkMan"),
+               UserDefaults.standard.object(forKey: key) == nil {
+                UserDefaults.standard.set(value, forKey: key)
+                migratedCount += 1
+            }
+        }
+
+        // 세션 JSON 파일도 마이그레이션 (Application Support/WorkMan → 동일 경로 유지)
+        // SessionStore는 이미 "WorkMan" 경로를 사용하므로 파일 이동 불필요
+
+        UserDefaults.standard.set(true, forKey: migrationKey)
+        if migratedCount > 0 {
+            print("[도피스] ✅ 이전 데이터 마이그레이션 완료: \(migratedCount)개 항목")
         }
     }
 

@@ -21,7 +21,9 @@ struct TerminalAreaView: View {
             case .git: GitPanelView()
             }
         }
-        .sheet(isPresented: $manager.showNewTabSheet) { NewTabSheet() }
+        .sheet(isPresented: $manager.showNewTabSheet) {
+            NewTabSheet()
+        }
     }
 
     private var topBar: some View {
@@ -382,6 +384,53 @@ struct EventStreamView: View {
             """
             tab.appendBlock(.status(message: text))
         },
+        SlashCommand("usage", "Claude 사용량 요약 (결제 기간 기준)", category: "화면") { tab, _, _ in
+            let tracker = TokenTracker.shared
+            let billingDay = AppSettings.shared.billingDay
+            let level = AchievementManager.shared.currentLevel
+
+            var lines = [
+                "📊 Claude 사용량 (Usage)",
+                "═══════════════════════════════",
+                "",
+                "🔹 이 세션",
+                "   토큰: \(tracker.formatTokens(tab.tokensUsed)) (In \(tracker.formatTokens(tab.inputTokensUsed)) / Out \(tracker.formatTokens(tab.outputTokensUsed)))",
+                "   비용: $\(String(format: "%.4f", tab.totalCost))",
+                "",
+                "🔹 오늘",
+                "   토큰: \(tracker.formatTokens(tracker.todayTokens)) / \(tracker.formatTokens(tracker.dailyTokenLimit))",
+                "   비용: $\(String(format: "%.4f", tracker.todayCost))",
+                "   남은 양: \(tracker.formatTokens(tracker.dailyRemaining))",
+                "",
+                "🔹 이번 주",
+                "   토큰: \(tracker.formatTokens(tracker.weekTokens)) / \(tracker.formatTokens(tracker.weeklyTokenLimit))",
+                "   비용: $\(String(format: "%.4f", tracker.weekCost))",
+                "   남은 양: \(tracker.formatTokens(tracker.weeklyRemaining))",
+            ]
+
+            if billingDay > 0 {
+                lines += [
+                    "",
+                    "🔹 결제 기간 (\(tracker.billingPeriodLabel))",
+                    "   토큰: \(tracker.formatTokens(tracker.billingPeriodTokens))",
+                    "   비용: $\(String(format: "%.4f", tracker.billingPeriodCost))",
+                    "   경과: \(tracker.billingPeriodDays)일",
+                ]
+            }
+
+            lines += [
+                "",
+                "🔹 누적 (전체)",
+                "   토큰: \(tracker.formatTokens(tracker.totalAllTimeTokens))",
+                "   비용: $\(String(format: "%.4f", tracker.totalAllTimeCost))",
+                "   기록일: \(tracker.history.count)일",
+                "",
+                "═══════════════════════════════",
+                "🏆 Lv.\(level.level) \(level.title) \(level.badge)",
+            ]
+
+            tab.appendBlock(.status(message: lines.joined(separator: "\n")))
+        },
         SlashCommand("config", "현재 설정 요약", category: "화면") { tab, _, _ in
             var lines = [
                 "⚙️ 설정 요약",
@@ -603,12 +652,21 @@ struct EventStreamView: View {
                 elapsedSeconds = Int(Date().timeIntervalSince(tab.startTime))
             }
         }
-        // [Feature 5] 승인 모달
-        .sheet(item: $tab.pendingApproval) { approval in
-            ApprovalSheet(approval: approval)
+        // 승인 모달 + 슬립워크 (overlay로 처리하여 부모 sheet과 충돌 방지)
+        .overlay {
+            if let approval = tab.pendingApproval {
+                Color.black.opacity(0.4).ignoresSafeArea()
+                ApprovalSheet(approval: approval)
+                    .shadow(color: .black.opacity(0.3), radius: 20, y: 10)
+            }
         }
-        .sheet(isPresented: $showSleepWorkSetup) {
-            SleepWorkSetupSheet(tab: tab)
+        .overlay {
+            if showSleepWorkSetup {
+                Color.black.opacity(0.4).ignoresSafeArea()
+                    .onTapGesture { showSleepWorkSetup = false }
+                SleepWorkSetupSheet(tab: tab, onDismiss: { showSleepWorkSetup = false })
+                    .shadow(color: .black.opacity(0.3), radius: 20, y: 10)
+            }
         }
         // 보안 경고 오버레이
         .overlay(alignment: .top) {
@@ -3776,9 +3834,14 @@ struct NewTabSheet: View {
 
 struct SleepWorkSetupSheet: View {
     @ObservedObject var tab: TerminalTab
-    @Environment(\.dismiss) var dismiss
+    @Environment(\.dismiss) var envDismiss
+    var onDismiss: (() -> Void)?
     @State private var task = ""
     @State private var budgetText = ""
+
+    private func close() {
+        if let onDismiss { onDismiss() } else { envDismiss() }
+    }
 
     var body: some View {
         VStack(spacing: 16) {
@@ -3786,7 +3849,7 @@ struct SleepWorkSetupSheet: View {
                 Image(systemName: "moon.zzz.fill").font(.system(size: 20)).foregroundColor(Theme.purple)
                 Text("슬립워크").font(Theme.mono(14, weight: .bold)).foregroundColor(Theme.textPrimary)
                 Spacer()
-                Button(action: { dismiss() }) {
+                Button(action: { close() }) {
                     Image(systemName: "xmark.circle.fill").font(.system(size: 16)).foregroundColor(Theme.textDim)
                 }.buttonStyle(.plain)
             }
@@ -3822,7 +3885,7 @@ struct SleepWorkSetupSheet: View {
                 Button(action: {
                     let budget = parseBudget(budgetText)
                     tab.startSleepWork(task: task, tokenBudget: budget)
-                    dismiss()
+                    close()
                 }) {
                     HStack(spacing: 6) {
                         Image(systemName: "moon.zzz.fill").font(.system(size: 12))
