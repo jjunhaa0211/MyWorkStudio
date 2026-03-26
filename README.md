@@ -5,7 +5,8 @@
 <h1 align="center">Doffice (도피스)</h1>
 
 <p align="center">
-  <strong>Claude Code 세션을 시각적으로 관리하는 macOS 네이티브 앱</strong>
+  <strong>Claude Code 세션을 시각적으로 관리하는 macOS 네이티브 앱</strong><br>
+  <sub>AI 코딩 어시스턴트를 위한 픽셀 아트 오피스</sub>
 </p>
 
 <p align="center">
@@ -20,40 +21,40 @@
 ## 주요 기능
 
 ### 멀티 세션 관리
-- 동시에 여러 Claude Code 세션을 운영하고 실시간으로 모니터링
-- Grid / Single / Office / Strip 4가지 뷰 모드
-- Shift+클릭으로 원하는 세션만 골라 멀티 그리드 비교
-- 세션 카드 우클릭 → Finder 열기, 경로 복사, 터미널 열기
+- 동시에 여러 Claude Code 세션을 운영하고 실시간 모니터링
+- Grid / Single / Office / Strip **4가지 뷰 모드**
+- Shift+클릭으로 세션 다중 선택 & 비교
+- 세션 카드 우클릭 → Finder, 경로 복사, 터미널 열기
 
 ### 픽셀 아트 오피스
 - 각 세션이 픽셀 캐릭터로 표현되는 가상 오피스
-- 개발자, QA, 기획자, 디자이너, 리뷰어, 보고자, SRE 등 직업 시스템
+- 개발자, QA, 기획자, 디자이너, 리뷰어, SRE 등 **직업 시스템**
 - 작업 상태에 따라 캐릭터가 자동으로 움직이고 행동
-- 적응형 FPS (활성 24fps / 유휴 6fps)
+- 81종 캐릭터 수집, 300개 도전과제 & 레벨 시스템
 
 ### Git 클라이언트
 - GitKraken 스타일 3패널 레이아웃 (사이드바 + 커밋 그래프 + 상세)
-- 커밋 그래프 시각화 (레인, 머지 곡선, 태그 다이아몬드 노드)
-- 직접 Git 작업: stage / unstage / commit / branch / tag / stash
+- 커밋 그래프 시각화 (레인, 머지 곡선, 태그 노드)
+- stage / unstage / commit / branch / tag / stash
 - Diff 뷰어 (추가/삭제 하이라이팅, Hunk 구분)
 
-### 커스텀 테마 엔진 (v0.0.21 신규)
-- Hex 코드로 강조 색상(Accent Color) 자유 설정
-- 그라데이션 배경 지원 (시작/끝 색상 지정)
-- 시스템 폰트 목록에서 커스텀 폰트 선택
-- 폰트 크기 슬라이더 (8pt ~ 24pt)
-- JSON 파일로 테마 내보내기/불러오기 (Import/Export)
-- 배경색 밝기에 따른 자동 텍스트 대비 처리
+### 커스텀 테마 엔진
+- **Hex 코드**로 강조 색상 자유 설정
+- **그라데이션** 배경 지원 (시작/끝 색상)
+- 시스템 폰트 목록에서 **커스텀 폰트** 선택 + 크기 조절
+- JSON 파일로 테마 **내보내기/불러오기**
+- 배경 밝기 기반 **자동 텍스트 대비** 처리
 
-### 실시간 추적
-- 토큰 사용량 (일간/주간) 실시간 모니터링
-- 비용 추산 및 한도 설정
+### 커스텀 단축키
+- 모든 주요 기능에 대한 **사용자 정의 단축키** 매핑
+- 키 레코더 UI — 원하는 키 조합을 직접 눌러서 캡처
+- **충돌 감지** — 다른 기능 및 macOS 시스템 단축키와의 중복 경고
+- 개별/전체 기본값 복원 및 할당 해제(Unassigned) 지원
+
+### 실시간 추적 & 보안
+- 토큰 사용량 (일간/주간) 실시간 모니터링 & 비용 한도
 - 메뉴바 위젯으로 빠른 상태 확인
-
-### 게임 요소
-- 81종 캐릭터 수집 (사람, 고양이, 강아지, 로봇, 드래곤 등 18종족)
-- 300개 도전과제 & 레벨 시스템
-- 악세서리 커스터마이징
+- 다국어 지원 (한국어 / English / 日本語)
 
 ---
 
@@ -66,12 +67,9 @@ brew tap jjunhaa0211/tap
 brew install --cask doffice
 ```
 
-> 기존 MyWorkStudio 사용자: `brew uninstall --cask myworkstudio && brew install --cask doffice`
-
 ### 수동 설치
 
-1. [최신 릴리스](https://github.com/jjunhaa0211/Doffice/releases/latest)에서 `Doffice-vX.X.X.zip` 다운로드
-2. 압축 해제 후 `Doffice.app`을 Applications 폴더로 이동
+[최신 릴리스](https://github.com/jjunhaa0211/Doffice/releases/latest)에서 `Doffice-v0.0.22.zip` 다운로드 → 압축 해제 → `Doffice.app`을 Applications로 이동
 
 ### 소스에서 빌드
 
@@ -86,26 +84,31 @@ open Doffice/Doffice.xcodeproj
 
 ## 요구사항
 
-- **macOS 14.0** (Sonoma) 이상
-- **Claude Code** CLI 설치 필요
-
-```bash
-npm install -g @anthropic-ai/claude-code
-```
+| 항목 | 최소 사양 |
+|------|----------|
+| **macOS** | 14.0 (Sonoma) |
+| **Claude Code** | `npm install -g @anthropic-ai/claude-code` |
 
 ---
 
 ## 키보드 단축키
 
+> 모든 단축키는 **설정 → 단축키** 탭에서 자유롭게 변경할 수 있습니다.
+
 | 단축키 | 동작 |
 |--------|------|
-| `Cmd+T` | 새 세션 |
-| `Cmd+W` | 세션 닫기 |
-| `Cmd+1~9` | 세션 전환 |
-| `Cmd+R` | 새로고침 |
-| `Cmd+P` | 커맨드 팔레트 |
-| `Cmd+\` | 사이드바 토글 |
-| `Cmd+Shift+E` | 로그 내보내기 |
+| `⌘T` | 새 세션 |
+| `⌘W` | 세션 닫기 |
+| `⌘1~9` | 세션 전환 |
+| `⌘R` | 세션 재시작 |
+| `⌘P` | 커맨드 팔레트 |
+| `⌘J` | 액션 센터 |
+| `⌘\` | 분할 뷰 전환 |
+| `⌘⇧O` | 오피스 뷰 전환 |
+| `⌘⇧T` | 터미널 뷰 전환 |
+| `⌘⇧E` | 세션 로그 내보내기 |
+| `⌘K` | 터미널 지우기 |
+| `⌘.` | 작업 취소 |
 
 ---
 
@@ -114,6 +117,7 @@ npm install -g @anthropic-ai/claude-code
 - **SwiftUI** — 네이티브 macOS UI
 - **Canvas** — 픽셀 아트 렌더링 & Git 그래프
 - **Combine** — 리액티브 상태 관리
+- **NSEvent Monitor** — 동적 단축키 라우팅
 - **Process/Pipe** — Git CLI 래핑
 - **Claude Code CLI** — AI 세션 관리
 
@@ -123,12 +127,13 @@ npm install -g @anthropic-ai/claude-code
 
 | 버전 | 주요 변경 |
 |------|----------|
-| **v0.0.21** | 커스텀 테마 엔진 (Hex 색상, 그라데이션, 폰트, JSON Import/Export) |
-| v3.2.1 | 오피스 프리셋, 권한, 아키타입 로컬라이제이션 |
-| v3.2.0 | 전체 UI 로컬라이제이션 (ko/en/ja) |
-| v3.0.0 | Doffice 리브랜딩, Git 클라이언트, UI 전면 개선 |
-| v2.0.1 | 오피스 뷰, 다크/라이트 모드 |
-| v1.0.0 | 최초 릴리스 |
+| **v0.0.22** | 커스텀 단축키 시스템 (키 레코더, 충돌 감지, 카테고리별 설정) |
+| v0.0.21 | 커스텀 테마 엔진 (Hex 색상, 그라데이션, 폰트, JSON Import/Export) |
+| v0.0.20 | 오피스 프리셋, 권한, 아키타입 로컬라이즈 |
+| v0.0.19 | 완전 다국어 — 모든 UI 문자열 ko/en/ja |
+| v0.0.10 | Doffice 리브랜딩, Git 클라이언트, UI 전면 개편 |
+| v0.0.8 | 오피스 뷰, 다크/라이트 모드 |
+| v0.0.1 | 최초 릴리스 (MyWorkStudio) |
 
 ---
 
