@@ -9,7 +9,11 @@ class SessionManager: ObservableObject {
     @Published var activeTabId: String?
     @Published var showNewTabSheet: Bool = false
     @Published var showSessionSearch: Bool = false
-    @Published var searchQuery: String = ""
+    @Published var searchQuery: String = "" {
+        didSet { debounceSearchResults() }
+    }
+    @Published private(set) var cachedSearchResults: [SearchResult] = []
+    private var searchDebounceTimer: Timer?
     @Published var groups: [SessionGroup] = []
     @Published var selectedGroupPath: String? = nil {  // nil = 전체 보기
         didSet {
@@ -95,10 +99,22 @@ class SessionManager: ObservableObject {
         let matchRange: Range<String.Index>
     }
 
-    var searchResults: [SearchResult] {
-        let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !query.isEmpty else { return [] }
+    var searchResults: [SearchResult] { cachedSearchResults }
 
+    private func debounceSearchResults() {
+        searchDebounceTimer?.invalidate()
+        let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !query.isEmpty else {
+            cachedSearchResults = []
+            return
+        }
+        searchDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
+            guard let self else { return }
+            self.recomputeSearchResults(query: query)
+        }
+    }
+
+    private func recomputeSearchResults(query: String) {
         var results: [SearchResult] = []
         for tab in userVisibleTabs {
             let tabName = tab.projectName.isEmpty ? tab.workerName : tab.projectName
@@ -120,7 +136,7 @@ class SessionManager: ObservableObject {
                 }
             }
         }
-        return results
+        cachedSearchResults = results
     }
 
     func navigateToSearchResult(_ result: SearchResult) {
@@ -212,6 +228,9 @@ class SessionManager: ObservableObject {
         let projectName: String
         let tabs: [TerminalTab]
         var hasActiveTab: Bool
+        init(id: String, projectName: String, tabs: [TerminalTab], hasActiveTab: Bool) {
+            self.id = id; self.projectName = projectName; self.tabs = tabs; self.hasActiveTab = hasActiveTab
+        }
     }
 
     struct ReportReference: Identifiable {

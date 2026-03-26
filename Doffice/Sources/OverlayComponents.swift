@@ -396,6 +396,7 @@ struct CommandPaletteView: View {
                 Text(action.subtitle)
                     .font(Theme.mono(9))
                     .foregroundColor(Theme.textDim)
+                    .lineLimit(1)
             }
             Spacer()
         }

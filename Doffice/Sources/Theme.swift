@@ -48,8 +48,27 @@ struct CustomThemeConfig: Codable, Equatable {
 class AppSettings: ObservableObject {
     static let shared = AppSettings()
 
+    // ── Batch Update Support ──
+    // Prevents multiple objectWillChange.send() calls during bulk settings changes.
+    private var _batchUpdateInProgress = false
+
+    /// Perform multiple settings changes with only a single objectWillChange notification.
+    func performBatchUpdate(_ changes: () -> Void) {
+        _batchUpdateInProgress = true
+        changes()
+        _batchUpdateInProgress = false
+        objectWillChange.send()
+        Theme.invalidateFontCache()
+    }
+
+    /// Sends objectWillChange only if not inside a batch update.
+    private func notifyIfNeeded() {
+        guard !_batchUpdateInProgress else { return }
+        objectWillChange.send()
+    }
+
     @AppStorage("isDarkMode") var isDarkMode: Bool = false {
-        didSet { objectWillChange.send() }
+        didSet { notifyIfNeeded() }
     }
 
     // themeMode: "light" | "dark" | "custom"
@@ -62,31 +81,31 @@ class AppSettings: ObservableObject {
             _themeMode = newValue
             if newValue == "light" { isDarkMode = false }
             else if newValue == "dark" { isDarkMode = true }
-            objectWillChange.send()
+            notifyIfNeeded()
         }
     }
     @AppStorage("fontSizeScale") var fontSizeScale: Double = 1.5 {
-        didSet { objectWillChange.send() }
+        didSet { notifyIfNeeded() }
     }
 
     // ── 오피스 뷰 모드 ──
     @AppStorage("officeViewMode") var officeViewMode: String = "grid" {
-        didSet { objectWillChange.send() }
+        didSet { notifyIfNeeded() }
     }
     @AppStorage("officePreset") var officePreset: String = OfficePreset.cozy.rawValue {
-        didSet { objectWillChange.send() }
+        didSet { notifyIfNeeded() }
     }
 
     // ── 배경 테마 ──
     @AppStorage("backgroundTheme") var backgroundTheme: String = "auto" {
-        didSet { objectWillChange.send() }
+        didSet { notifyIfNeeded() }
     }
 
     // ── 커스텀 테마 (JSON) ──
     @AppStorage("customThemeJSON") var customThemeJSON: String = "" {
         didSet {
             _cachedCustomTheme = nil
-            objectWillChange.send()
+            notifyIfNeeded()
         }
     }
 
@@ -138,27 +157,27 @@ class AppSettings: ObservableObject {
 
     // ── 자동화/성능 보호 설정 ──
     @AppStorage("reviewerMaxPasses") var reviewerMaxPasses: Int = 2 {
-        didSet { objectWillChange.send() }
+        didSet { notifyIfNeeded() }
     }
     @AppStorage("qaMaxPasses") var qaMaxPasses: Int = 2 {
-        didSet { objectWillChange.send() }
+        didSet { notifyIfNeeded() }
     }
     @AppStorage("automationRevisionLimit") var automationRevisionLimit: Int = 3 {
-        didSet { objectWillChange.send() }
+        didSet { notifyIfNeeded() }
     }
     @AppStorage("allowParallelSubagents") var allowParallelSubagents: Bool = false {
-        didSet { objectWillChange.send() }
+        didSet { notifyIfNeeded() }
     }
     @AppStorage("terminalSidebarLightweight") var terminalSidebarLightweight: Bool = true {
-        didSet { objectWillChange.send() }
+        didSet { notifyIfNeeded() }
     }
 
     // ── 성능 모드 ──
     @AppStorage("performanceMode") var performanceMode: Bool = false {
-        didSet { objectWillChange.send() }
+        didSet { notifyIfNeeded() }
     }
     @AppStorage("autoPerformanceMode") var autoPerformanceMode: Bool = true {
-        didSet { objectWillChange.send() }
+        didSet { notifyIfNeeded() }
     }
 
     var effectivePerformanceMode: Bool {
@@ -174,7 +193,7 @@ class AppSettings: ObservableObject {
     // "auto" = 시스템 언어 따르기, "ko"/"en"/"ja" = 강제 지정
     @AppStorage("appLanguage") var appLanguage: String = "auto" {
         didSet {
-            objectWillChange.send()
+            notifyIfNeeded()
             applyLanguage()
         }
     }
@@ -198,12 +217,12 @@ class AppSettings: ObservableObject {
 
     // ── 터미널 모드 ──
     @AppStorage("rawTerminalMode") var rawTerminalMode: Bool = false {
-        didSet { objectWillChange.send() }
+        didSet { notifyIfNeeded() }
     }
 
     // ── 자동 새로고침 ──
     @AppStorage("autoRefreshOnSettingsChange") var autoRefreshOnSettingsChange: Bool = true {
-        didSet { objectWillChange.send() }
+        didSet { notifyIfNeeded() }
     }
 
     /// 설정 변경 후 새로고침 요청 (autoRefresh가 꺼져 있으면 알림만)
@@ -245,31 +264,31 @@ class AppSettings: ObservableObject {
 
     // ── 앱/회사 이름 ──
     @AppStorage("appDisplayName") var appDisplayName: String = "도피스" {
-        didSet { objectWillChange.send() }
+        didSet { notifyIfNeeded() }
     }
     @AppStorage("companyName") var companyName: String = "" {
-        didSet { objectWillChange.send() }
+        didSet { notifyIfNeeded() }
     }
     @AppStorage("coffeeSupportEnabled") var coffeeSupportEnabled: Bool = true {
-        didSet { objectWillChange.send() }
+        didSet { notifyIfNeeded() }
     }
     @AppStorage("coffeeSupportButtonTitle") var coffeeSupportButtonTitle: String = "후원하기" {
-        didSet { objectWillChange.send() }
+        didSet { notifyIfNeeded() }
     }
     @AppStorage("coffeeSupportMessage") var coffeeSupportMessage: String = "카카오뱅크 7777015832634로 커피 후원해주세요. 카카오뱅크나 토스를 열면 계좌가 먼저 복사됩니다." {
-        didSet { objectWillChange.send() }
+        didSet { notifyIfNeeded() }
     }
     @AppStorage("coffeeSupportBankName") var coffeeSupportBankName: String = "카카오뱅크" {
-        didSet { objectWillChange.send() }
+        didSet { notifyIfNeeded() }
     }
     @AppStorage("coffeeSupportAccountNumber") var coffeeSupportAccountNumber: String = "7777015832634" {
-        didSet { objectWillChange.send() }
+        didSet { notifyIfNeeded() }
     }
     @AppStorage("coffeeSupportURL") var coffeeSupportURL: String = "" {
-        didSet { objectWillChange.send() }
+        didSet { notifyIfNeeded() }
     }
     @AppStorage("coffeeSupportCopyValue") var coffeeSupportCopyValue: String = "" {
-        didSet { objectWillChange.send() }
+        didSet { notifyIfNeeded() }
     }
     @AppStorage("coffeeSupportPresetVersion") private var coffeeSupportPresetVersion: Int = 0
 
@@ -278,18 +297,18 @@ class AppSettings: ObservableObject {
 
     // ── 보안 설정 ──
     @AppStorage("dailyCostLimit") var dailyCostLimit: Double = 0 {  // 0 = 무제한
-        didSet { objectWillChange.send() }
+        didSet { notifyIfNeeded() }
     }
     @AppStorage("perSessionCostLimit") var perSessionCostLimit: Double = 0 {
-        didSet { objectWillChange.send() }
+        didSet { notifyIfNeeded() }
     }
     @AppStorage("costWarningAt80") var costWarningAt80: Bool = true {
-        didSet { objectWillChange.send() }
+        didSet { notifyIfNeeded() }
     }
 
     // ── 온보딩 ──
     @AppStorage("hasCompletedOnboarding") var hasCompletedOnboarding: Bool = false {
-        didSet { objectWillChange.send() }
+        didSet { notifyIfNeeded() }
     }
 
     // ── 결제일 알림 ──
@@ -1151,22 +1170,62 @@ struct CoffeeSupportTier: Identifiable, Hashable {
 // ═══════════════════════════════════════════════════════
 
 enum Theme {
+    // ── Theme Cache (시그니처 기반 — settings 실제 변경 시에만 갱신) ──
     private static var _cachedDark: Bool = false
-    private static var _cacheValid: Bool = false
+    private static var _cachedIsCustom: Bool = false
+    private static var _cachedCustomConfig: CustomThemeConfig?
+    private static var _cachedScale: CGFloat = 1.5
+    private static var _cacheSignature: Int = -1
 
-    private static var dark: Bool {
-        if !_cacheValid {
-            _cachedDark = AppSettings.shared.isDarkMode
-            _cacheValid = true
-            DispatchQueue.main.async { _cacheValid = false }
-        }
-        return _cachedDark
+    /// settings의 테마 관련 값들로 시그니처 생성 — 변경 감지에 사용
+    private static func settingsSignature() -> Int {
+        let s = AppSettings.shared
+        var h = Hasher()
+        h.combine(s.isDarkMode)
+        h.combine(s.themeMode)
+        h.combine(s.fontSizeScale)
+        h.combine(s.customThemeJSON)
+        return h.finalize()
     }
-    private static var scale: CGFloat { CGFloat(AppSettings.shared.fontSizeScale) }
-    /// 커스텀 모드일 때만 커스텀 hex 적용
-    static var isCustomMode: Bool { AppSettings.shared.themeMode == "custom" }
+
+    private static func ensureCache() {
+        let sig = settingsSignature()
+        guard sig != _cacheSignature else { return }
+        let settings = AppSettings.shared
+        _cachedDark = settings.isDarkMode
+        _cachedIsCustom = settings.themeMode == "custom"
+        _cachedCustomConfig = _cachedIsCustom ? settings.customTheme : nil
+        _cachedScale = CGFloat(settings.fontSizeScale)
+        _fontCache.removeAll()
+        _cacheSignature = sig
+    }
+
+    /// 외부에서 강제 캐시 무효화
+    static func invalidateCache() { _cacheSignature = -1 }
+
+    private static var dark: Bool { ensureCache(); return _cachedDark }
+    static var isCustomMode: Bool { ensureCache(); return _cachedIsCustom }
+    private static var cachedCustomConfig: CustomThemeConfig? { ensureCache(); return _cachedCustomConfig }
+
+    private static var scale: CGFloat { ensureCache(); return _cachedScale }
     /// UI 크롬(툴바, 사이드바, 필터 등)용 완화된 스케일 — 콘텐츠보다 덜 커짐
     private static var chromeScale: CGFloat { 1 + (scale - 1) * 0.5 }
+
+    // ── Font Cache ──
+    private static var _fontCache: [String: Font] = [:]
+
+    private static func cachedFont(key: String, create: () -> Font) -> Font {
+        if let cached = _fontCache[key] { return cached }
+        let font = create()
+        _fontCache[key] = font
+        return font
+    }
+
+    /// Clear font cache (call when font settings change)
+    static func invalidateFontCache() {
+        _fontCache.removeAll()
+        _cacheSignature = -1
+    }
 
     // ═══════════════════════════════════════════════════════
     // 도피스 디자인 시스템 (Vercel Geist 재해석)
@@ -1186,28 +1245,28 @@ enum Theme {
     // ── Background Surfaces (4-layer depth system) ──
     // Layer 0: App background (deepest)
     static var bg: Color {
-        if isCustomMode, let hex = AppSettings.shared.customTheme.bgHex, !hex.isEmpty { return Color(hex: hex) }
+        if let config = cachedCustomConfig, let hex = config.bgHex, !hex.isEmpty { return Color(hex: hex) }
         return dark ? Color(hex: "000000") : Color(hex: "fafafa")
     }
     // Layer 1: Card / elevated panel
     static var bgCard: Color {
-        if isCustomMode, let hex = AppSettings.shared.customTheme.bgCardHex, !hex.isEmpty { return Color(hex: hex) }
+        if let config = cachedCustomConfig, let hex = config.bgCardHex, !hex.isEmpty { return Color(hex: hex) }
         return dark ? Color(hex: "0a0a0a") : Color(hex: "ffffff")
     }
     // Layer 2: Raised surface / nested element
     static var bgSurface: Color {
-        if isCustomMode, let hex = AppSettings.shared.customTheme.bgSurfaceHex, !hex.isEmpty { return Color(hex: hex) }
+        if let config = cachedCustomConfig, let hex = config.bgSurfaceHex, !hex.isEmpty { return Color(hex: hex) }
         return dark ? Color(hex: "111111") : Color(hex: "f5f5f5")
     }
     // Layer 3: Tertiary surface (badges, code blocks)
     static var bgTertiary: Color {
-        if isCustomMode, let hex = AppSettings.shared.customTheme.bgTertiaryHex, !hex.isEmpty { return Color(hex: hex) }
+        if let config = cachedCustomConfig, let hex = config.bgTertiaryHex, !hex.isEmpty { return Color(hex: hex) }
         return dark ? Color(hex: "1a1a1a") : Color(hex: "ebebeb")
     }
 
     // ── Functional backgrounds ──
     static var bgTerminal: Color {
-        if isCustomMode, let hex = AppSettings.shared.customTheme.bgHex, !hex.isEmpty { return Color(hex: hex) }
+        if let config = cachedCustomConfig, let hex = config.bgHex, !hex.isEmpty { return Color(hex: hex) }
         return dark ? Color(hex: "0a0a0a") : Color(hex: "fafafa")
     }
     static var bgInput: Color { dark ? Color(hex: "000000") : Color(hex: "ffffff") }
@@ -1219,11 +1278,11 @@ enum Theme {
 
     // ── Borders (single-weight system: always 1px, vary opacity) ──
     static var border: Color {
-        if isCustomMode, let hex = AppSettings.shared.customTheme.borderHex, !hex.isEmpty { return Color(hex: hex) }
+        if let config = cachedCustomConfig, let hex = config.borderHex, !hex.isEmpty { return Color(hex: hex) }
         return dark ? Color(hex: "282828") : Color(hex: "e5e5e5")
     }
     static var borderStrong: Color {
-        if isCustomMode, let hex = AppSettings.shared.customTheme.borderStrongHex, !hex.isEmpty { return Color(hex: hex) }
+        if let config = cachedCustomConfig, let hex = config.borderStrongHex, !hex.isEmpty { return Color(hex: hex) }
         return dark ? Color(hex: "3e3e3e") : Color(hex: "d0d0d0")
     }
     static var borderActive: Color { dark ? Color(hex: "555555") : Color(hex: "999999") }
@@ -1232,26 +1291,26 @@ enum Theme {
 
     // ── Text (5-step hierarchy) ──
     static var textPrimary: Color {
-        if isCustomMode, let hex = AppSettings.shared.customTheme.textPrimaryHex, !hex.isEmpty { return Color(hex: hex) }
+        if let config = cachedCustomConfig, let hex = config.textPrimaryHex, !hex.isEmpty { return Color(hex: hex) }
         return dark ? Color(hex: "ededed") : Color(hex: "171717")
     }
     static var textSecondary: Color {
-        if isCustomMode, let hex = AppSettings.shared.customTheme.textSecondaryHex, !hex.isEmpty { return Color(hex: hex) }
+        if let config = cachedCustomConfig, let hex = config.textSecondaryHex, !hex.isEmpty { return Color(hex: hex) }
         return dark ? Color(hex: "a1a1a1") : Color(hex: "636363")
     }
     static var textDim: Color {
-        if isCustomMode, let hex = AppSettings.shared.customTheme.textDimHex, !hex.isEmpty { return Color(hex: hex) }
+        if let config = cachedCustomConfig, let hex = config.textDimHex, !hex.isEmpty { return Color(hex: hex) }
         return dark ? Color(hex: "707070") : Color(hex: "8f8f8f")
     }
     static var textMuted: Color {
-        if isCustomMode, let hex = AppSettings.shared.customTheme.textMutedHex, !hex.isEmpty { return Color(hex: hex) }
+        if let config = cachedCustomConfig, let hex = config.textMutedHex, !hex.isEmpty { return Color(hex: hex) }
         return dark ? Color(hex: "484848") : Color(hex: "b0b0b0")
     }
     static var textTerminal: Color { dark ? Color(hex: "ededed") : Color(hex: "171717") }
 
     // ── System ──
     static var textOnAccent: Color {
-        if isCustomMode && AppSettings.shared.customTheme.accentHex != nil {
+        if let config = cachedCustomConfig, config.accentHex != nil {
             return accent.contrastingTextColor
         }
         return .white
@@ -1261,37 +1320,37 @@ enum Theme {
 
     // ── Semantic Accents ──
     static var accent: Color {
-        if isCustomMode, let hex = AppSettings.shared.customTheme.accentHex, !hex.isEmpty {
+        if let config = cachedCustomConfig, let hex = config.accentHex, !hex.isEmpty {
             return Color(hex: hex)
         }
         return dark ? Color(hex: "3291ff") : Color(hex: "0070f3")
     }
     static var green: Color {
-        if isCustomMode, let hex = AppSettings.shared.customTheme.greenHex, !hex.isEmpty { return Color(hex: hex) }
+        if let config = cachedCustomConfig, let hex = config.greenHex, !hex.isEmpty { return Color(hex: hex) }
         return dark ? Color(hex: "3ecf8e") : Color(hex: "18a058")
     }
     static var red: Color {
-        if isCustomMode, let hex = AppSettings.shared.customTheme.redHex, !hex.isEmpty { return Color(hex: hex) }
+        if let config = cachedCustomConfig, let hex = config.redHex, !hex.isEmpty { return Color(hex: hex) }
         return dark ? Color(hex: "f14c4c") : Color(hex: "e5484d")
     }
     static var yellow: Color {
-        if isCustomMode, let hex = AppSettings.shared.customTheme.yellowHex, !hex.isEmpty { return Color(hex: hex) }
+        if let config = cachedCustomConfig, let hex = config.yellowHex, !hex.isEmpty { return Color(hex: hex) }
         return dark ? Color(hex: "f5a623") : Color(hex: "ca8a04")
     }
     static var purple: Color {
-        if isCustomMode, let hex = AppSettings.shared.customTheme.purpleHex, !hex.isEmpty { return Color(hex: hex) }
+        if let config = cachedCustomConfig, let hex = config.purpleHex, !hex.isEmpty { return Color(hex: hex) }
         return dark ? Color(hex: "8e4ec6") : Color(hex: "6e56cf")
     }
     static var orange: Color {
-        if isCustomMode, let hex = AppSettings.shared.customTheme.orangeHex, !hex.isEmpty { return Color(hex: hex) }
+        if let config = cachedCustomConfig, let hex = config.orangeHex, !hex.isEmpty { return Color(hex: hex) }
         return dark ? Color(hex: "f97316") : Color(hex: "e5560a")
     }
     static var cyan: Color {
-        if isCustomMode, let hex = AppSettings.shared.customTheme.cyanHex, !hex.isEmpty { return Color(hex: hex) }
+        if let config = cachedCustomConfig, let hex = config.cyanHex, !hex.isEmpty { return Color(hex: hex) }
         return dark ? Color(hex: "06b6d4") : Color(hex: "0891b2")
     }
     static var pink: Color {
-        if isCustomMode, let hex = AppSettings.shared.customTheme.pinkHex, !hex.isEmpty { return Color(hex: hex) }
+        if let config = cachedCustomConfig, let hex = config.pinkHex, !hex.isEmpty { return Color(hex: hex) }
         return dark ? Color(hex: "e54d9e") : Color(hex: "d23197")
     }
 
@@ -1301,8 +1360,7 @@ enum Theme {
 
     /// 그라데이션 또는 단색 accent 배경 (AnyShapeStyle) — Custom 모드에서만 그라데이션 적용
     static var accentBackground: AnyShapeStyle {
-        if isCustomMode {
-            let config = AppSettings.shared.customTheme
+        if let config = cachedCustomConfig {
             if config.useGradient,
                let startHex = config.gradientStartHex, !startHex.isEmpty,
                let endHex = config.gradientEndHex, !endHex.isEmpty {
@@ -1319,8 +1377,7 @@ enum Theme {
 
     /// 소프트 그라데이션 배경 (낮은 opacity) — 비 prominent accent 버튼 등에 사용
     static var accentSoftBackground: AnyShapeStyle {
-        if isCustomMode {
-            let config = AppSettings.shared.customTheme
+        if let config = cachedCustomConfig {
             if config.useGradient,
                let startHex = config.gradientStartHex, !startHex.isEmpty,
                let endHex = config.gradientEndHex, !endHex.isEmpty {
@@ -1357,43 +1414,55 @@ enum Theme {
 
     /// 커스텀 테마에서 fontSize가 설정되어 있으면 해당 스케일 사용
     private static var customScale: CGFloat? {
-        guard let fs = AppSettings.shared.customTheme.fontSize, fs > 0 else { return nil }
+        guard let config = cachedCustomConfig, let fs = config.fontSize, fs > 0 else { return nil }
         return CGFloat(fs / 11.0)
     }
 
     /// Primary UI text (Geist Sans equivalent — system san-serif)
     static func mono(_ baseSize: CGFloat, weight: Font.Weight = .regular) -> Font {
-        let effectiveScale = customScale ?? scale
-        if let fontName = AppSettings.shared.customTheme.fontName, !fontName.isEmpty {
-            return Font.custom(fontName, size: round(baseSize * effectiveScale)).weight(weight)
+        let key = "mono-\(baseSize)-\(weight.hashValue)"
+        return cachedFont(key: key) {
+            let effectiveScale = customScale ?? scale
+            if let config = cachedCustomConfig, let fontName = config.fontName, !fontName.isEmpty {
+                return Font.custom(fontName, size: round(baseSize * effectiveScale)).weight(weight)
+            }
+            return .system(size: round(baseSize * effectiveScale), weight: weight, design: .default)
         }
-        return .system(size: round(baseSize * effectiveScale), weight: weight, design: .default)
     }
 
     /// Code, terminal, git hashes, file paths — 커스텀 폰트 미적용 (항상 monospaced)
     static func code(_ baseSize: CGFloat, weight: Font.Weight = .regular) -> Font {
-        .system(size: round(baseSize * scale), weight: weight, design: .monospaced)
+        let key = "code-\(baseSize)-\(weight.hashValue)"
+        return cachedFont(key: key) {
+            .system(size: round(baseSize * scale), weight: weight, design: .monospaced)
+        }
     }
 
     /// General scaled font
     static func scaled(_ baseSize: CGFloat, weight: Font.Weight = .regular, design: Font.Design = .default) -> Font {
-        let effectiveScale = customScale ?? scale
-        if let fontName = AppSettings.shared.customTheme.fontName, !fontName.isEmpty, design == .default {
-            return Font.custom(fontName, size: round(baseSize * effectiveScale)).weight(weight)
+        let key = "scaled-\(baseSize)-\(weight.hashValue)-\(design.hashValue)"
+        return cachedFont(key: key) {
+            let effectiveScale = customScale ?? scale
+            if let config = cachedCustomConfig, let fontName = config.fontName, !fontName.isEmpty, design == .default {
+                return Font.custom(fontName, size: round(baseSize * effectiveScale)).weight(weight)
+            }
+            return .system(size: round(baseSize * effectiveScale), weight: weight, design: design)
         }
-        return .system(size: round(baseSize * effectiveScale), weight: weight, design: design)
     }
 
     /// Chrome-only font (sidebar, toolbar — less aggressive scaling)
     static func chrome(_ baseSize: CGFloat, weight: Font.Weight = .regular) -> Font {
-        let effectiveChromeScale: CGFloat = {
-            if let cs = customScale { return 1 + (cs - 1) * 0.5 }
-            return chromeScale
-        }()
-        if let fontName = AppSettings.shared.customTheme.fontName, !fontName.isEmpty {
-            return Font.custom(fontName, size: round(baseSize * effectiveChromeScale)).weight(weight)
+        let key = "chrome-\(baseSize)-\(weight.hashValue)"
+        return cachedFont(key: key) {
+            let effectiveChromeScale: CGFloat = {
+                if let cs = customScale { return 1 + (cs - 1) * 0.5 }
+                return chromeScale
+            }()
+            if let config = cachedCustomConfig, let fontName = config.fontName, !fontName.isEmpty {
+                return Font.custom(fontName, size: round(baseSize * effectiveChromeScale)).weight(weight)
+            }
+            return .system(size: round(baseSize * effectiveChromeScale), weight: weight, design: .default)
         }
-        return .system(size: round(baseSize * effectiveChromeScale), weight: weight, design: .default)
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1511,7 +1580,6 @@ enum AppChromeTone: Equatable {
 // MARK: - Panel Modifier (카드, 섹션, 패널)
 
 private struct AppPanelModifier: ViewModifier {
-    @ObservedObject private var settings = AppSettings.shared
     let padding: CGFloat
     let radius: CGFloat
     let fill: Color
@@ -1529,7 +1597,6 @@ private struct AppPanelModifier: ViewModifier {
 // MARK: - Field Modifier (텍스트 입력, 셀렉트)
 
 private struct AppFieldModifier: ViewModifier {
-    @ObservedObject private var settings = AppSettings.shared
     let emphasized: Bool
     let radius: CGFloat
 
@@ -1545,7 +1612,6 @@ private struct AppFieldModifier: ViewModifier {
 // MARK: - Button Surface Modifier
 
 private struct AppButtonSurfaceModifier: ViewModifier {
-    @ObservedObject private var settings = AppSettings.shared
     let tone: AppChromeTone
     let prominent: Bool
     let compact: Bool
@@ -1634,7 +1700,6 @@ extension View {
 // MARK: - Status Badge (Vercel-style: tight, border-accented)
 
 struct AppStatusBadge: View {
-    @ObservedObject private var settings = AppSettings.shared
     let title: String
     let symbol: String
     let tint: Color
@@ -1676,7 +1741,6 @@ struct AppStatusDot: View {
 // MARK: - Section Header (Vercel panel headers)
 
 struct AppSectionHeader: View {
-    @ObservedObject private var settings = AppSettings.shared
     let title: String
     var count: Int? = nil
     var action: (() -> Void)? = nil
@@ -1714,7 +1778,6 @@ struct AppSectionHeader: View {
 // MARK: - Empty State (Vercel: minimal, informative)
 
 struct AppEmptyStateView: View {
-    @ObservedObject private var settings = AppSettings.shared
     let title: String
     let message: String
     let symbol: String
@@ -1744,7 +1807,6 @@ struct AppEmptyStateView: View {
 // MARK: - Key-Value Row (for stats, metadata display)
 
 struct AppKeyValueRow: View {
-    @ObservedObject private var settings = AppSettings.shared
     let key: String
     let value: String
     var valueColor: Color = Theme.textPrimary
@@ -1767,7 +1829,6 @@ struct AppKeyValueRow: View {
 // MARK: - Inline Code Block
 
 struct AppInlineCode: View {
-    @ObservedObject private var settings = AppSettings.shared
     let text: String
 
     var body: some View {
@@ -1793,7 +1854,6 @@ struct AppInlineCode: View {
 
 /// 모달 전체 컨테이너
 struct DSModalShell<Content: View>: View {
-    @ObservedObject private var settings = AppSettings.shared
     let content: Content
 
     init(@ViewBuilder content: () -> Content) {
@@ -1810,7 +1870,6 @@ struct DSModalShell<Content: View>: View {
 
 /// 통합 모달 헤더
 struct DSModalHeader: View {
-    @ObservedObject private var settings = AppSettings.shared
     let icon: String
     let iconColor: Color
     let title: String
@@ -1869,7 +1928,6 @@ struct DSModalHeader: View {
 
 /// 모달 푸터 (액션 바)
 struct DSModalFooter<Leading: View, Trailing: View>: View {
-    @ObservedObject private var settings = AppSettings.shared
     let leading: Leading
     let trailing: Trailing
 
@@ -1893,7 +1951,6 @@ struct DSModalFooter<Leading: View, Trailing: View>: View {
 
 /// 모달 내부 섹션 (통합 settingsSection 대체)
 struct DSSection<Content: View>: View {
-    @ObservedObject private var settings = AppSettings.shared
     let title: String
     var subtitle: String = ""
     let content: Content
@@ -1926,7 +1983,6 @@ struct DSSection<Content: View>: View {
 
 /// 탭 바 (설정, 필터 등에서 사용)
 struct DSTabBar: View {
-    @ObservedObject private var settings = AppSettings.shared
     let tabs: [(String, String)]  // (icon, label)
     @Binding var selectedIndex: Int
 
@@ -1963,7 +2019,6 @@ struct DSTabBar: View {
 
 /// 통합 필터 칩
 struct DSFilterChip: View {
-    @ObservedObject private var settings = AppSettings.shared
     let label: String
     let isSelected: Bool
     var count: Int? = nil
@@ -1998,7 +2053,6 @@ struct DSFilterChip: View {
 
 /// 통합 리스트 행 컴포넌트
 struct DSListRow<Leading: View, Trailing: View>: View {
-    @ObservedObject private var settings = AppSettings.shared
     let leading: Leading
     let title: String
     var subtitle: String = ""
@@ -2047,7 +2101,6 @@ struct DSListRow<Leading: View, Trailing: View>: View {
 
 /// 통합 stat/metric 카드
 struct DSStatCard: View {
-    @ObservedObject private var settings = AppSettings.shared
     let title: String
     let value: String
     var subtitle: String = ""
@@ -2084,7 +2137,6 @@ struct DSStatCard: View {
 
 /// 통합 프로그레스 바
 struct DSProgressBar: View {
-    @ObservedObject private var settings = AppSettings.shared
     let value: Double  // 0.0 ~ 1.0
     var tint: Color = Theme.accent
     var height: CGFloat = 4

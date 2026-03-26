@@ -20,6 +20,17 @@ struct OfficeSpriteRenderer {
     init(map: OfficeMap, characters: [String: OfficeCharacter], tabs: [TerminalTab],
          frame: Int, dark: Bool, theme: BackgroundTheme,
          selectedTabId: String?, selectedFurnitureId: String?) {
+        self.init(map: map, characters: characters, tabs: tabs,
+                  frame: frame, dark: dark, theme: theme,
+                  selectedTabId: selectedTabId, selectedFurnitureId: selectedFurnitureId,
+                  cachedPalette: OfficeScenePalette(theme: theme, dark: dark))
+    }
+
+    /// Init with a pre-built palette to avoid recomputing it every frame.
+    init(map: OfficeMap, characters: [String: OfficeCharacter], tabs: [TerminalTab],
+         frame: Int, dark: Bool, theme: BackgroundTheme,
+         selectedTabId: String?, selectedFurnitureId: String?,
+         cachedPalette: OfficeScenePalette) {
         self.map = map
         self.characters = characters
         self.tabs = tabs
@@ -28,7 +39,7 @@ struct OfficeSpriteRenderer {
         self.theme = theme
         self.selectedTabId = selectedTabId
         self.selectedFurnitureId = selectedFurnitureId
-        self.palette = OfficeScenePalette(theme: theme, dark: dark)
+        self.palette = cachedPalette
         // Build O(1) tab lookup once instead of O(n) per character
         var lookup: [String: TerminalTab] = [:]
         lookup.reserveCapacity(tabs.count)

@@ -11,6 +11,13 @@ struct TerminalAreaView: View {
     @State private var viewMode: ViewMode = .grid
     enum ViewMode { case grid, single, git, browser }
 
+    init() {}
+
+    /// Pre-computed counts of tabs sharing the same projectPath (avoids O(n²) filter inside ForEach)
+    private var projectPathCounts: [String: Int] {
+        Dictionary(grouping: manager.userVisibleTabs, by: \.projectPath).mapValues(\.count)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             topBar
@@ -108,15 +115,15 @@ struct TerminalAreaView: View {
                 }
                 .frame(width: 12, height: 12)
                 Text(t.projectName).font(Theme.chrome(10)).foregroundColor(a ? Theme.textPrimary : Theme.textSecondary).lineLimit(1)
-                if manager.userVisibleTabs.filter({ $0.projectPath == t.projectPath }).count > 1 {
-                    Text(t.workerName).font(Theme.chrome(9)).foregroundColor(t.workerColor)
+                if (projectPathCounts[t.projectPath] ?? 0) > 1 {
+                    Text(t.workerName).font(Theme.chrome(9)).foregroundColor(t.workerColor).lineLimit(1)
                 }
                 if needsInput {
                     Text(NSLocalizedString("terminal.waiting", comment: ""))
                         .font(Theme.mono(7, weight: .bold))
-                        .foregroundColor(.blue)
-                        .padding(.horizontal, 4).padding(.vertical, 1)
-                        .background(Capsule().fill(Color.blue.opacity(0.15)))
+                        .foregroundColor(Theme.cyan)
+                        .padding(.horizontal, 5).padding(.vertical, 2)
+                        .background(RoundedRectangle(cornerRadius: Theme.cornerSmall).fill(Theme.accentBg(Theme.cyan)))
                 }
             }.padding(.horizontal, Theme.sp2).padding(.vertical, Theme.sp1)
             .background(
@@ -150,7 +157,7 @@ struct TerminalAreaView: View {
                     Circle().fill(t.workerColor.opacity(0.5)).frame(width: 5, height: 5)
                 }
                 Text(t.projectName).font(Theme.chrome(10)).foregroundColor(isPinned ? Theme.textPrimary : Theme.textSecondary).lineLimit(1)
-                if manager.userVisibleTabs.filter({ $0.projectPath == t.projectPath }).count > 1 {
+                if (projectPathCounts[t.projectPath] ?? 0) > 1 {
                     Text(t.workerName).font(Theme.chrome(9)).foregroundColor(t.workerColor)
                 }
             }
@@ -2101,7 +2108,7 @@ private struct PlanSelectionRequest {
 // ═══════════════════════════════════════════════════════
 
 struct EventBlockView: View {
-    @ObservedObject var block: StreamBlock
+    var block: StreamBlock
     @ObservedObject private var settings = AppSettings.shared
     let compact: Bool
 
@@ -2271,7 +2278,7 @@ struct EventBlockView: View {
 // ═══════════════════════════════════════════════════════
 
 struct ToolOutputBlockView: View {
-    @ObservedObject var block: StreamBlock
+    var block: StreamBlock
     let compact: Bool
     private let maxCollapsedLines = 12
 
@@ -2337,6 +2344,11 @@ struct ToolOutputBlockView: View {
 struct MarkdownTextView: View {
     let text: String
     let compact: Bool
+
+    init(text: String, compact: Bool = false) {
+        self.text = text
+        self.compact = compact
+    }
 
     // Pre-compiled regex patterns (avoid recompilation on every inlineMarkdown call)
     private static let boldRegex = try? NSRegularExpression(pattern: "\\*\\*(.+?)\\*\\*")
@@ -2909,7 +2921,7 @@ private enum NewSessionPreset: String, CaseIterable, Identifiable {
     }
 }
 
-final class NewSessionPreferencesStore: ObservableObject {
+public final class NewSessionPreferencesStore: ObservableObject {
     static let shared = NewSessionPreferencesStore()
 
     @Published private(set) var favoriteProjects: [NewSessionProjectRecord] = []
@@ -3237,356 +3249,381 @@ struct NewTabSheet: View {
 
             ScrollView(.vertical, showsIndicators: true) {
                 VStack(spacing: Theme.sp4) {
-
-                    configSection(title: NSLocalizedString("terminal.quickstart", comment: ""), subtitle: NSLocalizedString("terminal.quickstart.subtitle", comment: "")) {
-                        VStack(alignment: .leading, spacing: 14) {
-                            HStack(spacing: 8) {
-                                Button(action: { applyLastDraftIfAvailable() }) {
-                                    HStack(spacing: 6) {
-                                        Image(systemName: "clock.arrow.circlepath")
-                                        Text(NSLocalizedString("terminal.load.last.settings", comment: ""))
-                                    }
-                                    .font(Theme.mono(9, weight: .bold))
-                                    .appButtonSurface(tone: .neutral, compact: true)
-                                }
-                                .buttonStyle(.plain)
-                                .disabled(preferences.lastDraft == nil)
-                                .accessibilityLabel(NSLocalizedString("terminal.load.last.a11y", comment: ""))
-
-                                if !projectPath.isEmpty {
-                                    Button(action: {
-                                        preferences.toggleFavorite(projectName: resolvedProjectName, projectPath: projectPath)
-                                    }) {
-                                        HStack(spacing: 6) {
-                                            Image(systemName: isCurrentProjectFavorite ? "star.fill" : "star")
-                                            Text(isCurrentProjectFavorite ? NSLocalizedString("terminal.favorite.on", comment: "") : NSLocalizedString("terminal.favorite.off", comment: ""))
-                                        }
-                                        .font(Theme.mono(9, weight: .bold))
-                                        .appButtonSurface(tone: .yellow, compact: true)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .accessibilityLabel(isCurrentProjectFavorite ? NSLocalizedString("terminal.favorite.a11y.on", comment: "") : NSLocalizedString("terminal.favorite.a11y.off", comment: ""))
-                                }
-                            }
-
-                            optionGroup(title: NSLocalizedString("terminal.recommended.presets", comment: "")) {
-                                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                                    ForEach(NewSessionPreset.allCases) { preset in
-                                        selectionChip(
-                                            title: preset.title,
-                                            subtitle: preset.subtitle,
-                                            symbol: preset.symbol,
-                                            tint: preset.tint,
-                                            selected: activePresetId == preset.id
-                                        ) {
-                                            withAnimation(.easeInOut(duration: 0.15)) {
-                                                activePresetId = preset.id
-                                            }
-                                            applyPreset(preset)
-                                        }
-                                    }
-                                }
-                            }
-
-                            // 사용자 저장 프리셋
-                            if !CustomPresetStore.shared.presets.isEmpty {
-                                optionGroup(title: NSLocalizedString("terminal.my.presets", comment: "")) {
-                                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                                        ForEach(CustomPresetStore.shared.presets) { preset in
-                                            selectionChip(
-                                                title: preset.name,
-                                                subtitle: String(format: NSLocalizedString("terminal.preset.custom.subtitle", comment: ""), preset.draft.terminalCount, preset.draft.selectedModel),
-                                                symbol: preset.icon,
-                                                tint: preset.tintColor,
-                                                selected: activePresetId == "custom-\(preset.id)"
-                                            ) {
-                                                withAnimation(.easeInOut(duration: 0.15)) {
-                                                    activePresetId = "custom-\(preset.id)"
-                                                }
-                                                applyDraft(preset.draft)
-                                            }
-                                            .contextMenu {
-                                                Button(role: .destructive) {
-                                                    CustomPresetStore.shared.delete(preset)
-                                                } label: {
-                                                    Label(NSLocalizedString("terminal.preset.delete", comment: ""), systemImage: "trash")
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            if !favoriteProjects.isEmpty {
-                                optionGroup(title: NSLocalizedString("terminal.favorite.projects", comment: "")) {
-                                    projectSuggestionScroller(projects: favoriteProjects)
-                                }
-                            }
-
-                            if !recentProjects.isEmpty {
-                                optionGroup(title: NSLocalizedString("terminal.recent.projects", comment: "")) {
-                                    projectSuggestionScroller(projects: recentProjects)
-                                }
-                            }
-                        }
-                    }
-
-                    configSection(title: NSLocalizedString("terminal.config.project", comment: ""), subtitle: NSLocalizedString("terminal.config.project.subtitle", comment: "")) {
-                        VStack(spacing: 12) {
-                            VStack(alignment: .leading, spacing: 6) {
-                                sectionLabel(NSLocalizedString("terminal.project.path", comment: ""))
-                                HStack(spacing: 8) {
-                                    TextField("/path/to/project", text: $projectPath)
-                                        .textFieldStyle(.plain)
-                                        .font(Theme.monoSmall)
-                                        .appFieldStyle(emphasized: true)
-                                        .accessibilityLabel(NSLocalizedString("terminal.project.path.a11y", comment: ""))
-                                        .accessibilityHint(NSLocalizedString("terminal.project.path.a11y.hint", comment: ""))
-
-                                    Button("Browse") {
-                                        let p = NSOpenPanel(); p.canChooseFiles = false; p.canChooseDirectories = true
-                                        if p.runModal() == .OK, let u = p.url {
-                                            projectPath = normalizedProjectPath(u.path)
-                                            if projectName.isEmpty { projectName = u.lastPathComponent }
-                                        }
-                                    }
-                                    .buttonStyle(.plain)
-                                    .font(Theme.mono(9, weight: .bold))
-                                    .appButtonSurface(tone: .neutral, compact: true)
-                                    .accessibilityLabel(NSLocalizedString("terminal.project.folder.find.a11y", comment: ""))
-                                }
-                                .onChange(of: projectPath) { _ in
-                                    pathError = nil
-                                    let normalized = normalizedProjectPath(projectPath)
-                                    if trustedProjectPath != normalized {
-                                        trustedProjectPath = nil
-                                    }
-                                }
-                                if let error = pathError {
-                                    Text(error)
-                                        .font(Theme.mono(8))
-                                        .foregroundColor(Theme.red)
-                                }
-                            }
-
-                            VStack(alignment: .leading, spacing: 6) {
-                                sectionLabel(NSLocalizedString("terminal.project.name", comment: ""))
-                                TextField("e.g. my-project", text: $projectName)
-                                    .textFieldStyle(.plain)
-                                    .font(Theme.monoSmall)
-                                    .appFieldStyle()
-                                    .accessibilityLabel(NSLocalizedString("terminal.project.name.a11y", comment: ""))
-                            }
-                        }
-                    }
-
-                    configSection(title: NSLocalizedString("terminal.config.execution", comment: ""), subtitle: NSLocalizedString("terminal.config.execution.subtitle", comment: "")) {
-                        VStack(alignment: .leading, spacing: 14) {
-                            optionGroup(title: NSLocalizedString("terminal.config.model", comment: "")) {
-                                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                                    ForEach(ClaudeModel.allCases) { model in
-                                        selectionChip(
-                                            title: model.displayName,
-                                            subtitle: model == .sonnet ? NSLocalizedString("terminal.config.model.recommended", comment: "") : nil,
-                                            symbol: "circle.fill",
-                                            tint: modelTint(model),
-                                            selected: selectedModel == model
-                                        ) {
-                                            selectedModel = model
-                                        }
-                                    }
-                                }
-                            }
-
-                            optionGroup(title: "Effort") {
-                                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
-                                    ForEach(EffortLevel.allCases) { level in
-                                        selectionChip(
-                                            title: effortTitle(level),
-                                            subtitle: nil,
-                                            symbol: effortSymbol(level),
-                                            tint: effortTint(level),
-                                            selected: effortLevel == level
-                                        ) {
-                                            effortLevel = level
-                                        }
-                                    }
-                                }
-                            }
-
-                            optionGroup(title: NSLocalizedString("terminal.config.permission", comment: "")) {
-                                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                                    ForEach(PermissionMode.allCases) { mode in
-                                        selectionChip(
-                                            title: mode.displayName,
-                                            subtitle: mode.desc,
-                                            symbol: permissionSymbol(mode),
-                                            tint: permissionTint(mode),
-                                            selected: permissionMode == mode
-                                        ) {
-                                            permissionMode = mode
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    configSection(title: NSLocalizedString("terminal.config.terminal", comment: ""), subtitle: NSLocalizedString("terminal.config.terminal.subtitle", comment: "")) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                sectionLabel(NSLocalizedString("terminal.config.terminal.count", comment: ""))
-                                Spacer()
-                                Text(String(format: NSLocalizedString("terminal.count.items", comment: ""), terminalCount))
-                                    .font(Theme.mono(9, weight: .bold))
-                                    .foregroundStyle(Theme.accentBackground)
-                            }
-
-                            HStack(spacing: 8) {
-                                ForEach([1, 2, 3, 4, 5], id: \.self) { n in
-                                    Button(action: {
-                                        withAnimation(sheetAnimation) {
-                                            setTerminalCount(n)
-                                        }
-                                    }) {
-                                        VStack(spacing: 4) {
-                                            HStack(spacing: 2) {
-                                                ForEach(0..<n, id: \.self) { i in
-                                                    let colorIdx = (manager.userVisibleTabCount + i) % Theme.workerColors.count
-                                                    RoundedRectangle(cornerRadius: 2)
-                                                        .fill(Theme.workerColors[colorIdx])
-                                                        .frame(width: n <= 3 ? 10 : 7, height: 12)
-                                                }
-                                            }
-                                            Text("\(n)")
-                                                .font(Theme.mono(9, weight: terminalCount == n ? .bold : .medium))
-                                        }
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 8)
-                                        .background(
-                                            RoundedRectangle(cornerRadius: 10)
-                                                .fill(terminalCount == n ? Theme.accent.opacity(0.08) : Theme.bgSurface)
-                                        )
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 10)
-                                                .stroke(terminalCount == n ? Theme.accent.opacity(0.24) : Theme.border.opacity(0.22), lineWidth: 1)
-                                        )
-                                        .foregroundColor(terminalCount == n ? Theme.accent : Theme.textSecondary)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .accessibilityLabel(String(format: NSLocalizedString("terminal.config.terminal.n.a11y", comment: ""), n))
-                                    .accessibilityValue(terminalCount == n ? NSLocalizedString("terminal.config.terminal.selected", comment: "") : NSLocalizedString("terminal.config.terminal.unselected", comment: ""))
-                                }
-                            }
-
-                            if terminalCount > 1 {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text(NSLocalizedString("terminal.config.task.per.terminal", comment: ""))
-                                        .font(Theme.mono(9, weight: .medium))
-                                        .foregroundColor(Theme.textDim)
-                                    ForEach(tasks.indices, id: \.self) { i in
-                                        HStack(spacing: 8) {
-                                            let colorIdx = (manager.userVisibleTabCount + i) % Theme.workerColors.count
-                                            Circle().fill(Theme.workerColors[colorIdx]).frame(width: 8, height: 8)
-                                            Text("#\(i + 1)")
-                                                .font(Theme.mono(8, weight: .bold))
-                                                .foregroundColor(Theme.textDim)
-                                                .frame(width: 18)
-                                            TextField(NSLocalizedString("terminal.config.task.placeholder", comment: ""), text: $tasks[i])
-                                                .textFieldStyle(.plain)
-                                                .font(Theme.mono(10))
-                                                .appFieldStyle()
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Button(action: {
-                        withAnimation(sheetAnimation) {
-                            showAdvanced.toggle()
-                        }
-                    }) {
-                        HStack(spacing: 8) {
-                            Image(systemName: showAdvanced ? "chevron.down" : "chevron.right")
-                                .font(.system(size: Theme.iconSize(9), weight: .bold))
-                                .foregroundColor(Theme.textDim)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(NSLocalizedString("terminal.config.advanced", comment: ""))
-                                    .font(Theme.mono(10, weight: .bold))
-                                    .foregroundColor(Theme.textPrimary)
-                                Text(NSLocalizedString("terminal.config.advanced.desc", comment: ""))
-                                    .font(Theme.mono(8))
-                                    .foregroundColor(Theme.textDim)
-                            }
-                            Spacer()
-                            if hasAdvancedOptions {
-                                Text(NSLocalizedString("terminal.config.advanced.set", comment: ""))
-                                    .font(Theme.mono(8, weight: .bold))
-                                    .foregroundColor(Theme.green)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(RoundedRectangle(cornerRadius: Theme.cornerSmall).fill(Theme.green.opacity(0.10)))
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .appPanelStyle(padding: 14, radius: 14, fill: Theme.bgCard.opacity(0.96), strokeOpacity: 0.18, shadow: false)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(showAdvanced ? NSLocalizedString("terminal.config.advanced.collapse.a11y", comment: "") : NSLocalizedString("terminal.config.advanced.expand.a11y", comment: ""))
-
-                    if showAdvanced {
-                        advancedOptionsView
-                    }
+                    sessionConfigQuickStartSection
+                    sessionConfigProjectSection
+                    sessionConfigExecutionSection
+                    sessionConfigTerminalSection
+                    sessionConfigAdvancedToggle
                 }
                 .padding(20)
             }
 
-            HStack {
-                Button(action: { dismiss() }) {
-                    Text("Cancel")
-                        .font(Theme.mono(10, weight: .bold))
-                        .appButtonSurface(tone: .neutral)
-                }
-                .buttonStyle(.plain)
-                .keyboardShortcut(.escape)
-                .accessibilityLabel(NSLocalizedString("terminal.cancel.new.a11y", comment: ""))
-
-                Button(action: { showSavePreset = true }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "square.and.arrow.down").font(.system(size: Theme.iconSize(9)))
-                        Text(NSLocalizedString("terminal.save.preset", comment: ""))
-                            .font(Theme.mono(9, weight: .bold))
-                    }
-                    .appButtonSurface(tone: .neutral, compact: true)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(NSLocalizedString("terminal.save.preset.a11y", comment: ""))
-
-                Spacer()
-                Button(action: { handleCreateButtonTapped() }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "play.fill").font(.system(size: Theme.iconSize(9), weight: .bold))
-                        Text(isCreatingSessions
-                             ? NSLocalizedString("status.running", comment: "")
-                             : (terminalCount > 1 ? String(format: NSLocalizedString("terminal.create.count", comment: ""), terminalCount) : "Create"))
-                            .font(Theme.mono(10, weight: .bold))
-                    }
-                    .appButtonSurface(tone: .accent, prominent: true)
-                }
-                .buttonStyle(.plain).keyboardShortcut(.return)
-                .disabled((projectPath.isEmpty && projectName.isEmpty) || isCreatingSessions)
-                .accessibilityLabel(terminalCount > 1 ? String(format: NSLocalizedString("terminal.create.sessions.a11y", comment: ""), terminalCount) : NSLocalizedString("terminal.create.session.a11y", comment: ""))
-            }.padding(.horizontal, 24).padding(.vertical, 12)
-            .background(Theme.bg)
-            .overlay(Rectangle().fill(Theme.border).frame(height: 1), alignment: .top)
+            sessionConfigBottomBar
         }
         .frame(width: max(560, 560 * AppSettings.shared.fontSizeScale), height: max(660, 660 * AppSettings.shared.fontSizeScale))
         .background(Theme.bg)
         .sheet(isPresented: $showSavePreset) {
             SavePresetSheet(draft: currentDraftSnapshot())
         }
+    }
+
+    @ViewBuilder
+    private var sessionConfigQuickStartSection: some View {
+        configSection(title: NSLocalizedString("terminal.quickstart", comment: ""), subtitle: NSLocalizedString("terminal.quickstart.subtitle", comment: "")) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 8) {
+                    Button(action: { applyLastDraftIfAvailable() }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "clock.arrow.circlepath")
+                            Text(NSLocalizedString("terminal.load.last.settings", comment: ""))
+                        }
+                        .font(Theme.mono(9, weight: .bold))
+                        .appButtonSurface(tone: .neutral, compact: true)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(preferences.lastDraft == nil)
+                    .accessibilityLabel(NSLocalizedString("terminal.load.last.a11y", comment: ""))
+
+                    if !projectPath.isEmpty {
+                        Button(action: {
+                            preferences.toggleFavorite(projectName: resolvedProjectName, projectPath: projectPath)
+                        }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: isCurrentProjectFavorite ? "star.fill" : "star")
+                                Text(isCurrentProjectFavorite ? NSLocalizedString("terminal.favorite.on", comment: "") : NSLocalizedString("terminal.favorite.off", comment: ""))
+                            }
+                            .font(Theme.mono(9, weight: .bold))
+                            .appButtonSurface(tone: .yellow, compact: true)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(isCurrentProjectFavorite ? NSLocalizedString("terminal.favorite.a11y.on", comment: "") : NSLocalizedString("terminal.favorite.a11y.off", comment: ""))
+                    }
+                }
+
+                optionGroup(title: NSLocalizedString("terminal.recommended.presets", comment: "")) {
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                        ForEach(NewSessionPreset.allCases) { preset in
+                            selectionChip(
+                                title: preset.title,
+                                subtitle: preset.subtitle,
+                                symbol: preset.symbol,
+                                tint: preset.tint,
+                                selected: activePresetId == preset.id
+                            ) {
+                                withAnimation(.easeInOut(duration: 0.15)) {
+                                    activePresetId = preset.id
+                                }
+                                applyPreset(preset)
+                            }
+                        }
+                    }
+                }
+
+                // 사용자 저장 프리셋
+                if !CustomPresetStore.shared.presets.isEmpty {
+                    optionGroup(title: NSLocalizedString("terminal.my.presets", comment: "")) {
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                            ForEach(CustomPresetStore.shared.presets) { preset in
+                                selectionChip(
+                                    title: preset.name,
+                                    subtitle: String(format: NSLocalizedString("terminal.preset.custom.subtitle", comment: ""), preset.draft.terminalCount, preset.draft.selectedModel),
+                                    symbol: preset.icon,
+                                    tint: preset.tintColor,
+                                    selected: activePresetId == "custom-\(preset.id)"
+                                ) {
+                                    withAnimation(.easeInOut(duration: 0.15)) {
+                                        activePresetId = "custom-\(preset.id)"
+                                    }
+                                    applyDraft(preset.draft)
+                                }
+                                .contextMenu {
+                                    Button(role: .destructive) {
+                                        CustomPresetStore.shared.delete(preset)
+                                    } label: {
+                                        Label(NSLocalizedString("terminal.preset.delete", comment: ""), systemImage: "trash")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if !favoriteProjects.isEmpty {
+                    optionGroup(title: NSLocalizedString("terminal.favorite.projects", comment: "")) {
+                        projectSuggestionScroller(projects: favoriteProjects)
+                    }
+                }
+
+                if !recentProjects.isEmpty {
+                    optionGroup(title: NSLocalizedString("terminal.recent.projects", comment: "")) {
+                        projectSuggestionScroller(projects: recentProjects)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var sessionConfigProjectSection: some View {
+        configSection(title: NSLocalizedString("terminal.config.project", comment: ""), subtitle: NSLocalizedString("terminal.config.project.subtitle", comment: "")) {
+            VStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    sectionLabel(NSLocalizedString("terminal.project.path", comment: ""))
+                    HStack(spacing: 8) {
+                        TextField("/path/to/project", text: $projectPath)
+                            .textFieldStyle(.plain)
+                            .font(Theme.monoSmall)
+                            .appFieldStyle(emphasized: true)
+                            .accessibilityLabel(NSLocalizedString("terminal.project.path.a11y", comment: ""))
+                            .accessibilityHint(NSLocalizedString("terminal.project.path.a11y.hint", comment: ""))
+
+                        Button("Browse") {
+                            let p = NSOpenPanel(); p.canChooseFiles = false; p.canChooseDirectories = true
+                            if p.runModal() == .OK, let u = p.url {
+                                projectPath = normalizedProjectPath(u.path)
+                                if projectName.isEmpty { projectName = u.lastPathComponent }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .font(Theme.mono(9, weight: .bold))
+                        .appButtonSurface(tone: .neutral, compact: true)
+                        .accessibilityLabel(NSLocalizedString("terminal.project.folder.find.a11y", comment: ""))
+                    }
+                    .onChange(of: projectPath) { _ in
+                        pathError = nil
+                        let normalized = normalizedProjectPath(projectPath)
+                        if trustedProjectPath != normalized {
+                            trustedProjectPath = nil
+                        }
+                    }
+                    if let error = pathError {
+                        Text(error)
+                            .font(Theme.mono(8))
+                            .foregroundColor(Theme.red)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    sectionLabel(NSLocalizedString("terminal.project.name", comment: ""))
+                    TextField("e.g. my-project", text: $projectName)
+                        .textFieldStyle(.plain)
+                        .font(Theme.monoSmall)
+                        .appFieldStyle()
+                        .accessibilityLabel(NSLocalizedString("terminal.project.name.a11y", comment: ""))
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var sessionConfigExecutionSection: some View {
+        configSection(title: NSLocalizedString("terminal.config.execution", comment: ""), subtitle: NSLocalizedString("terminal.config.execution.subtitle", comment: "")) {
+            VStack(alignment: .leading, spacing: 14) {
+                optionGroup(title: NSLocalizedString("terminal.config.model", comment: "")) {
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                        ForEach(ClaudeModel.allCases) { model in
+                            selectionChip(
+                                title: model.displayName,
+                                subtitle: model == .sonnet ? NSLocalizedString("terminal.config.model.recommended", comment: "") : nil,
+                                symbol: "circle.fill",
+                                tint: modelTint(model),
+                                selected: selectedModel == model
+                            ) {
+                                selectedModel = model
+                            }
+                        }
+                    }
+                }
+
+                optionGroup(title: "Effort") {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
+                        ForEach(EffortLevel.allCases) { level in
+                            selectionChip(
+                                title: effortTitle(level),
+                                subtitle: nil,
+                                symbol: effortSymbol(level),
+                                tint: effortTint(level),
+                                selected: effortLevel == level
+                            ) {
+                                effortLevel = level
+                            }
+                        }
+                    }
+                }
+
+                optionGroup(title: NSLocalizedString("terminal.config.permission", comment: "")) {
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                        ForEach(PermissionMode.allCases) { mode in
+                            selectionChip(
+                                title: mode.displayName,
+                                subtitle: mode.desc,
+                                symbol: permissionSymbol(mode),
+                                tint: permissionTint(mode),
+                                selected: permissionMode == mode
+                            ) {
+                                permissionMode = mode
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var sessionConfigTerminalSection: some View {
+        configSection(title: NSLocalizedString("terminal.config.terminal", comment: ""), subtitle: NSLocalizedString("terminal.config.terminal.subtitle", comment: "")) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    sectionLabel(NSLocalizedString("terminal.config.terminal.count", comment: ""))
+                    Spacer()
+                    Text(String(format: NSLocalizedString("terminal.count.items", comment: ""), terminalCount))
+                        .font(Theme.mono(9, weight: .bold))
+                        .foregroundStyle(Theme.accentBackground)
+                }
+
+                HStack(spacing: 8) {
+                    ForEach([1, 2, 3, 4, 5], id: \.self) { n in
+                        Button(action: {
+                            withAnimation(sheetAnimation) {
+                                setTerminalCount(n)
+                            }
+                        }) {
+                            VStack(spacing: 4) {
+                                HStack(spacing: 2) {
+                                    ForEach(0..<n, id: \.self) { i in
+                                        let colorIdx = (manager.userVisibleTabCount + i) % Theme.workerColors.count
+                                        RoundedRectangle(cornerRadius: 2)
+                                            .fill(Theme.workerColors[colorIdx])
+                                            .frame(width: n <= 3 ? 10 : 7, height: 12)
+                                    }
+                                }
+                                Text("\(n)")
+                                    .font(Theme.mono(9, weight: terminalCount == n ? .bold : .medium))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(terminalCount == n ? Theme.accent.opacity(0.08) : Theme.bgSurface)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(terminalCount == n ? Theme.accent.opacity(0.24) : Theme.border.opacity(0.22), lineWidth: 1)
+                            )
+                            .foregroundColor(terminalCount == n ? Theme.accent : Theme.textSecondary)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(String(format: NSLocalizedString("terminal.config.terminal.n.a11y", comment: ""), n))
+                        .accessibilityValue(terminalCount == n ? NSLocalizedString("terminal.config.terminal.selected", comment: "") : NSLocalizedString("terminal.config.terminal.unselected", comment: ""))
+                    }
+                }
+
+                if terminalCount > 1 {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(NSLocalizedString("terminal.config.task.per.terminal", comment: ""))
+                            .font(Theme.mono(9, weight: .medium))
+                            .foregroundColor(Theme.textDim)
+                        ForEach(tasks.indices, id: \.self) { i in
+                            HStack(spacing: 8) {
+                                let colorIdx = (manager.userVisibleTabCount + i) % Theme.workerColors.count
+                                Circle().fill(Theme.workerColors[colorIdx]).frame(width: 8, height: 8)
+                                Text("#\(i + 1)")
+                                    .font(Theme.mono(8, weight: .bold))
+                                    .foregroundColor(Theme.textDim)
+                                    .frame(width: 18)
+                                TextField(NSLocalizedString("terminal.config.task.placeholder", comment: ""), text: $tasks[i])
+                                    .textFieldStyle(.plain)
+                                    .font(Theme.mono(10))
+                                    .appFieldStyle()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var sessionConfigAdvancedToggle: some View {
+        Button(action: {
+            withAnimation(sheetAnimation) {
+                showAdvanced.toggle()
+            }
+        }) {
+            HStack(spacing: 8) {
+                Image(systemName: showAdvanced ? "chevron.down" : "chevron.right")
+                    .font(.system(size: Theme.iconSize(9), weight: .bold))
+                    .foregroundColor(Theme.textDim)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(NSLocalizedString("terminal.config.advanced", comment: ""))
+                        .font(Theme.mono(10, weight: .bold))
+                        .foregroundColor(Theme.textPrimary)
+                    Text(NSLocalizedString("terminal.config.advanced.desc", comment: ""))
+                        .font(Theme.mono(8))
+                        .foregroundColor(Theme.textDim)
+                }
+                Spacer()
+                if hasAdvancedOptions {
+                    Text(NSLocalizedString("terminal.config.advanced.set", comment: ""))
+                        .font(Theme.mono(8, weight: .bold))
+                        .foregroundColor(Theme.green)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(RoundedRectangle(cornerRadius: Theme.cornerSmall).fill(Theme.green.opacity(0.10)))
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .appPanelStyle(padding: 14, radius: 14, fill: Theme.bgCard.opacity(0.96), strokeOpacity: 0.18, shadow: false)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(showAdvanced ? NSLocalizedString("terminal.config.advanced.collapse.a11y", comment: "") : NSLocalizedString("terminal.config.advanced.expand.a11y", comment: ""))
+
+        if showAdvanced {
+            advancedOptionsView
+        }
+    }
+
+    @ViewBuilder
+    private var sessionConfigBottomBar: some View {
+        HStack {
+            Button(action: { dismiss() }) {
+                Text("Cancel")
+                    .font(Theme.mono(10, weight: .bold))
+                    .appButtonSurface(tone: .neutral)
+            }
+            .buttonStyle(.plain)
+            .keyboardShortcut(.escape)
+            .accessibilityLabel(NSLocalizedString("terminal.cancel.new.a11y", comment: ""))
+
+            Button(action: { showSavePreset = true }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "square.and.arrow.down").font(.system(size: Theme.iconSize(9)))
+                    Text(NSLocalizedString("terminal.save.preset", comment: ""))
+                        .font(Theme.mono(9, weight: .bold))
+                }
+                .appButtonSurface(tone: .neutral, compact: true)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(NSLocalizedString("terminal.save.preset.a11y", comment: ""))
+
+            Spacer()
+            Button(action: { handleCreateButtonTapped() }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "play.fill").font(.system(size: Theme.iconSize(9), weight: .bold))
+                    Text(isCreatingSessions
+                         ? NSLocalizedString("status.running", comment: "")
+                         : (terminalCount > 1 ? String(format: NSLocalizedString("terminal.create.count", comment: ""), terminalCount) : "Create"))
+                        .font(Theme.mono(10, weight: .bold))
+                }
+                .appButtonSurface(tone: .accent, prominent: true)
+            }
+            .buttonStyle(.plain).keyboardShortcut(.return)
+            .disabled((projectPath.isEmpty && projectName.isEmpty) || isCreatingSessions)
+            .accessibilityLabel(terminalCount > 1 ? String(format: NSLocalizedString("terminal.create.sessions.a11y", comment: ""), terminalCount) : NSLocalizedString("terminal.create.session.a11y", comment: ""))
+        }.padding(.horizontal, 24).padding(.vertical, 12)
+        .background(Theme.bg)
+        .overlay(Rectangle().fill(Theme.border).frame(height: 1), alignment: .top)
     }
 
     // MARK: - 고급 옵션

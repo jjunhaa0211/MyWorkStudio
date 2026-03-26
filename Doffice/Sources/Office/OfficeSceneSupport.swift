@@ -330,7 +330,7 @@ struct OfficeScenePalette {
 // MARK: - Office Scene Store
 // ═══════════════════════════════════════════════════════
 
-final class OfficeSceneStore: ObservableObject {
+public final class OfficeSceneStore: ObservableObject {
     static let shared = OfficeSceneStore()
 
     let map: OfficeMap
@@ -346,6 +346,21 @@ final class OfficeSceneStore: ObservableObject {
     @Published var frame: Int = 0
     @Published var needsRedraw: Bool = false
     var chromeScreenshots: [String: CGImage] = [:]  // Canvas가 frame 타이머로 읽으므로 @Published 불필요
+
+    /// Cached palette — invalidated when theme or dark mode changes.
+    private var _cachedPalette: OfficeScenePalette?
+    private var _cachedPaletteKey: Int = -1
+
+    func cachedPalette(theme: BackgroundTheme, dark: Bool) -> OfficeScenePalette {
+        let key = theme.hashValue ^ (dark ? 1 : 0)
+        if key == _cachedPaletteKey, let cached = _cachedPalette {
+            return cached
+        }
+        let palette = OfficeScenePalette(theme: theme, dark: dark)
+        _cachedPalette = palette
+        _cachedPaletteKey = key
+        return palette
+    }
 
     private var lastAdvanceTime: TimeInterval = 0
     private var lastChromeCaptureTime: TimeInterval = 0
@@ -651,6 +666,11 @@ extension BackgroundTheme {
 struct OfficeToolBadge {
     let label: String
     let tint: Color
+
+    init(label: String, tint: Color) {
+        self.label = label
+        self.tint = tint
+    }
 }
 
 extension ClaudeActivity {

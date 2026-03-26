@@ -232,19 +232,16 @@ struct SidebarView: View {
                                                 .font(.system(size: 14))
                                                 .foregroundColor(selectedTabIds.contains(tab.id) ? Theme.accent : Theme.textDim)
                                                 .padding(.leading, 6)
+                                                .contentShape(Rectangle())
+                                                .onTapGesture {
+                                                    if selectedTabIds.contains(tab.id) {
+                                                        selectedTabIds.remove(tab.id)
+                                                    } else {
+                                                        selectedTabIds.insert(tab.id)
+                                                    }
+                                                }
                                         }
                                     }
-                                    .contentShape(Rectangle())
-                                    .onTapGesture {
-                                        if isMultiSelectMode {
-                                            if selectedTabIds.contains(tab.id) {
-                                                selectedTabIds.remove(tab.id)
-                                            } else {
-                                                selectedTabIds.insert(tab.id)
-                                            }
-                                        }
-                                    }
-                                    .allowsHitTesting(isMultiSelectMode ? true : false)
                             } else {
                                 SessionGroupCard(group: group)
                                     .overlay(alignment: .leading) {
@@ -797,7 +794,7 @@ struct SidebarView: View {
                     .padding(.vertical, 3)
                     .background(RoundedRectangle(cornerRadius: Theme.cornerSmall).fill(tone == .accent ? Theme.accentSoftBackground : AnyShapeStyle(tone.color.opacity(0.10))))
             }
-            .foregroundStyle(AnyShapeStyle(Theme.textSecondary))
+            .foregroundColor(Theme.textSecondary)
             .padding(.vertical, 10)
             .padding(.horizontal, 12)
             .background(
@@ -1148,7 +1145,8 @@ struct SessionGroupCard: View {
                         tint: groupStatus.tint
                     )
                     Text("\(group.tabs.count)").font(Theme.chrome(9, weight: .bold)).foregroundStyle(Theme.accentBackground)
-                        .padding(.horizontal, 5).padding(.vertical, 1).background(Theme.accent.opacity(0.1)).cornerRadius(3)
+                        .padding(.horizontal, 5).padding(.vertical, 2)
+                        .background(RoundedRectangle(cornerRadius: Theme.cornerSmall).fill(Theme.accentBg(Theme.accent)))
                 }
                 .padding(.horizontal, 10).padding(.vertical, 8)
                 .background(RoundedRectangle(cornerRadius: 8)
@@ -1201,7 +1199,7 @@ struct WorkerMiniCard: View {
         Button(action: { manager.focusSingleTab = true; manager.selectTab(tab.id) }) {
             HStack(spacing: 6) {
                 RoundedRectangle(cornerRadius: 1).fill(tab.workerColor).frame(width: 3, height: 14)
-                Text(tab.workerName).font(Theme.chrome(10, weight: .medium)).foregroundColor(tab.workerColor)
+                Text(tab.workerName).font(Theme.chrome(10, weight: .medium)).foregroundColor(tab.workerColor).lineLimit(1)
                 AppStatusBadge(
                     title: tab.statusPresentation.label,
                     symbol: tab.statusPresentation.symbol,

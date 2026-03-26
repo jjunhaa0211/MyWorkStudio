@@ -908,33 +908,36 @@ struct GitPanelView: View {
         let isHovered = hoveredCommitId == commit.id
         let graphW = CGFloat(max(git.maxLaneCount, 1)) * 20 + 12
 
-        return HStack(alignment: .top, spacing: 0) {
+        return HStack(alignment: .center, spacing: 0) {
             graphColumn(commit: commit).frame(width: graphW, height: Self.commitRowHeight)
 
-            HStack(alignment: .top, spacing: 5) {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
                 ForEach(commit.refs, id: \.name) { ref in refBadge(ref) }
                 Text(commit.message)
                     .font(Theme.mono(10, weight: isSelected ? .bold : .regular))
                     .foregroundColor(Theme.textPrimary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
+                    .layoutPriority(1)
             }
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-            .padding(.leading, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.leading, 6)
 
             Text(commit.author)
                 .font(Theme.mono(8))
                 .foregroundColor(Theme.textSecondary)
                 .lineLimit(1)
+                .truncationMode(.tail)
                 .frame(width: 90, alignment: .leading)
 
             Text(Self.relativeDate(commit.date))
                 .font(Theme.mono(8))
                 .foregroundColor(Theme.textDim)
-                .frame(width: 90, alignment: .trailing)
-                .padding(.trailing, 12)
+                .frame(width: 80, alignment: .trailing)
+                .padding(.trailing, 10)
         }
-        .frame(minHeight: Self.commitRowHeight, alignment: .top)
+        .padding(.vertical, 4)
+        .frame(minHeight: Self.commitRowHeight, alignment: .center)
         .background(
             isSelected ? Theme.accentBg(Theme.accent) :
             isHovered ? Theme.bgHover :
@@ -1078,14 +1081,14 @@ struct GitPanelView: View {
             }
         }()
 
-        return HStack(spacing: 2) {
-            Image(systemName: icon).font(.system(size: 6, weight: .bold))
+        return HStack(spacing: 3) {
+            Image(systemName: icon).font(.system(size: 7, weight: .semibold))
             Text(ref.name).font(Theme.code(7, weight: .bold)).lineLimit(1)
         }
         .foregroundColor(tint)
-        .padding(.horizontal, Theme.sp1 + 1).padding(.vertical, 2)
+        .padding(.horizontal, 5).padding(.vertical, 3)
         .background(RoundedRectangle(cornerRadius: Theme.cornerSmall).fill(Theme.accentBg(tint)))
-        .overlay(RoundedRectangle(cornerRadius: Theme.cornerSmall).stroke(Theme.accentBorder(tint), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: Theme.cornerSmall).stroke(Theme.accentBorder(tint), lineWidth: 0.5))
     }
 
     // ═══════════════════════════════════════════════════════

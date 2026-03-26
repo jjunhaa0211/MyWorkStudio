@@ -8,14 +8,14 @@ import ScreenCaptureKit
 // ═══════════════════════════════════════════════════════
 
 /// 실시간 이벤트 블록 - 각 블록은 UI에서 독립적으로 렌더링됨
-class StreamBlock: ObservableObject, Identifiable {
+struct StreamBlock: Identifiable {
     let id = UUID()
     let timestamp = Date()
     let blockType: BlockType
-    @Published var content: String = ""
-    @Published var isComplete: Bool = false
-    @Published var isError: Bool = false
-    @Published var exitCode: Int?
+    var content: String = ""
+    var isComplete: Bool = false
+    var isError: Bool = false
+    var exitCode: Int?
 
     enum BlockType: Equatable {
         case sessionStart(model: String, sessionId: String)
@@ -37,7 +37,7 @@ class StreamBlock: ObservableObject, Identifiable {
         self.content = content
     }
 
-    func append(_ text: String) {
+    public mutating func append(_ text: String) {
         content += text
     }
 }
@@ -147,6 +147,10 @@ struct BlockFilter {
     var onlyErrors: Bool = false
     var searchText: String = ""
 
+    init(toolTypes: Set<String> = [], onlyErrors: Bool = false, searchText: String = "") {
+        self.toolTypes = toolTypes; self.onlyErrors = onlyErrors; self.searchText = searchText
+    }
+
     var isActive: Bool { !toolTypes.isEmpty || onlyErrors || !searchText.isEmpty }
 
     func matches(_ block: StreamBlock) -> Bool {
@@ -185,6 +189,10 @@ struct FileChangeRecord: Identifiable {
     let action: String // Write, Edit, Read
     let timestamp: Date
     var success: Bool = true
+
+    init(path: String, fileName: String, action: String, timestamp: Date, success: Bool = true) {
+        self.path = path; self.fileName = fileName; self.action = action; self.timestamp = timestamp; self.success = success
+    }
 }
 
 enum ParallelTaskState: String {
@@ -214,6 +222,10 @@ struct ParallelTaskRecord: Identifiable, Equatable {
     let label: String
     let assigneeCharacterId: String
     var state: ParallelTaskState
+
+    init(id: String, label: String, assigneeCharacterId: String, state: ParallelTaskState) {
+        self.id = id; self.label = label; self.assigneeCharacterId = assigneeCharacterId; self.state = state
+    }
 }
 
 enum TabStatusCategory: String, CaseIterable {
@@ -230,6 +242,10 @@ struct TabStatusPresentation {
     let symbol: String
     let tint: Color
     let sortPriority: Int
+
+    init(category: TabStatusCategory, label: String, symbol: String, tint: Color, sortPriority: Int) {
+        self.category = category; self.label = label; self.symbol = symbol; self.tint = tint; self.sortPriority = sortPriority
+    }
 }
 
 enum WorkflowStageState: String {
@@ -269,13 +285,27 @@ struct WorkflowStageRecord: Identifiable, Equatable {
     var handoffLabel: String
     var detail: String
     var updatedAt: Date
+
+    init(id: String, role: WorkerJob, workerName: String, assigneeCharacterId: String, state: WorkflowStageState, handoffLabel: String, detail: String, updatedAt: Date) {
+        self.id = id; self.role = role; self.workerName = workerName; self.assigneeCharacterId = assigneeCharacterId; self.state = state; self.handoffLabel = handoffLabel; self.detail = detail; self.updatedAt = updatedAt
+    }
 }
 
-struct GitInfo { var branch = "", changedFiles = 0, lastCommit = "", lastCommitAge = "", isGitRepo = false }
-struct SessionSummary { var filesModified: [String] = [], duration: TimeInterval = 0, tokenCount = 0, cost: Double = 0, lastLines: [String] = [], commandCount: Int = 0, errorCount: Int = 0, timestamp = Date() }
+struct GitInfo {
+    var branch = "", changedFiles = 0, lastCommit = "", lastCommitAge = "", isGitRepo = false
+    init(branch: String = "", changedFiles: Int = 0, lastCommit: String = "", lastCommitAge: String = "", isGitRepo: Bool = false) {
+        self.branch = branch; self.changedFiles = changedFiles; self.lastCommit = lastCommit; self.lastCommitAge = lastCommitAge; self.isGitRepo = isGitRepo
+    }
+}
+struct SessionSummary {
+    var filesModified: [String] = [], duration: TimeInterval = 0, tokenCount: Int = 0, cost: Double = 0, lastLines: [String] = [], commandCount: Int = 0, errorCount: Int = 0, timestamp: Date = Date()
+    init(filesModified: [String] = [], duration: TimeInterval = 0, tokenCount: Int = 0, cost: Double = 0, lastLines: [String] = [], commandCount: Int = 0, errorCount: Int = 0, timestamp: Date = Date()) {
+        self.filesModified = filesModified; self.duration = duration; self.tokenCount = tokenCount; self.cost = cost; self.lastLines = lastLines; self.commandCount = commandCount; self.errorCount = errorCount; self.timestamp = timestamp
+    }
+}
 
 class SessionGroup: ObservableObject, Identifiable {
-    let id: String; @Published var name: String; @Published var color: Color; @Published var tabIds: [String]
+    let id: String; @Published public var name: String; @Published public var color: Color; @Published public var tabIds: [String]
     init(id: String = UUID().uuidString, name: String, color: Color, tabIds: [String] = []) {
         self.id = id; self.name = name; self.color = color; self.tabIds = tabIds
     }
@@ -739,6 +769,11 @@ class TerminalTab: ObservableObject, Identifiable {
     private static let maxRetainedBlocks = 420
     private static let maxRetainedFileChanges = 240
 
+    /// Decoupled character lookup (set by App layer to bridge CharacterRegistry)
+    static var characterLookup: ((String) -> WorkerCharacter?) = { _ in nil }
+    /// Decoupled hired-characters provider (set by App layer to bridge CharacterRegistry)
+    static var hiredCharactersProvider: (() -> [WorkerCharacter]) = { [] }
+
     private struct ToolUseContext {
         let id: String
         let name: String
@@ -754,8 +789,8 @@ class TerminalTab: ObservableObject, Identifiable {
     }
 
     let id: String
-    @Published var projectName: String
-    @Published var projectPath: String
+    var projectName: String
+    var projectPath: String
     @Published var workerName: String
     @Published var workerColor: Color
 
@@ -765,16 +800,16 @@ class TerminalTab: ObservableObject, Identifiable {
     @Published var isRunning: Bool = true
 
     // Claude 설정
-    @Published var selectedModel: ClaudeModel = .sonnet
-    @Published var effortLevel: EffortLevel = .medium
-    @Published var outputMode: OutputMode = .full
+    var selectedModel: ClaudeModel = .sonnet
+    var effortLevel: EffortLevel = .medium
+    var outputMode: OutputMode = .full
 
     // 상태
     @Published var claudeActivity: ClaudeActivity = .idle
     @Published var tokensUsed: Int = 0
-    @Published var inputTokensUsed: Int = 0
-    @Published var outputTokensUsed: Int = 0
-    @Published var totalCost: Double = 0
+    var inputTokensUsed: Int = 0
+    var outputTokensUsed: Int = 0
+    var totalCost: Double = 0
     @Published var tokenLimit: Int = 45000
     @Published var isClaude: Bool = true
     @Published var isCompleted: Bool = false
@@ -782,9 +817,9 @@ class TerminalTab: ObservableObject, Identifiable {
     @Published var summary: SessionSummary?
     @Published var startError: String?
     @Published var approvalMode: ApprovalMode = .auto
-    @Published var fileChanges: [FileChangeRecord] = []
-    @Published var commandCount: Int = 0
-    @Published var errorCount: Int = 0
+    var fileChanges: [FileChangeRecord] = []
+    var commandCount: Int = 0
+    var errorCount: Int = 0
     var readCommandCount: Int = 0
     @Published var pendingApproval: PendingApproval?
     @Published var lastResultText: String = ""
@@ -827,7 +862,7 @@ class TerminalTab: ObservableObject, Identifiable {
         }
     }
 
-    @Published var timeline: [TimelineEvent] = []
+    var timeline: [TimelineEvent] = []
 
     struct PendingApproval: Identifiable {
         let id = UUID()
@@ -874,55 +909,65 @@ class TerminalTab: ObservableObject, Identifiable {
     var automationSourceTabId: String?
     var automationReportPath: String?
     var manualLaunch: Bool = false
-    @Published var workflowSourceRequest: String = ""
-    @Published var workflowPlanSummary: String = ""
-    @Published var workflowDesignSummary: String = ""
-    @Published var workflowReviewSummary: String = ""
-    @Published var workflowQASummary: String = ""
-    @Published var workflowSRESummary: String = ""
-    @Published var officeSeatLockReason: String?
-    @Published var workflowStages: [WorkflowStageRecord] = []
-    @Published var reviewerAttemptCount: Int = 0
-    @Published var qaAttemptCount: Int = 0
-    @Published var automatedRevisionCount: Int = 0
+    var workflowSourceRequest: String = ""
+    var workflowPlanSummary: String = ""
+    var workflowDesignSummary: String = ""
+    var workflowReviewSummary: String = ""
+    var workflowQASummary: String = ""
+    var workflowSRESummary: String = ""
+    var officeSeatLockReason: String?
+    var workflowStages: [WorkflowStageRecord] = []
+    var reviewerAttemptCount: Int = 0
+    var qaAttemptCount: Int = 0
+    var automatedRevisionCount: Int = 0
 
     // ── 고급 CLI 옵션 ──
-    @Published var permissionMode: PermissionMode = .bypassPermissions
-    @Published var systemPrompt: String = ""
-    @Published var maxBudgetUSD: Double = 0       // 0 = 무제한
-    @Published var allowedTools: String = ""       // 쉼표 구분
-    @Published var disallowedTools: String = ""    // 쉼표 구분
-    @Published var additionalDirs: [String] = []
-    @Published var continueSession: Bool = false   // --continue
-    @Published var useWorktree: Bool = false        // --worktree
+    var permissionMode: PermissionMode = .bypassPermissions
+    var systemPrompt: String = ""
+    var maxBudgetUSD: Double = 0       // 0 = 무제한
+    var allowedTools: String = ""       // 쉼표 구분
+    var disallowedTools: String = ""    // 쉼표 구분
+    var additionalDirs: [String] = []
+    var continueSession: Bool = false   // --continue
+    var useWorktree: Bool = false        // --worktree
 
     // ── 추가 CLI 옵션 (v1.5) ──
-    @Published var fallbackModel: String = ""          // --fallback-model
-    @Published var sessionName: String = ""            // --name
-    @Published var jsonSchema: String = ""             // --json-schema
-    @Published var mcpConfigPaths: [String] = []       // --mcp-config
-    @Published var customAgent: String = ""            // --agent
-    @Published var customAgentsJSON: String = ""       // --agents (JSON)
-    @Published var pluginDirs: [String] = []           // --plugin-dir
-    @Published var customTools: String = ""            // --tools (빌트인 도구 제한)
-    @Published var enableChrome: Bool = true           // --chrome
-    @Published var forkSession: Bool = false           // --fork-session
-    @Published var fromPR: String = ""                 // --from-pr
-    @Published var enableBrief: Bool = false           // --brief
-    @Published var tmuxMode: Bool = false              // --tmux
-    @Published var strictMcpConfig: Bool = false       // --strict-mcp-config
-    @Published var settingSources: String = ""         // --setting-sources
-    @Published var settingsFileOrJSON: String = ""     // --settings
-    @Published var betaHeaders: String = ""            // --betas
+    var fallbackModel: String = ""          // --fallback-model
+    var sessionName: String = ""            // --name
+    var jsonSchema: String = ""             // --json-schema
+    var mcpConfigPaths: [String] = []       // --mcp-config
+    var customAgent: String = ""            // --agent
+    var customAgentsJSON: String = ""       // --agents (JSON)
+    var pluginDirs: [String] = []           // --plugin-dir
+    var customTools: String = ""            // --tools (빌트인 도구 제한)
+    var enableChrome: Bool = true           // --chrome
+    var forkSession: Bool = false           // --fork-session
+    var fromPR: String = ""                 // --from-pr
+    var enableBrief: Bool = false           // --brief
+    var tmuxMode: Bool = false              // --tmux
+    var strictMcpConfig: Bool = false       // --strict-mcp-config
+    var settingSources: String = ""         // --setting-sources
+    var settingsFileOrJSON: String = ""     // --settings
+    var betaHeaders: String = ""            // --betas
 
     // ── 세션 연속성 (--resume으로 멀티턴 유지) ──
 
     // ── 크롬 윈도우 캡처 ──
-    @Published var chromeScreenshot: CGImage?
+    var chromeScreenshot: CGImage?
 
     init(id: String = UUID().uuidString, projectName: String, projectPath: String, workerName: String, workerColor: Color) {
         self.id = id; self.projectName = projectName; self.projectPath = projectPath
         self.workerName = workerName; self.workerColor = workerColor
+    }
+
+    deinit {
+        currentProcess?.terminate()
+        currentProcess = nil
+        chromeScreenshot = nil
+        if rawMasterFD >= 0 {
+            close(rawMasterFD)
+            rawMasterFD = -1
+        }
     }
 
     private func sessionStartSummary(modelLabel: String? = nil) -> String {
@@ -945,9 +990,9 @@ class TerminalTab: ObservableObject, Identifiable {
         if let resolvedModel = ClaudeModel.detect(from: reportedModel) {
             selectedModel = resolvedModel
         }
-        if let first = blocks.first, case .sessionStart = first.blockType {
+        if !blocks.isEmpty, case .sessionStart = blocks[0].blockType {
             let displayLabel = ClaudeModel.detect(from: reportedModel)?.displayName ?? reportedModel
-            first.content = sessionStartSummary(modelLabel: displayLabel)
+            blocks[0].content = sessionStartSummary(modelLabel: displayLabel)
         }
     }
 
@@ -995,7 +1040,7 @@ class TerminalTab: ObservableObject, Identifiable {
 
         branch = saved.branch
         if let savedCharacterId = saved.characterId,
-           let savedCharacter = CharacterRegistry.shared.character(with: savedCharacterId),
+           let savedCharacter = Self.characterLookup(savedCharacterId),
            savedCharacter.isHired,
            !savedCharacter.isOnVacation {
             characterId = savedCharacterId
@@ -1519,7 +1564,7 @@ class TerminalTab: ObservableObject, Identifiable {
                         AuditLog.shared.log(.fileRead, tabId: id, projectName: projectName, detail: file)
                         appendBlock(.toolUse(name: "Read", input: file), content: (file as NSString).lastPathComponent)
                         readCommandCount += 1
-                        AchievementManager.shared.recordFileRead(sessionReadCount: readCommandCount)
+                        NotificationCenter.default.post(name: .init("workmanAchievementFileRead"), object: readCommandCount)
                     case "Write":
                         claudeActivity = .writing
                         let file = toolInput["file_path"] as? String ?? ""
@@ -1531,7 +1576,7 @@ class TerminalTab: ObservableObject, Identifiable {
                         recordFileChange(path: file, action: "Write")
                         appendBlock(.fileChange(path: file, action: "Write"), content: (file as NSString).lastPathComponent)
                         timeline.append(TimelineEvent(timestamp: Date(), type: .fileChange, detail: "Write: \((file as NSString).lastPathComponent)"))
-                        AchievementManager.shared.recordFileEdit()
+                        NotificationCenter.default.post(name: .init("workmanAchievementFileEdit"), object: nil)
                     case "Edit":
                         claudeActivity = .writing
                         let file = toolInput["file_path"] as? String ?? ""
@@ -1543,17 +1588,17 @@ class TerminalTab: ObservableObject, Identifiable {
                         recordFileChange(path: file, action: "Edit")
                         appendBlock(.fileChange(path: file, action: "Edit"), content: (file as NSString).lastPathComponent)
                         timeline.append(TimelineEvent(timestamp: Date(), type: .fileChange, detail: "Edit: \((file as NSString).lastPathComponent)"))
-                        AchievementManager.shared.recordFileEdit()
+                        NotificationCenter.default.post(name: .init("workmanAchievementFileEdit"), object: nil)
                     case "Grep":
                         claudeActivity = .searching
                         let pattern = toolInput["pattern"] as? String ?? ""
                         appendBlock(.toolUse(name: "Grep", input: pattern), content: pattern)
-                        AchievementManager.shared.unlock("first_grep")
+                        NotificationCenter.default.post(name: .init("workmanAchievementUnlock"), object: "first_grep")
                     case "Glob":
                         claudeActivity = .searching
                         let pattern = toolInput["pattern"] as? String ?? ""
                         appendBlock(.toolUse(name: "Glob", input: pattern), content: pattern)
-                        AchievementManager.shared.unlock("first_glob")
+                        NotificationCenter.default.post(name: .init("workmanAchievementUnlock"), object: "first_glob")
                     case "Task":
                         claudeActivity = .thinking
                         let taskLabel = registerParallelTask(toolUseId: toolUseId, input: toolInput)
@@ -1807,7 +1852,7 @@ class TerminalTab: ObservableObject, Identifiable {
         )
         // 세션 알림: 승인 필요
         let tabName = workerName.isEmpty ? projectName : workerName
-        SessionNotificationManager.shared.postApprovalNeeded(tabName: tabName, tabId: id, toolName: denial.toolName)
+        NotificationCenter.default.post(name: .init("workmanApprovalNeeded"), object: nil, userInfo: ["tabName": tabName, "tabId": id, "toolName": denial.toolName])
     }
 
     private func retryPermissionMode(for toolName: String) -> PermissionMode {
@@ -1952,8 +1997,7 @@ class TerminalTab: ObservableObject, Identifiable {
     }
 
     private func parallelTaskAssigneeId(seed: String) -> String {
-        let registry = CharacterRegistry.shared
-        let preferredPool = registry.hiredCharacters.filter {
+        let preferredPool = Self.hiredCharactersProvider().filter {
             !$0.isOnVacation && $0.id != characterId
         }
         let pool = preferredPool
@@ -1982,12 +2026,12 @@ class TerminalTab: ObservableObject, Identifiable {
 
     @discardableResult
     func appendBlock(_ type: StreamBlock.BlockType, content: String = "") -> StreamBlock {
-        if let lastBlock = blocks.last,
-           !lastBlock.isComplete,
-           shouldMergeBlock(existing: lastBlock.blockType, new: type),
-           lastBlock.content.count < 50000 {  // Prevent unbounded growth
-            lastBlock.content += "\n" + content
-            return lastBlock
+        if let lastIndex = blocks.indices.last,
+           !blocks[lastIndex].isComplete,
+           shouldMergeBlock(existing: blocks[lastIndex].blockType, new: type),
+           blocks[lastIndex].content.count < 50000 {  // Prevent unbounded growth
+            blocks[lastIndex].content += "\n" + content
+            return blocks[lastIndex]
         }
         let block = StreamBlock(type: type, content: content)
         blocks.append(block)
@@ -2491,7 +2535,7 @@ extension TerminalTab {
     }
 
     var assignedCharacter: WorkerCharacter? {
-        CharacterRegistry.shared.character(with: characterId)
+        Self.characterLookup(characterId ?? "")
     }
 
     var workerJob: WorkerJob {

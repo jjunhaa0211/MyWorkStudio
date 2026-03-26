@@ -126,7 +126,7 @@ struct SavedChatBlock: Codable {
         case "status": blockType = .status(message: content)
         default: blockType = .text
         }
-        let block = StreamBlock(type: blockType, content: content)
+        var block = StreamBlock(type: blockType, content: content)
         block.isComplete = true
         return block
     }

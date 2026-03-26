@@ -80,6 +80,7 @@ struct OfficeSceneView: View {
             ZStack(alignment: .topLeading) {
                 Canvas { context, size in
                     let metrics = sceneMetrics(for: size)
+                    let palette = store.cachedPalette(theme: sceneTheme, dark: settings.isDarkMode)
                     var renderer = OfficeSpriteRenderer(
                         map: map,
                         characters: controller.characters,
@@ -88,7 +89,8 @@ struct OfficeSceneView: View {
                         dark: settings.isDarkMode,
                         theme: sceneTheme,
                         selectedTabId: manager.activeTabId,
-                        selectedFurnitureId: selectedFurnitureId
+                        selectedFurnitureId: selectedFurnitureId,
+                        cachedPalette: palette
                     )
                     renderer.chromeScreenshots = store.chromeScreenshots
                     if let background = store.backgroundSnapshot {
