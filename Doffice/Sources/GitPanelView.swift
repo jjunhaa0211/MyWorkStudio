@@ -5,6 +5,8 @@ import SwiftUI
 // ═══════════════════════════════════════════════════════
 
 struct GitPanelView: View {
+    private static let commitRowHeight: CGFloat = 48
+
     @EnvironmentObject var manager: SessionManager
     @StateObject private var git = GitDataProvider()
 
@@ -904,35 +906,39 @@ struct GitPanelView: View {
         let isSelected = selectedCommitId == commit.id
         let isHovered = hoveredCommitId == commit.id
         let graphW = CGFloat(max(git.maxLaneCount, 1)) * 20 + 12
-        let hasTag = commit.refs.contains { $0.type == .tag }
 
-        return HStack(spacing: 0) {
-            graphColumn(commit: commit).frame(width: graphW, height: 38)
+        return HStack(alignment: .top, spacing: 0) {
+            graphColumn(commit: commit).frame(width: graphW, height: Self.commitRowHeight)
 
-            HStack(spacing: 5) {
-                ForEach(commit.refs, id: \.name) { ref in refBadge(ref) }
-                Text(commit.message)
-                    .font(Theme.mono(10, weight: isSelected ? .bold : .regular))
-                    .foregroundColor(Theme.textPrimary)
+            HStack(alignment: .top, spacing: 8) {
+                HStack(alignment: .top, spacing: 5) {
+                    ForEach(commit.refs, id: \.name) { ref in refBadge(ref) }
+                    Text(commit.message)
+                        .font(Theme.mono(10, weight: isSelected ? .bold : .regular))
+                        .foregroundColor(Theme.textPrimary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .layoutPriority(1)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, 4)
+                .frame(maxHeight: .infinity, alignment: .topLeading)
+
+                Text(commit.author)
+                    .font(Theme.mono(8))
+                    .foregroundColor(Theme.textSecondary)
                     .lineLimit(1)
+                    .frame(width: 90, maxHeight: .infinity, alignment: .leading)
+
+                Text(Self.relativeDate(commit.date))
+                    .font(Theme.mono(8))
+                    .foregroundColor(Theme.textDim)
+                    .frame(width: 90, maxHeight: .infinity, alignment: .trailing)
             }
-            .padding(.leading, 4)
-
-            Spacer(minLength: 8)
-
-            Text(commit.author)
-                .font(Theme.mono(8))
-                .foregroundColor(Theme.textSecondary)
-                .lineLimit(1)
-                .frame(width: 90, alignment: .center)
-
-            Text(Self.relativeDate(commit.date))
-                .font(Theme.mono(8))
-                .foregroundColor(Theme.textDim)
-                .frame(width: 90, alignment: .trailing)
-                .padding(.trailing, 12)
+            .padding(.trailing, 12)
         }
-        .padding(.vertical, Theme.sp1)
+        .frame(minHeight: Self.commitRowHeight, alignment: .top)
         .background(
             isSelected ? Theme.accentBg(Theme.accent) :
             isHovered ? Theme.bgHover :
@@ -1161,8 +1167,9 @@ struct GitPanelView: View {
                     Text(commit.message)
                         .font(Theme.mono(9))
                         .foregroundColor(Theme.textPrimary)
-                        .lineLimit(1)
-                    Spacer()
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(8)
                 .background(RoundedRectangle(cornerRadius: 6).fill(Theme.bgSurface))
@@ -1888,14 +1895,17 @@ struct GitPanelView: View {
 
     private func fileHistoryRow(_ commit: GitCommitNode) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
+            HStack(alignment: .top, spacing: 6) {
                 Text(commit.shortHash)
                     .font(Theme.mono(8, weight: .bold))
                     .foregroundColor(Theme.accent)
                 Text(commit.message)
                     .font(Theme.mono(9, weight: .medium))
                     .foregroundColor(Theme.textPrimary)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 Spacer()
             }
             HStack(spacing: 8) {
