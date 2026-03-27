@@ -21,7 +21,13 @@ public class PluginEffectEngine: ObservableObject {
     @Published public var activeToasts: [EffectToast] = []
     @Published public var confettiPieces: [ConfettiPiece] = []
 
+    // v2 이펙트 상태
+    @Published public var typewriterText: TypewriterState?
+    @Published public var progressBarState: ProgressBarState?
+    @Published public var glowState: GlowState?
+
     private var comboDecayTimer: Timer?
+    private var typewriterTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
 
     public struct ParticleBurst: Identifiable {
@@ -65,6 +71,60 @@ public class PluginEffectEngine: ObservableObject {
         }
     }
 
+    // v2 이펙트 모델
+
+    public struct TypewriterState: Identifiable {
+        public let id = UUID()
+        public let fullText: String
+        public var displayedCount: Int = 0
+        public let colorHex: String
+        public let fontSize: CGFloat
+        public let position: String        // "top" | "center" | "bottom"
+
+        public var displayedText: String {
+            String(fullText.prefix(displayedCount))
+        }
+
+        public init(fullText: String, colorHex: String, fontSize: CGFloat, position: String) {
+            self.fullText = fullText
+            self.colorHex = colorHex
+            self.fontSize = fontSize
+            self.position = position
+        }
+    }
+
+    public struct ProgressBarState: Identifiable {
+        public let id = UUID()
+        public var progress: Double        // 0.0 ~ 1.0
+        public let label: String
+        public let barColorHex: String
+        public let trackColorHex: String
+        public let duration: Double        // 자동 진행 시간
+
+        public init(progress: Double, label: String, barColorHex: String, trackColorHex: String, duration: Double) {
+            self.progress = progress
+            self.label = label
+            self.barColorHex = barColorHex
+            self.trackColorHex = trackColorHex
+            self.duration = duration
+        }
+    }
+
+    public struct GlowState: Identifiable {
+        public let id = UUID()
+        public let colorHex: String
+        public let intensity: Double       // 글로우 강도 (0.0 ~ 1.0)
+        public let pulseSpeed: Double      // 펄스 주기 (초)
+        public let duration: Double
+
+        public init(colorHex: String, intensity: Double, pulseSpeed: Double, duration: Double) {
+            self.colorHex = colorHex
+            self.intensity = intensity
+            self.pulseSpeed = pulseSpeed
+            self.duration = duration
+        }
+    }
+
     private init() {
         NotificationCenter.default.publisher(for: .pluginEffectEvent)
             .receive(on: DispatchQueue.main)
@@ -91,6 +151,9 @@ public class PluginEffectEngine: ObservableObject {
         case .sound: executeSound(effect.config)
         case .toast: executeToast(effect.config)
         case .confetti: executeConfetti(effect.config)
+        case .typewriter: executeTypewriter(effect.config)
+        case .progressBar: executeProgressBar(effect.config)
+        case .glow: executeGlow(effect.config)
         }
     }
 
@@ -236,6 +299,102 @@ public class PluginEffectEngine: ObservableObject {
             withAnimation { self?.confettiPieces.removeAll() }
         }
     }
+
+    // MARK: - Typewriter (타자기 텍스트 애니메이션)
+
+    private func executeTypewriter(_ config: [String: EffectValue]) {
+        let text = config["text"]?.stringValue ?? "Hello, World!"
+        let speed = config["speed"]?.doubleValue ?? 0.05    // 글자당 초
+        let colorHex = config["colorHex"]?.stringValue ?? "3291ff"
+        let fontSize = CGFloat(config["fontSize"]?.doubleValue ?? 16.0)
+        let position = config["position"]?.stringValue ?? "center"
+        let holdDuration = config["holdDuration"]?.doubleValue ?? 2.0
+
+        var state = TypewriterState(fullText: text, colorHex: colorHex, fontSize: fontSize, position: position)
+        typewriterText = state
+
+        typewriterTimer?.invalidate()
+        var charIndex = 0
+        typewriterTimer = Timer.scheduledTimer(withTimeInterval: speed, repeats: true) { [weak self] timer in
+            charIndex += 1
+            DispatchQueue.main.async {
+                state.displayedCount = charIndex
+                self?.typewriterText = state
+            }
+            if charIndex >= text.count {
+                timer.invalidate()
+                // hold 후 페이드 아웃
+                DispatchQueue.main.asyncAfter(deadline: .now() + holdDuration) { [weak self] in
+                    withAnimation(.easeOut(duration: 0.5)) {
+                        self?.typewriterText = nil
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Progress Bar (프로그레스 바)
+
+    private func executeProgressBar(_ config: [String: EffectValue]) {
+        let label = config["label"]?.stringValue ?? ""
+        let barColor = config["barColorHex"]?.stringValue ?? "3ecf8e"
+        let trackColor = config["trackColorHex"]?.stringValue ?? "2a2d35"
+        let duration = config["duration"]?.doubleValue ?? 3.0
+
+        let state = ProgressBarState(
+            progress: 0,
+            label: label,
+            barColorHex: barColor,
+            trackColorHex: trackColor,
+            duration: duration
+        )
+        progressBarState = state
+
+        // 0 → 1 애니메이션 (0.05초 간격)
+        let steps = Int(duration / 0.05)
+        for i in 1...steps {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.05) { [weak self] in
+                guard self?.progressBarState?.id == state.id else { return }
+                self?.progressBarState?.progress = min(Double(i) / Double(steps), 1.0)
+            }
+        }
+
+        // 완료 후 제거
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration + 1.0) { [weak self] in
+            withAnimation(.easeOut(duration: 0.3)) {
+                if self?.progressBarState?.id == state.id {
+                    self?.progressBarState = nil
+                }
+            }
+        }
+    }
+
+    // MARK: - Glow (테두리 글로우)
+
+    private func executeGlow(_ config: [String: EffectValue]) {
+        let colorHex = config["colorHex"]?.stringValue ?? "5b9cf6"
+        let intensity = config["intensity"]?.doubleValue ?? 0.6
+        let pulseSpeed = config["pulseSpeed"]?.doubleValue ?? 1.0
+        let duration = config["duration"]?.doubleValue ?? 3.0
+
+        let state = GlowState(
+            colorHex: colorHex,
+            intensity: intensity,
+            pulseSpeed: pulseSpeed,
+            duration: duration
+        )
+        withAnimation(.easeIn(duration: 0.2)) {
+            glowState = state
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [weak self] in
+            withAnimation(.easeOut(duration: 0.5)) {
+                if self?.glowState?.id == state.id {
+                    self?.glowState = nil
+                }
+            }
+        }
+    }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -283,6 +442,21 @@ public struct PluginEffectOverlay: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
             .padding(16)
+
+            // 타자기 텍스트
+            if let tw = engine.typewriterText {
+                typewriterView(tw)
+            }
+
+            // 프로그레스 바
+            if let pb = engine.progressBarState {
+                progressBarView(pb)
+            }
+
+            // 글로우 테두리
+            if let glow = engine.glowState {
+                glowOverlayView(glow)
+            }
         }
         .allowsHitTesting(false)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: engine.comboCount)
@@ -378,5 +552,92 @@ public struct PluginEffectOverlay: View {
                 .fill(Color.black.opacity(0.75))
                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.1), lineWidth: 1))
         )
+    }
+
+    // MARK: - Typewriter
+
+    private func typewriterView(_ state: PluginEffectEngine.TypewriterState) -> some View {
+        let alignment: Alignment = {
+            switch state.position {
+            case "top": return .top
+            case "bottom": return .bottom
+            default: return .center
+            }
+        }()
+
+        return Text(state.displayedText)
+            .font(.system(size: state.fontSize, weight: .bold, design: .monospaced))
+            .foregroundColor(Color(hex: state.colorHex))
+            .padding(20)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
+            .transition(.opacity)
+    }
+
+    // MARK: - Progress Bar
+
+    private func progressBarView(_ state: PluginEffectEngine.ProgressBarState) -> some View {
+        VStack(spacing: 6) {
+            if !state.label.isEmpty {
+                Text(state.label)
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.8))
+            }
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color(hex: state.trackColorHex))
+                        .frame(height: 8)
+
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color(hex: state.barColorHex))
+                        .frame(width: geo.size.width * CGFloat(state.progress), height: 8)
+                        .animation(.linear(duration: 0.05), value: state.progress)
+                }
+            }
+            .frame(height: 8)
+
+            Text("\(Int(state.progress * 100))%")
+                .font(.system(size: 9, weight: .medium, design: .monospaced))
+                .foregroundColor(Color(hex: state.barColorHex).opacity(0.7))
+        }
+        .padding(.horizontal, 40)
+        .frame(maxWidth: 300)
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(.black.opacity(0.7))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(hex: state.barColorHex).opacity(0.3), lineWidth: 1))
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        .padding(.bottom, 60)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+
+    // MARK: - Glow Overlay
+
+    private func glowOverlayView(_ state: PluginEffectEngine.GlowState) -> some View {
+        RoundedRectangle(cornerRadius: 12)
+            .stroke(Color(hex: state.colorHex).opacity(state.intensity), lineWidth: 3)
+            .shadow(color: Color(hex: state.colorHex).opacity(state.intensity * 0.8), radius: 12)
+            .shadow(color: Color(hex: state.colorHex).opacity(state.intensity * 0.4), radius: 24)
+            .ignoresSafeArea()
+            .modifier(PulseModifier(speed: state.pulseSpeed))
+    }
+}
+
+/// 펄스 애니메이션 모디파이어
+private struct PulseModifier: ViewModifier {
+    let speed: Double
+    @State private var isPulsing = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(isPulsing ? 1.0 : 0.4)
+            .animation(
+                .easeInOut(duration: speed).repeatForever(autoreverses: true),
+                value: isPulsing
+            )
+            .onAppear { isPulsing = true }
     }
 }

@@ -47,6 +47,7 @@ class OfficeMap: ObservableObject {
     // MARK: - Walkability
 
     func rebuildWalkability() {
+        invalidatePathCache()
         _walkable = Array(repeating: Array(repeating: false, count: cols), count: rows)
         for r in 0..<rows {
             for c in 0..<cols {
@@ -70,12 +71,23 @@ class OfficeMap: ObservableObject {
         }
     }
 
-    // MARK: - A* Pathfinding
+    // MARK: - A* Pathfinding (with cache)
+
+    /// 최근 경로 캐시 — 같은 출발/도착점 중복 계산 방지
+    private var _pathCache: [UInt64: [TileCoord]] = [:]
+    private var _pathCacheAge: Int = 0
+    private static let pathCacheMaxSize = 64
+
+    private func pathCacheKey(_ from: TileCoord, _ to: TileCoord) -> UInt64 {
+        UInt64(from.col) | (UInt64(from.row) << 16) | (UInt64(to.col) << 32) | (UInt64(to.row) << 48)
+    }
+
+    /// 경로 캐시 무효화 (가구 배치 변경 시)
+    func invalidatePathCache() { _pathCache.removeAll() }
 
     func findPath(from start: TileCoord, to end: TileCoord) -> [TileCoord] {
         guard isInBounds(start), isInBounds(end) else { return [] }
         guard isWalkable(end) else {
-            // 목적지가 걸을 수 없으면 인접 타일 찾기
             for d in Direction.allCases {
                 let adj = end + d.delta
                 if isWalkable(adj) { return findPath(from: start, to: adj) }
@@ -83,6 +95,16 @@ class OfficeMap: ObservableObject {
             return []
         }
         if start == end { return [] }
+
+        // 캐시 확인
+        let key = pathCacheKey(start, end)
+        if let cached = _pathCache[key] { return cached }
+
+        // 캐시가 너무 크면 절반 제거
+        _pathCacheAge += 1
+        if _pathCache.count > Self.pathCacheMaxSize {
+            _pathCache.removeAll(keepingCapacity: true)
+        }
 
         struct Node {
             let coord: TileCoord
@@ -112,6 +134,7 @@ class OfficeMap: ObservableObject {
                 var c = end
                 while let prev = came[c] { path.insert(prev, at: 0); c = prev }
                 if !path.isEmpty { path.removeFirst() } // start 제거
+                _pathCache[key] = path
                 return path
             }
             if closed.contains(current.coord) { continue }
@@ -128,6 +151,7 @@ class OfficeMap: ObservableObject {
                 }
             }
         }
+        _pathCache[key] = []
         return [] // 경로 없음
     }
 

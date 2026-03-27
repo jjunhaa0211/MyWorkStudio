@@ -120,6 +120,7 @@ public struct PixelStripView: View {
             Canvas { context, size in
                 drawScene(context: context, size: size)
             }
+            .drawingGroup()
             .id(bgKey)  // 배경 변경 시 Canvas 강제 재생성
             .background(canvasBgColor)
 

@@ -2531,3 +2531,51 @@
 "quit.force" = "Quit Anyway";
 "plugin.error.brew.not.supported" = "Homebrew is not supported on iOS. Use URL or Marketplace instead.";
 "plugin.themes.label" = "Plugin Themes";
+
+/* Plugin v2 - Search/Filter */
+"plugin.search.placeholder" = "Search plugins...";
+"plugin.search.empty" = "No results found";
+"plugin.update.count" = "%d updates";
+"plugin.update.all" = "Update All";
+
+/* Plugin v2 - Contribution Badges */
+"plugin.badge.theme" = "Theme";
+"plugin.badge.effect" = "Effect";
+"plugin.badge.furniture" = "Furniture";
+"plugin.badge.character" = "Character";
+"plugin.badge.panel" = "Panel";
+"plugin.badge.command" = "Command";
+"plugin.badge.achievement" = "Achievement";
+"plugin.badge.office" = "Office";
+"plugin.badge.bossline" = "Dialogue";
+
+/* Plugin v2 - Detail Info */
+"plugin.detail.installed" = "Installed: %@";
+"plugin.detail.type" = "Type: %@";
+
+/* Plugin v2 - Dependencies */
+"plugin.dep.missing" = "Plugin '%@' is not installed";
+"plugin.dep.version.low" = "Plugin '%@' requires %@ or higher (current: %@)";
+
+/* Plugin v2 - Conflicts */
+"plugin.conflict.title" = "Plugin Conflict";
+"plugin.conflict.desc" = "'%@' and '%@' provide the same %@ ID '%@'";
+
+/* Plugin v2 - Export */
+"plugin.export" = "Export";
+"plugin.export.success" = "Plugin exported: %@";
+"plugin.export.failed" = "Export failed: %@";
+"plugin.export.panel.title" = "Export Plugin";
+
+/* Plugin v2 - Permissions */
+"plugin.permission.title" = "Plugin Permission Request";
+"plugin.permission.desc" = "Plugin '%@' wants to run a script:\n%@";
+"plugin.permission.allow" = "Allow";
+"plugin.permission.deny" = "Deny";
+"plugin.permission.always" = "Always Allow";
+"plugin.permission.trusted" = "Trusted";
+"plugin.permission.untrusted" = "Approval Required";
+
+/* Plugin v2 - Extension Toggle */
+"plugin.extension.enable" = "Enabled";
+"plugin.extension.disable" = "Disabled";

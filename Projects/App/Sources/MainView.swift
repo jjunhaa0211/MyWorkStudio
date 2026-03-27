@@ -190,6 +190,7 @@ struct MainView: View {
         .sheet(isPresented: $showSettings) { SettingsView() }
         .sheet(isPresented: $showBugReport) { BugReportView() }
         .sheet(isPresented: $showUpdateSheet) { UpdateSheet() }
+        .sheet(isPresented: $manager.showNewTabSheet) { NewTabSheet() }
         .sheet(isPresented: $showActionCenter) {
             ActionCenterView()
                 .frame(minWidth: 500, minHeight: 400)

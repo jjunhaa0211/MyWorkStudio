@@ -118,8 +118,11 @@ enum SpriteRasterizer {
     }
 
     // CGImage 캐시: "spriteKey|dir|state|frame" → CGImage
+    // 캐시 크기를 넉넉하게 (캐릭터 12명 × 4방향 × 7프레임 = 336)
     private static var imageCache: [String: CGImage] = [:]
+    private static var imageCacheOrder: [String] = []  // LRU 순서 추적
     private static var lock = os_unfair_lock()
+    private static let maxCacheSize = 600
 
     static func cachedImage(key: String, sprite: SpriteData) -> CGImage? {
         os_unfair_lock_lock(&lock)
@@ -132,12 +135,15 @@ enum SpriteRasterizer {
         guard let img = rasterize(sprite) else { return nil }
 
         os_unfair_lock_lock(&lock)
-        // 캐시 크기 제한 (500개) — 초과 시 절반 제거
-        if imageCache.count > 500 {
-            let keysToRemove = Array(imageCache.keys.prefix(imageCache.count / 2))
+        // LRU eviction: 오래된 1/4 제거
+        if imageCache.count >= maxCacheSize {
+            let removeCount = maxCacheSize / 4
+            let keysToRemove = Array(imageCacheOrder.prefix(removeCount))
             for k in keysToRemove { imageCache.removeValue(forKey: k) }
+            imageCacheOrder.removeFirst(min(removeCount, imageCacheOrder.count))
         }
         imageCache[key] = img
+        imageCacheOrder.append(key)
         os_unfair_lock_unlock(&lock)
         return img
     }
@@ -203,6 +209,7 @@ struct OfficeSpriteRenderer {
     private static var zBuffer: [ZDrawable] = []
     // Z-sort dirty tracking — 이동 없으면 정렬 스킵
     private static var lastZSortSignature: Int = -1
+    private static var _lastZBufferCount: Int = 0
 
     // Pre-allocated bubble text arrays to avoid per-frame allocation
     private static let greetTexts0 = ["(ᵔᴥᵔ)", "ヾ(＾∇＾)", "(◕‿◕)", "\\(^o^)/"]
@@ -899,13 +906,13 @@ struct OfficeSpriteRenderer {
             ))
         }
 
-        // Z-sort: 위치 시그니처가 바뀐 경우에만 정렬 (이동 없으면 스킵)
-        var posHash = Hasher()
-        for d in Self.zBuffer { posHash.combine(Int(d.zY * 100)) }
-        let sig = posHash.finalize()
-        if sig != Self.lastZSortSignature {
+        // Z-sort: 요소 수 + 첫/마지막 zY로 빠른 변경 감지
+        let bufCount = Self.zBuffer.count
+        let quickSig = bufCount ^ Int(bitPattern: UInt(bitPattern: Int((Self.zBuffer.first?.zY ?? 0) * 97))) ^ Int(bitPattern: UInt(bitPattern: Int((Self.zBuffer.last?.zY ?? 0) * 31)))
+        if quickSig != Self.lastZSortSignature || bufCount != Self._lastZBufferCount {
             Self.zBuffer.sort { $0.zY < $1.zY }
-            Self.lastZSortSignature = sig
+            Self.lastZSortSignature = quickSig
+            Self._lastZBufferCount = bufCount
         }
 
         for drawable in Self.zBuffer {
@@ -1815,10 +1822,9 @@ struct OfficeSpriteRenderer {
         if let cached = Self.spriteCache[cacheKey] {
             sprites = cached
         } else {
-            // 캐시 크기 제한 — 절반 제거 (전체 클리어보다 안정적)
-            if Self.spriteCache.count > 50 {
-                let keysToRemove = Array(Self.spriteCache.keys.prefix(Self.spriteCache.count / 2))
-                for key in keysToRemove { Self.spriteCache.removeValue(forKey: key) }
+            // 캐시 크기 제한 (활성 캐릭터 수 + 여유분)
+            if Self.spriteCache.count > 30 {
+                Self.spriteCache.removeAll(keepingCapacity: true)
             }
             let built = SpriteCatalog.buildCharacterSprites(skin: skinHex, hair: hairHex, shirt: shirtHex, pants: pantsHex)
             Self.spriteCache[cacheKey] = built

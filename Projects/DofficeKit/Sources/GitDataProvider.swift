@@ -195,11 +195,10 @@ public class GitDataProvider: ObservableObject {
     public var filteredCommits: [GitCommitNode] {
         let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return commits }
-        let lower = query.lowercased()
         return commits.filter {
-            $0.message.lowercased().contains(lower) ||
-            $0.author.lowercased().contains(lower) ||
-            $0.shortHash.lowercased().contains(lower)
+            $0.message.localizedCaseInsensitiveContains(query) ||
+            $0.author.localizedCaseInsensitiveContains(query) ||
+            $0.shortHash.localizedCaseInsensitiveContains(query)
         }
     }
 
@@ -880,20 +879,26 @@ public enum GitDataParser {
     private static func assignLanes(_ commits: [GitCommitNode]) -> [GitCommitNode] {
         var result = commits
         var activeLanes: [String?] = [] // SHA expected in each lane
+        // O(1) lookup: SHA → lane index (avoids O(n) firstIndex(of:) per commit)
+        var shaToLane: [String: Int] = [:]
+        // O(1) lookup: set of empty lane indices
+        var emptyLanes: [Int] = []
 
         for i in 0..<result.count {
             let commit = result[i]
 
-            // Find lane where this commit was expected
-            var myLane = activeLanes.firstIndex(of: commit.id)
+            // Find lane where this commit was expected — O(1) via dictionary
+            var myLane = shaToLane[commit.id]
 
             if myLane == nil {
-                if let emptyIdx = activeLanes.firstIndex(of: nil) {
+                if let emptyIdx = emptyLanes.popLast() {
                     myLane = emptyIdx
                 } else {
                     myLane = activeLanes.count
                     activeLanes.append(nil)
                 }
+            } else {
+                shaToLane.removeValue(forKey: commit.id)
             }
 
             guard let lane = myLane else { continue }
@@ -901,6 +906,7 @@ public enum GitDataParser {
 
             // Record which lanes are active at this position (for graph drawing)
             var activeSet = Set<Int>()
+            activeSet.reserveCapacity(activeLanes.count)
             for (idx, sha) in activeLanes.enumerated() {
                 if sha != nil { activeSet.insert(idx) }
             }
@@ -910,14 +916,22 @@ public enum GitDataParser {
             // Update lanes: replace current lane with first parent, add others
             if commit.parentHashes.isEmpty {
                 activeLanes[lane] = nil
+                emptyLanes.append(lane)
             } else {
-                activeLanes[lane] = commit.parentHashes[0]
+                let firstParent = commit.parentHashes[0]
+                // Remove old mapping if exists
+                if let oldSha = activeLanes[lane] { shaToLane.removeValue(forKey: oldSha) }
+                activeLanes[lane] = firstParent
+                shaToLane[firstParent] = lane
+
                 for pIdx in commit.parentHashes.indices.dropFirst() {
                     let parentHash = commit.parentHashes[pIdx]
-                    if !activeLanes.contains(parentHash) {
-                        if let emptyIdx = activeLanes.firstIndex(of: nil) {
+                    if shaToLane[parentHash] == nil { // O(1) check
+                        if let emptyIdx = emptyLanes.popLast() {
                             activeLanes[emptyIdx] = parentHash
+                            shaToLane[parentHash] = emptyIdx
                         } else {
+                            shaToLane[parentHash] = activeLanes.count
                             activeLanes.append(parentHash)
                         }
                     }
@@ -925,7 +939,11 @@ public enum GitDataParser {
             }
 
             // Collapse trailing nils
-            while activeLanes.last == nil && activeLanes.count > 1 { activeLanes.removeLast() }
+            while activeLanes.last == nil && activeLanes.count > 1 {
+                let removedIdx = activeLanes.count - 1
+                activeLanes.removeLast()
+                emptyLanes.removeAll { $0 == removedIdx }
+            }
         }
 
         return result

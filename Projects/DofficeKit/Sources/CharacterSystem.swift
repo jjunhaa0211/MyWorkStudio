@@ -10,8 +10,32 @@ public class CharacterRegistry: ObservableObject {
     public static let shared = CharacterRegistry()
     public static let maxHiredCount = 12
 
-    @Published public var allCharacters: [WorkerCharacter] = []
+    @Published public var allCharacters: [WorkerCharacter] = [] {
+        didSet { rebuildIndex() }
+    }
     @Published public private(set) var manuallyUnlockedCharacterIDs: Set<String> = []
+
+    /// O(1) lookup: character ID → index in allCharacters
+    private var idToIndex: [String: Int] = [:]
+
+    private func rebuildIndex() {
+        idToIndex.removeAll(keepingCapacity: true)
+        for (i, c) in allCharacters.enumerated() {
+            idToIndex[c.id] = i
+        }
+    }
+
+    private func index(for id: String) -> Int? {
+        if let i = idToIndex[id], i < allCharacters.count, allCharacters[i].id == id {
+            return i
+        }
+        // Fallback & repair
+        if let i = allCharacters.firstIndex(where: { $0.id == id }) {
+            idToIndex[id] = i
+            return i
+        }
+        return nil
+    }
 
     private let saveKey = "WorkManCharacters"
     private let manualUnlockKey = "WorkManCharacterManualUnlocks"
@@ -184,7 +208,7 @@ public class CharacterRegistry: ObservableObject {
     }
 
     public func hire(_ id: String) {
-        guard let idx = allCharacters.firstIndex(where: { $0.id == id }) else { return }
+        guard let idx = index(for: id) else { return }
         // 도전과제 잠금 체크
         if let req = allCharacters[idx].requiredAchievement {
             guard AchievementManager.shared.achievements.first(where: { $0.id == req })?.unlocked == true else { return }
@@ -246,7 +270,7 @@ public class CharacterRegistry: ObservableObject {
     }
 
     public func fire(_ id: String) {
-        if let idx = allCharacters.firstIndex(where: { $0.id == id }) {
+        if let idx = index(for: id) {
             allCharacters[idx].isHired = false
             allCharacters[idx].hiredAt = nil
             allCharacters[idx].isOnVacation = false
@@ -255,14 +279,14 @@ public class CharacterRegistry: ObservableObject {
     }
 
     public func rename(_ id: String, to newName: String) {
-        if let idx = allCharacters.firstIndex(where: { $0.id == id }) {
+        if let idx = index(for: id) {
             allCharacters[idx].name = newName
             save()
         }
     }
 
     public func setJobRole(_ role: WorkerJob, for id: String) {
-        guard let idx = allCharacters.firstIndex(where: { $0.id == id }) else { return }
+        guard let idx = index(for: id) else { return }
         let previous = allCharacters[idx].jobRole
         allCharacters[idx].jobRole = role
         save()
@@ -291,14 +315,15 @@ public class CharacterRegistry: ObservableObject {
     }
 
     public func setVacation(_ isOnVacation: Bool, for id: String) {
-        guard let idx = allCharacters.firstIndex(where: { $0.id == id }) else { return }
+        guard let idx = index(for: id) else { return }
         allCharacters[idx].isOnVacation = isOnVacation
         save()
     }
 
     public func character(with id: String?) -> WorkerCharacter? {
         guard let id else { return nil }
-        return allCharacters.first(where: { $0.id == id })
+        if let i = index(for: id) { return allCharacters[i] }
+        return nil
     }
 
     public var hiredCharacters: [WorkerCharacter] {

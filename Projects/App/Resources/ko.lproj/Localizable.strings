@@ -2529,3 +2529,51 @@
 "quit.force" = "그대로 종료";
 "plugin.error.brew.not.supported" = "iOS에서는 Homebrew를 지원하지 않습니다. URL 또는 마켓플레이스를 이용해주세요.";
 "plugin.themes.label" = "플러그인 테마";
+
+/* Plugin v2 - 검색/필터 */
+"plugin.search.placeholder" = "플러그인 검색...";
+"plugin.search.empty" = "검색 결과가 없습니다";
+"plugin.update.count" = "%d개 업데이트";
+"plugin.update.all" = "전체 업데이트";
+
+/* Plugin v2 - 상세 정보 배지 */
+"plugin.badge.theme" = "테마";
+"plugin.badge.effect" = "이펙트";
+"plugin.badge.furniture" = "가구";
+"plugin.badge.character" = "캐릭터";
+"plugin.badge.panel" = "패널";
+"plugin.badge.command" = "명령어";
+"plugin.badge.achievement" = "업적";
+"plugin.badge.office" = "오피스";
+"plugin.badge.bossline" = "대사";
+
+/* Plugin v2 - 상세 정보 */
+"plugin.detail.installed" = "설치: %@";
+"plugin.detail.type" = "타입: %@";
+
+/* Plugin v2 - 의존성 */
+"plugin.dep.missing" = "'%@' 플러그인이 설치되어 있지 않습니다";
+"plugin.dep.version.low" = "'%@' 플러그인 %@ 이상 필요 (현재 %@)";
+
+/* Plugin v2 - 충돌 */
+"plugin.conflict.title" = "플러그인 충돌";
+"plugin.conflict.desc" = "'%@'과 '%@'에서 동일한 %@ ID '%@'를 제공합니다";
+
+/* Plugin v2 - 내보내기 */
+"plugin.export" = "내보내기";
+"plugin.export.success" = "플러그인을 내보냈습니다: %@";
+"plugin.export.failed" = "내보내기 실패: %@";
+"plugin.export.panel.title" = "플러그인 내보내기";
+
+/* Plugin v2 - 권한 */
+"plugin.permission.title" = "플러그인 권한 요청";
+"plugin.permission.desc" = "'%@' 플러그인이 스크립트를 실행하려고 합니다:\n%@";
+"plugin.permission.allow" = "허용";
+"plugin.permission.deny" = "거부";
+"plugin.permission.always" = "항상 허용";
+"plugin.permission.trusted" = "신뢰됨";
+"plugin.permission.untrusted" = "승인 필요";
+
+/* Plugin v2 - 개별 토글 */
+"plugin.extension.enable" = "활성";
+"plugin.extension.disable" = "비활성";

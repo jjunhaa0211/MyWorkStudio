@@ -31,9 +31,6 @@ public struct TerminalAreaView: View {
             case .browser: BrowserPanelView()
             }
         }
-        .sheet(isPresented: $manager.showNewTabSheet) {
-            NewTabSheet()
-        }
         .onReceive(NotificationCenter.default.publisher(for: .workmanToggleBrowser)) { _ in
             withAnimation(.easeInOut(duration: 0.15)) { viewMode = .browser }
         }
@@ -800,7 +797,7 @@ public struct EventStreamView: View {
 
     private func selectProvider(_ provider: AgentProvider) {
         guard tab.provider != provider else { return }
-        guard provider.refreshAvailability(force: true) else {
+        guard provider.refreshAvailability(force: false) else {
             unavailableProviderAlert = provider
             return
         }
@@ -864,25 +861,19 @@ public struct EventStreamView: View {
                     .onChange(of: tab.blocks.count) { _, newCount in
                         if autoScroll && newCount != lastBlockCount {
                             lastBlockCount = newCount
-                            scrollWorkItem?.cancel()
-                            let item = DispatchWorkItem { scrollToEnd(proxy) }
-                            scrollWorkItem = item
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: item)
+                            debouncedScroll(proxy, delay: 0.1)
                         }
                     }
                     .onChange(of: tab.isProcessing) { _, processing in
                         // 처리 완료 시 최종 결과로 스크롤
                         if !processing && autoScroll {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { scrollToEnd(proxy) }
+                            debouncedScroll(proxy, delay: 0.15)
                         }
                     }
                     .onChange(of: tab.claudeActivity) { _, _ in
                         // 활동 상태 변경될 때마다 스크롤 (tool 전환 등)
                         if autoScroll {
-                            scrollWorkItem?.cancel()
-                            let item = DispatchWorkItem { scrollToEnd(proxy) }
-                            scrollWorkItem = item
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: item)
+                            debouncedScroll(proxy, delay: 0.2)
                         }
                     }
                     .onAppear {
@@ -908,8 +899,10 @@ public struct EventStreamView: View {
 
             if !compact { fullInputBar } else { compactInputBar }
         }
-        .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { isFocused = true } }
-        .onAppear { syncPlanSelectionState(with: activePlanSelectionRequest) }
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { isFocused = true }
+            syncPlanSelectionState(with: activePlanSelectionRequest)
+        }
         .onChange(of: activePlanSelectionRequest?.signature ?? "") { _, _ in
             syncPlanSelectionState(with: activePlanSelectionRequest)
         }
@@ -1183,6 +1176,13 @@ public struct EventStreamView: View {
 
     private func scrollToEnd(_ proxy: ScrollViewProxy) {
         proxy.scrollTo("streamEnd", anchor: .bottom)
+    }
+
+    private func debouncedScroll(_ proxy: ScrollViewProxy, delay: Double) {
+        scrollWorkItem?.cancel()
+        let item = DispatchWorkItem { scrollToEnd(proxy) }
+        scrollWorkItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
     }
 
     private var filteredBlocks: [StreamBlock] {
@@ -3267,6 +3267,7 @@ private extension Array {
 }
 
 public struct NewTabSheet: View {
+    public init() {}
     @EnvironmentObject var manager: SessionManager; @Environment(\.dismiss) var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var preferences = NewSessionPreferencesStore.shared
@@ -3341,7 +3342,7 @@ public struct NewTabSheet: View {
     }
 
     private func ensureProviderAvailable(_ provider: AgentProvider) -> Bool {
-        guard provider.refreshAvailability(force: true) else {
+        guard provider.refreshAvailability(force: false) else {
             unavailableProviderAlert = provider
             return false
         }

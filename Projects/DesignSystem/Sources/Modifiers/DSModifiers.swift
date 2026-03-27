@@ -24,7 +24,8 @@ private struct AppPanelModifier: ViewModifier {
         content
             .padding(padding)
             .background(RoundedRectangle(cornerRadius: radius).fill(fill))
-            .overlay(RoundedRectangle(cornerRadius: radius).stroke(Theme.border, lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: radius).stroke(Theme.border, lineWidth: 1).allowsHitTesting(false))
+            .contentShape(RoundedRectangle(cornerRadius: radius))
     }
 }
 
@@ -39,7 +40,8 @@ private struct AppFieldModifier: ViewModifier {
             .padding(.horizontal, Theme.sp3)
             .padding(.vertical, Theme.sp2)
             .background(RoundedRectangle(cornerRadius: radius).fill(Theme.bgInput))
-            .overlay(RoundedRectangle(cornerRadius: radius).stroke(emphasized ? Theme.accent : Theme.border, lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: radius).stroke(emphasized ? Theme.accent : Theme.border, lineWidth: 1).allowsHitTesting(false))
+            .contentShape(RoundedRectangle(cornerRadius: radius))
     }
 }
 
@@ -65,7 +67,8 @@ private struct AppButtonSurfaceModifier: ViewModifier {
             .padding(.horizontal, compact ? Theme.sp2 : Theme.sp3)
             .padding(.vertical, compact ? Theme.sp1 + 1 : Theme.sp2 - 1)
             .background(RoundedRectangle(cornerRadius: r).fill(bgFill))
-            .overlay(RoundedRectangle(cornerRadius: r).stroke(prominent ? tint.opacity(0.2) : Theme.border, lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: r).stroke(prominent ? tint.opacity(0.2) : Theme.border, lineWidth: 1).allowsHitTesting(false))
+            .contentShape(RoundedRectangle(cornerRadius: r))
 
         // 구체 타입으로 foreground 적용 — AnyShapeStyle 타입 소거는 macOS 버튼에서 전파 안 됨
         let ct = AppSettings.shared.customTheme
@@ -127,6 +130,24 @@ public extension View {
             .background(
                 RoundedRectangle(cornerRadius: Theme.cornerMedium)
                     .fill(isSelected ? Theme.bgSelected : (isHovered ? Theme.bgHover : .clear))
+            )
+    }
+
+    /// Interactive surface with hover highlight
+    func interactiveSurface(
+        isSelected: Bool = false,
+        radius: CGFloat = Theme.cornerMedium
+    ) -> some View {
+        self
+            .contentShape(RoundedRectangle(cornerRadius: radius))
+            .background(
+                RoundedRectangle(cornerRadius: radius)
+                    .fill(isSelected ? Theme.bgSelected : .clear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: radius)
+                    .stroke(isSelected ? Theme.border : .clear, lineWidth: 1)
+                    .allowsHitTesting(false)
             )
     }
 }

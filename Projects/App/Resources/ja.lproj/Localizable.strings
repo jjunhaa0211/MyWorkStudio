@@ -2531,3 +2531,51 @@
 "quit.force" = "そのまま終了";
 "plugin.error.brew.not.supported" = "iOSではHomebrewはサポートされていません。URLまたはマーケットプレイスをご利用ください。";
 "plugin.themes.label" = "プラグインテーマ";
+
+/* Plugin v2 - 検索/フィルター */
+"plugin.search.placeholder" = "プラグイン検索...";
+"plugin.search.empty" = "検索結果がありません";
+"plugin.update.count" = "%d件のアップデート";
+"plugin.update.all" = "すべて更新";
+
+/* Plugin v2 - 貢献バッジ */
+"plugin.badge.theme" = "テーマ";
+"plugin.badge.effect" = "エフェクト";
+"plugin.badge.furniture" = "家具";
+"plugin.badge.character" = "キャラクター";
+"plugin.badge.panel" = "パネル";
+"plugin.badge.command" = "コマンド";
+"plugin.badge.achievement" = "実績";
+"plugin.badge.office" = "オフィス";
+"plugin.badge.bossline" = "セリフ";
+
+/* Plugin v2 - 詳細情報 */
+"plugin.detail.installed" = "インストール: %@";
+"plugin.detail.type" = "タイプ: %@";
+
+/* Plugin v2 - 依存関係 */
+"plugin.dep.missing" = "プラグイン '%@' がインストールされていません";
+"plugin.dep.version.low" = "プラグイン '%@' はバージョン %@ 以上が必要です（現在: %@）";
+
+/* Plugin v2 - 競合 */
+"plugin.conflict.title" = "プラグイン競合";
+"plugin.conflict.desc" = "'%@' と '%@' が同じ %@ ID '%@' を提供しています";
+
+/* Plugin v2 - エクスポート */
+"plugin.export" = "エクスポート";
+"plugin.export.success" = "プラグインをエクスポートしました: %@";
+"plugin.export.failed" = "エクスポート失敗: %@";
+"plugin.export.panel.title" = "プラグインエクスポート";
+
+/* Plugin v2 - 権限 */
+"plugin.permission.title" = "プラグイン権限リクエスト";
+"plugin.permission.desc" = "プラグイン '%@' がスクリプトを実行しようとしています:\n%@";
+"plugin.permission.allow" = "許可";
+"plugin.permission.deny" = "拒否";
+"plugin.permission.always" = "常に許可";
+"plugin.permission.trusted" = "信頼済み";
+"plugin.permission.untrusted" = "承認が必要";
+
+/* Plugin v2 - 拡張トグル */
+"plugin.extension.enable" = "有効";
+"plugin.extension.disable" = "無効";

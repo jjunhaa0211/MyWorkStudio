@@ -838,14 +838,12 @@ struct ReportCenterView: View {
                 iconColor: Theme.cyan,
                 title: NSLocalizedString("sidebar.reports", comment: ""),
                 subtitle: NSLocalizedString("sidebar.report.subtitle", comment: ""),
-                trailing: AnyView(
-                    Text("\(reports.count)")
+                trailing: Text("\(reports.count)")
                         .font(Theme.mono(10, weight: .bold))
                         .foregroundColor(Theme.cyan)
                         .padding(.horizontal, 6).padding(.vertical, 2)
                         .background(RoundedRectangle(cornerRadius: Theme.cornerSmall).fill(Theme.accentBg(Theme.cyan)))
-                        .overlay(RoundedRectangle(cornerRadius: Theme.cornerSmall).stroke(Theme.accentBorder(Theme.cyan), lineWidth: 1))
-                ),
+                        .overlay(RoundedRectangle(cornerRadius: Theme.cornerSmall).stroke(Theme.accentBorder(Theme.cyan), lineWidth: 1)),
                 onClose: { dismiss() }
             )
 

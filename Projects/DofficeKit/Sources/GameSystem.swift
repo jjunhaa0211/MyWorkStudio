@@ -1310,10 +1310,8 @@ public struct AchievementCollectionView: View {
                 iconColor: Theme.yellow,
                 title: NSLocalizedString("sidebar.achievements", comment: ""),
                 subtitle: "\(mgr.unlockedCount)/\(mgr.achievements.count) · \(completionPercent)%",
-                trailing: AnyView(
-                    DSProgressBar(value: Double(mgr.unlockedCount) / Double(max(1, mgr.achievements.count)), tint: Theme.yellow)
-                        .frame(width: 80)
-                ),
+                trailing: DSProgressBar(value: Double(mgr.unlockedCount) / Double(max(1, mgr.achievements.count)), tint: Theme.yellow)
+                        .frame(width: 80),
                 onClose: { dismiss() }
             )
 

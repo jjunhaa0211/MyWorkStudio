@@ -300,11 +300,9 @@ public class SessionManager: ObservableObject {
                 }
 
                 for session in detected {
-                    if self.tabs.contains(where: { $0.projectPath == session.path && $0.provider == session.provider }) {
+                    if let tab = self.tabs.first(where: { $0.projectPath == session.path && $0.provider == session.provider }) {
                         // 이미 있으면 세션 수만 업데이트
-                        if let tab = self.tabs.first(where: { $0.projectPath == session.path && $0.provider == session.provider }) {
-                            tab.sessionCount = projectSessionCount[session.path] ?? 1
-                        }
+                        tab.sessionCount = projectSessionCount[session.path] ?? 1
                         continue
                     }
                     // 사용자가 닫은 경로는 재추가하지 않음
@@ -448,12 +446,12 @@ public class SessionManager: ObservableObject {
         var claudePids: [Int] = []
         let count = Int(actualSize) / MemoryLayout<Int32>.size
 
+        var pathBuf = [CChar](repeating: 0, count: Int(MAXPATHLEN))
         for i in 0..<count {
             let pid = pids[i]
             guard pid > 0 else { continue }
 
             // proc_pidpath로 실행 파일 경로 확인
-            var pathBuf = [CChar](repeating: 0, count: Int(MAXPATHLEN))
             let pathLen = proc_pidpath(pid, &pathBuf, UInt32(MAXPATHLEN))
             guard pathLen > 0 else { continue }
 
@@ -500,15 +498,15 @@ public class SessionManager: ObservableObject {
         var codexPids: [Int] = []
         let count = Int(actualSize) / MemoryLayout<Int32>.size
 
+        var codexPathBuf = [CChar](repeating: 0, count: Int(MAXPATHLEN))
         for i in 0..<count {
             let pid = pids[i]
             guard pid > 0 else { continue }
 
-            var pathBuf = [CChar](repeating: 0, count: Int(MAXPATHLEN))
-            let pathLen = proc_pidpath(pid, &pathBuf, UInt32(MAXPATHLEN))
+            let pathLen = proc_pidpath(pid, &codexPathBuf, UInt32(MAXPATHLEN))
             guard pathLen > 0 else { continue }
 
-            let execPath = String(cString: pathBuf).lowercased()
+            let execPath = String(cString: codexPathBuf).lowercased()
             guard execPath.contains("/codex") || execPath.contains("codex.app") else { continue }
 
             var bsdInfo = proc_bsdinfo()

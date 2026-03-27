@@ -704,6 +704,14 @@ public struct OfficeSpriteRenderer {
     private func drawZSortedScene(_ ctx: GraphicsContext) {
         Self.zBuffer.removeAll(keepingCapacity: true)
 
+        // Build seat lookup once per frame instead of per-monitor O(n) search
+        let seatLookup: [String: Seat]
+        if map.furniture.contains(where: { $0.type == .monitor }) {
+            seatLookup = Dictionary(uniqueKeysWithValues: map.seats.map { ($0.id, $0) })
+        } else {
+            seatLookup = [:]
+        }
+
         // Furniture
         for f in map.furniture {
             guard !Self.usesStaticBackgroundCache(for: f.type) else { continue }
@@ -715,8 +723,8 @@ public struct OfficeSpriteRenderer {
             // 모니터의 경우 연결된 탭의 크롬 스크린샷 확인
             var chromeImg: CGImage? = nil
             if f.type == .monitor {
-                let monId = f.id.replacingOccurrences(of: "mon_", with: "seat_")
-                if let seat = map.seats.first(where: { $0.id == monId }),
+                let seatId = f.id.replacingOccurrences(of: "mon_", with: "seat_")
+                if let seat = seatLookup[seatId],
                    let tabId = seat.assignedTabId {
                     chromeImg = chromeScreenshots[tabId]
                 }

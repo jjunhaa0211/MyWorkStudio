@@ -101,7 +101,7 @@ public struct GitPanelView: View {
     private var activeTab: TerminalTab? { manager.activeTab }
     private var projectPath: String { activeTab?.projectPath ?? "" }
 
-    // Derived data
+    // Derived data — use localizedCaseInsensitiveContains to avoid repeated lowercased() allocations
     private var allTags: [GitCommitNode.GitRef] {
         git.commits.flatMap { c in c.refs.filter { $0.type == .tag } }
     }
@@ -117,11 +117,11 @@ public struct GitPanelView: View {
     private var displayedCommits: [GitCommitNode] {
         let base = git.commits
         guard !searchText.isEmpty else { return base }
-        let q = searchText.lowercased()
+        let q = searchText
         return base.filter {
-            $0.message.lowercased().contains(q) ||
-            $0.author.lowercased().contains(q) ||
-            $0.shortHash.lowercased().contains(q)
+            $0.message.localizedCaseInsensitiveContains(q) ||
+            $0.author.localizedCaseInsensitiveContains(q) ||
+            $0.shortHash.localizedCaseInsensitiveContains(q)
         }
     }
 
@@ -515,7 +515,7 @@ public struct GitPanelView: View {
             Rectangle().fill(Theme.border).frame(height: 1)
 
             ScrollView {
-                VStack(spacing: 0) {
+                LazyVStack(spacing: 0, pinnedViews: []) {
                     // Branches section
                     sidebarSection(
                         title: NSLocalizedString("git.branch", comment: ""),

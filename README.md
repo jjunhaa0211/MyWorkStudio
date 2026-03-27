@@ -123,6 +123,179 @@ open Doffice/Doffice.xcodeproj
 
 ---
 
+## 플러그인 개발 & GitHub 배포 가이드
+
+Doffice는 JSON 기반 플러그인 시스템을 지원합니다. 누구나 플러그인을 만들어 마켓플레이스에 등록할 수 있습니다.
+
+### 플러그인 구조
+
+```
+my-plugin/
+├── plugin.json          # 매니페스트 (필수)
+├── characters.json      # 캐릭터 정의 (선택)
+├── panel/index.html     # 커스텀 패널 (선택)
+└── slash-commands/      # 슬래시 명령어 (선택)
+```
+
+### plugin.json 매니페스트
+
+```json
+{
+  "name": "My Plugin",
+  "version": "1.0.0",
+  "description": "플러그인 설명",
+  "author": "작성자",
+  "requires": [
+    { "pluginId": "other-plugin", "minVersion": "0.5.0" }
+  ],
+  "contributes": {
+    "characters": "characters.json",
+    "themes": [
+      {
+        "id": "my-theme",
+        "name": "My Theme",
+        "isDark": true,
+        "accentHex": "5b9cf6",
+        "bgHex": "1a1d23",
+        "useGradient": true,
+        "gradientStartHex": "1a1d23",
+        "gradientEndHex": "2a2d35"
+      }
+    ],
+    "effects": [
+      {
+        "id": "my-effect",
+        "trigger": "onPromptSubmit",
+        "type": "confetti",
+        "config": { "count": 50, "duration": 3.0 },
+        "enabled": true
+      }
+    ],
+    "furniture": [
+      {
+        "id": "my-desk",
+        "name": "커스텀 책상",
+        "sprite": [["8B4513", "8B4513"], ["D2691E", "D2691E"]],
+        "width": 2, "height": 2
+      }
+    ],
+    "achievements": [
+      {
+        "id": "first-plugin",
+        "name": "플러그인 마스터",
+        "description": "첫 플러그인을 설치했습니다",
+        "icon": "puzzlepiece.fill",
+        "rarity": "rare",
+        "xp": 100
+      }
+    ],
+    "bossLines": ["새로운 사장 대사!"]
+  }
+}
+```
+
+### 지원하는 이펙트 타입
+
+| 타입 | 설명 | 주요 config |
+|------|------|-------------|
+| `combo-counter` | 타이핑 콤보 카운터 | `decaySeconds`, `shakeOnMilestone` |
+| `particle-burst` | 이모지 파티클 | `emojis`, `count`, `duration` |
+| `screen-shake` | 화면 흔들기 | `intensity`, `duration` |
+| `flash` | 색상 플래시 | `colorHex`, `duration` |
+| `sound` | 시스템 사운드 | `name` |
+| `toast` | 알림 토스트 | `text`, `icon`, `tint`, `duration` |
+| `confetti` | 컨페티 효과 | `colors`, `count`, `duration` |
+| `typewriter` | 타자기 텍스트 | `text`, `speed`, `colorHex`, `fontSize`, `position` |
+| `progress-bar` | 프로그레스 바 | `label`, `barColorHex`, `duration` |
+| `glow` | 테두리 글로우 | `colorHex`, `intensity`, `pulseSpeed`, `duration` |
+
+### 이벤트 트리거
+
+| 트리거 | 발동 시점 |
+|--------|----------|
+| `onPromptKeyPress` | 터미널 키 입력 |
+| `onPromptSubmit` | 명령어 제출 |
+| `onSessionComplete` | 세션 완료 |
+| `onSessionError` | 세션 에러 |
+| `onAchievementUnlock` | 업적 해제 |
+| `onCharacterHire` | 캐릭터 고용 |
+| `onLevelUp` | 레벨업 |
+
+### GitHub에 플러그인 배포하기
+
+**1. 플러그인 레포지토리 생성**
+
+```bash
+mkdir my-doffice-plugin && cd my-doffice-plugin
+# plugin.json, characters.json 등 파일 작성
+git init && git add -A && git commit -m "Initial plugin"
+gh repo create my-doffice-plugin --public --push
+```
+
+**2. GitHub Release로 배포**
+
+```bash
+# tar.gz 아카이브 생성
+tar -czf my-doffice-plugin-v1.0.0.tar.gz -C . plugin.json characters.json
+
+# GitHub Release 생성
+gh release create v1.0.0 my-doffice-plugin-v1.0.0.tar.gz \
+  --title "v1.0.0" --notes "Initial release"
+```
+
+**3. Doffice 마켓플레이스에 등록** (registry.json에 PR)
+
+```bash
+# Doffice 레포를 포크
+gh repo fork jjunhaa0211/Doffice --clone
+cd Doffice
+```
+
+`registry.json`에 플러그인 항목 추가:
+
+```json
+{
+  "id": "my-doffice-plugin",
+  "name": "나의 플러그인",
+  "author": "내 GitHub ID",
+  "description": "플러그인 설명",
+  "version": "1.0.0",
+  "downloadURL": "https://github.com/USERNAME/my-doffice-plugin/releases/download/v1.0.0/my-doffice-plugin-v1.0.0.tar.gz",
+  "characterCount": 3,
+  "tags": ["characters", "theme", "effects"],
+  "stars": 0
+}
+```
+
+```bash
+git add registry.json
+git commit -m "Add my-doffice-plugin to registry"
+gh pr create --title "Add my-doffice-plugin" --body "새 플러그인 등록 요청"
+```
+
+**4. 사용자 직접 설치 (마켓플레이스 없이)**
+
+사용자는 설정 > 플러그인에서 아래 형식으로 직접 설치할 수 있습니다:
+- **URL**: `https://github.com/USERNAME/REPO/releases/download/v1.0.0/plugin.tar.gz`
+- **Homebrew**: `brew install formula-name` 또는 `user/tap/formula`
+- **로컬**: `~/my-plugins/my-plugin`
+
+### 의존성 선언
+
+다른 플러그인에 의존하는 경우 `requires` 필드를 사용합니다:
+
+```json
+{
+  "requires": [
+    { "pluginId": "typing-combo-pack", "minVersion": "1.0.0" }
+  ]
+}
+```
+
+설치 시 의존성이 충족되지 않으면 경고가 표시됩니다.
+
+---
+
 ## 버전 히스토리
 
 | 버전 | 주요 변경 |

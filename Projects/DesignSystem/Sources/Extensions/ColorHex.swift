@@ -13,8 +13,7 @@ public extension Color {
         }
         var int: UInt64 = 0
         guard Scanner(string: hex).scanHexInt64(&int), hex.count == 6 else {
-            // Fallback to magenta for debug visibility on invalid hex
-            self.init(.sRGB, red: 1, green: 0, blue: 1)
+            self.init(.sRGB, red: 0, green: 0, blue: 0)
             return
         }
         let r = int >> 16
@@ -46,5 +45,13 @@ public extension Color {
     /// 배경색 위 텍스트 가독성을 위한 자동 대비 색상
     var contrastingTextColor: Color {
         luminance > 0.179 ? .black : .white
+    }
+
+    /// Validate if a string is a valid hex color
+    static func isValidHex(_ hex: String) -> Bool {
+        var cleaned = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        if cleaned.count == 3 { cleaned = cleaned.map { "\($0)\($0)" }.joined() }
+        var int: UInt64 = 0
+        return Scanner(string: cleaned).scanHexInt64(&int) && cleaned.count == 6
     }
 }

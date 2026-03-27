@@ -235,6 +235,7 @@ enum SpriteCatalog {
     // MARK: - Sprite Resolution
 
     /// 플레이스홀더 문자를 실제 색상으로 치환
+    /// Dictionary 기반 O(1) 룩업으로 switch 분기 비용 제거
     static func resolveCharacter(
         template: SpriteData,
         skin: String = "FFD5B8",
@@ -245,19 +246,9 @@ enum SpriteCatalog {
         eye: String = "333333",
         mouth: String = "CC8888"
     ) -> SpriteData {
-        template.map { row in
-            row.map { pixel in
-                switch pixel {
-                case "S": return skin
-                case "H": return hair
-                case "T": return shirt
-                case "P": return pants
-                case "W": return shoes
-                case "E": return eye
-                case "M": return mouth
-                default: return pixel
-                }
-            }
+        let map: [String: String] = ["S": skin, "H": hair, "T": shirt, "P": pants, "W": shoes, "E": eye, "M": mouth]
+        return template.map { row in
+            row.map { pixel in map[pixel] ?? pixel }
         }
     }
 
@@ -267,8 +258,12 @@ enum SpriteCatalog {
     }
 
     /// 완성된 캐릭터 스프라이트 세트 생성
+    /// 색상 맵을 한 번만 생성하고 모든 프레임에 재사용
     static func buildCharacterSprites(skin: String, hair: String, shirt: String, pants: String = "3A4050") -> CharacterSpriteSet {
-        let resolve = { (t: SpriteData) in resolveCharacter(template: t, skin: skin, hair: hair, shirt: shirt, pants: pants) }
+        let colorMap: [String: String] = ["S": skin, "H": hair, "T": shirt, "P": pants, "W": "2A2E3A", "E": "333333", "M": "CC8888"]
+        let resolve = { (t: SpriteData) -> SpriteData in
+            t.map { row in row.map { pixel in colorMap[pixel] ?? pixel } }
+        }
 
         let downIdle = resolve(charDownIdle)
         let downW1 = resolve(charDownWalk1)

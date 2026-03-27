@@ -14,8 +14,17 @@ public struct PluginManifest: Codable {
     public var description: String?
     public var author: String?
 
+    // 의존성 선언 (다른 플러그인 ID + 최소 버전)
+    public var requires: [PluginDependency]?
+
     // 확장 포인트
     public var contributes: PluginContributions?
+
+    /// 플러그인 의존성 선언
+    public struct PluginDependency: Codable, Equatable {
+        public var pluginId: String        // 의존하는 플러그인 ID
+        public var minVersion: String?     // 최소 버전 (semver, 옵션)
+    }
 
     public struct PluginContributions: Codable {
         public var characters: String?         // "characters.json" 경로
@@ -146,6 +155,10 @@ public enum PluginEffectType: String, Codable {
     case sound
     case toast
     case confetti
+    // v2 이펙트
+    case typewriter                        // 타자기 텍스트 애니메이션
+    case progressBar = "progress-bar"      // 프로그레스 바 표시
+    case glow                              // 테두리 글로우 이펙트
 }
 
 /// JSON config 값 (String / Int / Double / Bool / [String])
@@ -599,6 +612,17 @@ public class PluginManager: ObservableObject {
     @Published public var installProgress: String = ""
     @Published public var lastError: String?
 
+    // 업데이트 감지
+    @Published public var updatablePlugins: [String: String] = [:]   // pluginID → newVersion
+    @Published public var isCheckingUpdates: Bool = false
+
+    // 마켓플레이스 검색/필터
+    @Published public var searchQuery: String = ""
+    @Published public var selectedTags: Set<String> = []
+
+    // 핫 리로드
+    private var fileWatchers: [String: DispatchSourceFileSystemObject] = [:]
+
     // 마켓플레이스
     @Published public var registryPlugins: [RegistryPlugin] = []
     @Published public var isLoadingRegistry: Bool = false
@@ -666,6 +690,7 @@ public class PluginManager: ObservableObject {
                 let remoteItems = Self.resolveRegistryItems(data: data, response: response, error: error)
                 self.registryPlugins = Self.mergedRegistry(remote: remoteItems)
                 self.registryError = nil
+                self.checkForUpdates()
             }
         }.resume()
     }
@@ -682,6 +707,264 @@ public class PluginManager: ObservableObject {
     /// 이미 설치되어 있는지 확인
     public func isInstalled(_ registryItem: RegistryPlugin) -> Bool {
         plugins.contains { $0.source == registryItem.downloadURL || $0.name == registryItem.name }
+    }
+
+    // MARK: - 마켓플레이스 검색/필터
+
+    /// 검색어 + 태그 필터가 적용된 레지스트리 목록
+    public var filteredRegistryPlugins: [RegistryPlugin] {
+        var result = registryPlugins
+
+        // 검색어 필터
+        let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if !query.isEmpty {
+            result = result.filter {
+                $0.name.lowercased().contains(query)
+                || $0.description.lowercased().contains(query)
+                || $0.author.lowercased().contains(query)
+                || $0.tags.contains { $0.lowercased().contains(query) }
+            }
+        }
+
+        // 태그 필터
+        if !selectedTags.isEmpty {
+            result = result.filter { item in
+                !selectedTags.isDisjoint(with: Set(item.tags.map { $0.lowercased() }))
+            }
+        }
+
+        return result
+    }
+
+    /// 레지스트리에 있는 모든 태그 (카운트 포함)
+    public var allRegistryTags: [(tag: String, count: Int)] {
+        var tagCounts: [String: Int] = [:]
+        for item in registryPlugins {
+            for tag in item.tags {
+                let lower = tag.lowercased()
+                tagCounts[lower, default: 0] += 1
+            }
+        }
+        return tagCounts.sorted { $0.value > $1.value }.map { (tag: $0.key, count: $0.value) }
+    }
+
+    // MARK: - 업데이트 감지
+
+    /// 레지스트리와 설치된 플러그인 버전 비교
+    public func checkForUpdates() {
+        isCheckingUpdates = true
+        var updates: [String: String] = [:]
+
+        for plugin in plugins {
+            guard plugin.enabled else { continue }
+            if let registryItem = registryPlugins.first(where: {
+                $0.id == plugin.name || $0.name == plugin.name || $0.downloadURL == plugin.source
+            }) {
+                if Self.isNewerVersion(registryItem.version, than: plugin.version) {
+                    updates[plugin.id] = registryItem.version
+                }
+            }
+        }
+
+        updatablePlugins = updates
+        isCheckingUpdates = false
+    }
+
+    /// 업데이트 가능한 플러그인인지 확인
+    public func hasUpdate(_ plugin: PluginEntry) -> Bool {
+        updatablePlugins[plugin.id] != nil
+    }
+
+    /// 업데이트 가능한 새 버전
+    public func availableVersion(for plugin: PluginEntry) -> String? {
+        updatablePlugins[plugin.id]
+    }
+
+    /// 업데이트 가능한 플러그인을 레지스트리에서 재설치
+    public func updatePlugin(_ plugin: PluginEntry) {
+        guard let registryItem = registryPlugins.first(where: {
+            $0.id == plugin.name || $0.name == plugin.name || $0.downloadURL == plugin.source
+        }) else { return }
+        installFromRegistry(registryItem)
+    }
+
+    /// 모든 업데이트 가능한 플러그인 일괄 업데이트
+    public func updateAllPlugins() {
+        let updatable = plugins.filter { hasUpdate($0) }
+        for plugin in updatable {
+            updatePlugin(plugin)
+        }
+    }
+
+    /// Semver 비교 (major.minor.patch)
+    private static func isNewerVersion(_ new: String, than old: String) -> Bool {
+        let newParts = new.split(separator: ".").compactMap { Int($0) }
+        let oldParts = old.split(separator: ".").compactMap { Int($0) }
+        let maxLen = max(newParts.count, oldParts.count)
+        for i in 0..<maxLen {
+            let n = i < newParts.count ? newParts[i] : 0
+            let o = i < oldParts.count ? oldParts[i] : 0
+            if n > o { return true }
+            if n < o { return false }
+        }
+        return false
+    }
+
+    // MARK: - 의존성 검증
+
+    /// 플러그인 의존성 충족 여부 확인
+    public func validateDependencies(for pluginPath: String) -> [DependencyIssue] {
+        let baseURL = URL(fileURLWithPath: pluginPath)
+        let manifestURL = baseURL.appendingPathComponent("plugin.json")
+
+        guard let data = try? Data(contentsOf: manifestURL),
+              let manifest = try? JSONDecoder().decode(PluginManifest.self, from: data),
+              let requires = manifest.requires, !requires.isEmpty else {
+            return []
+        }
+
+        var issues: [DependencyIssue] = []
+        for dep in requires {
+            let installed = plugins.first { $0.name == dep.pluginId && $0.enabled }
+            if installed == nil {
+                issues.append(DependencyIssue(
+                    pluginId: dep.pluginId,
+                    kind: .missing,
+                    requiredVersion: dep.minVersion,
+                    installedVersion: nil
+                ))
+            } else if let minVer = dep.minVersion, let inst = installed {
+                if Self.isNewerVersion(minVer, than: inst.version) {
+                    issues.append(DependencyIssue(
+                        pluginId: dep.pluginId,
+                        kind: .versionTooLow,
+                        requiredVersion: minVer,
+                        installedVersion: inst.version
+                    ))
+                }
+            }
+        }
+        return issues
+    }
+
+    public struct DependencyIssue {
+        public let pluginId: String
+        public let kind: Kind
+        public let requiredVersion: String?
+        public let installedVersion: String?
+
+        public enum Kind {
+            case missing
+            case versionTooLow
+        }
+
+        public var localizedMessage: String {
+            switch kind {
+            case .missing:
+                return String(format: NSLocalizedString("plugin.dep.missing", comment: ""), pluginId)
+            case .versionTooLow:
+                return String(format: NSLocalizedString("plugin.dep.version.low", comment: ""),
+                              pluginId, requiredVersion ?? "?", installedVersion ?? "?")
+            }
+        }
+    }
+
+    // MARK: - 플러그인 상세 정보
+
+    /// 플러그인이 기여하는 확장 포인트 요약
+    public func contributionSummary(for plugin: PluginEntry) -> [ContributionBadge] {
+        let baseURL = URL(fileURLWithPath: plugin.localPath)
+        let manifestURL = baseURL.appendingPathComponent("plugin.json")
+
+        guard let data = try? Data(contentsOf: manifestURL),
+              let manifest = try? JSONDecoder().decode(PluginManifest.self, from: data),
+              let c = manifest.contributes else {
+            return []
+        }
+
+        var badges: [ContributionBadge] = []
+        if let themes = c.themes, !themes.isEmpty {
+            badges.append(ContributionBadge(icon: "paintpalette.fill", label: NSLocalizedString("plugin.badge.theme", comment: ""), count: themes.count))
+        }
+        if let effects = c.effects, !effects.isEmpty {
+            badges.append(ContributionBadge(icon: "sparkles", label: NSLocalizedString("plugin.badge.effect", comment: ""), count: effects.count))
+        }
+        if let furniture = c.furniture, !furniture.isEmpty {
+            badges.append(ContributionBadge(icon: "chair.lounge.fill", label: NSLocalizedString("plugin.badge.furniture", comment: ""), count: furniture.count))
+        }
+        if c.characters != nil {
+            let charURL = baseURL.appendingPathComponent(c.characters!)
+            if let charData = try? Data(contentsOf: charURL),
+               let arr = try? JSONSerialization.jsonObject(with: charData) as? [[String: Any]] {
+                badges.append(ContributionBadge(icon: "person.2.fill", label: NSLocalizedString("plugin.badge.character", comment: ""), count: arr.count))
+            }
+        }
+        if let panels = c.panels, !panels.isEmpty {
+            badges.append(ContributionBadge(icon: "rectangle.on.rectangle", label: NSLocalizedString("plugin.badge.panel", comment: ""), count: panels.count))
+        }
+        if let commands = c.commands, !commands.isEmpty {
+            badges.append(ContributionBadge(icon: "terminal", label: NSLocalizedString("plugin.badge.command", comment: ""), count: commands.count))
+        }
+        if let achievements = c.achievements, !achievements.isEmpty {
+            badges.append(ContributionBadge(icon: "trophy.fill", label: NSLocalizedString("plugin.badge.achievement", comment: ""), count: achievements.count))
+        }
+        if let presets = c.officePresets, !presets.isEmpty {
+            badges.append(ContributionBadge(icon: "building.2.fill", label: NSLocalizedString("plugin.badge.office", comment: ""), count: presets.count))
+        }
+        if let lines = c.bossLines, !lines.isEmpty {
+            badges.append(ContributionBadge(icon: "text.bubble.fill", label: NSLocalizedString("plugin.badge.bossline", comment: ""), count: lines.count))
+        }
+        return badges
+    }
+
+    public struct ContributionBadge {
+        public let icon: String
+        public let label: String
+        public let count: Int
+    }
+
+    // MARK: - 핫 리로드 (로컬 플러그인 파일 변경 감지)
+
+    /// 로컬 플러그인 디렉토리 감시 시작
+    public func startWatchingLocalPlugins() {
+        stopWatchingAll()
+
+        for plugin in plugins where plugin.sourceType == .local && plugin.enabled {
+            watchDirectory(plugin.localPath, pluginId: plugin.id)
+        }
+    }
+
+    /// 모든 파일 감시 해제
+    public func stopWatchingAll() {
+        for (_, source) in fileWatchers {
+            source.cancel()
+        }
+        fileWatchers.removeAll()
+    }
+
+    private func watchDirectory(_ path: String, pluginId: String) {
+        #if os(macOS)
+        let fd = open(path, O_EVTONLY)
+        guard fd >= 0 else { return }
+
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd,
+            eventMask: [.write, .rename, .delete],
+            queue: DispatchQueue.global(qos: .utility)
+        )
+
+        source.setEventHandler { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                PluginHost.shared.reload()
+                NotificationCenter.default.post(name: .pluginReload, object: nil)
+                NotificationCenter.default.post(name: .init("workmanPluginCharactersChanged"), object: nil)
+            }
+        }
+
+        source.setCancelHandler { close(fd) }
+        source.resume()
+        fileWatchers[pluginId] = source
+        #endif
     }
 
     // MARK: - 소스 타입 자동 감지

@@ -69,6 +69,7 @@ struct SettingsView: View {
     @State private var pluginToUninstall: PluginEntry?
     @State private var showPluginScaffold = false
     @State private var scaffoldName: String = ""
+    @State private var expandedPluginId: String?   // 상세 정보 토글
 
     private let settingsTabs: [(String, String)] = [
         ("slider.horizontal.3", NSLocalizedString("settings.general", comment: "")), ("paintbrush.fill", NSLocalizedString("settings.display", comment: "")), ("building.2.fill", NSLocalizedString("settings.office", comment: "")),
@@ -1318,11 +1319,80 @@ struct SettingsView: View {
                         }.buttonStyle(.plain)
                         .disabled(pluginManager.isLoadingRegistry)
 
+                        // 일괄 업데이트 버튼
+                        if !pluginManager.updatablePlugins.isEmpty {
+                            Button(action: { pluginManager.updateAllPlugins() }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "arrow.up.circle.fill")
+                                        .font(.system(size: Theme.iconSize(10), weight: .bold))
+                                    Text(String(format: NSLocalizedString("plugin.update.count", comment: ""), pluginManager.updatablePlugins.count))
+                                        .font(Theme.mono(9, weight: .medium))
+                                }
+                                .foregroundColor(Theme.green)
+                                .padding(.horizontal, 10).padding(.vertical, 6)
+                                .background(RoundedRectangle(cornerRadius: 6).fill(Theme.green.opacity(0.08)))
+                                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.green.opacity(0.2), lineWidth: 1))
+                            }.buttonStyle(.plain)
+                        }
+
                         Spacer()
 
                         Text(NSLocalizedString("plugin.marketplace.hint", comment: ""))
                             .font(Theme.mono(7))
                             .foregroundColor(Theme.textDim)
+                    }
+
+                    // 검색바
+                    HStack(spacing: 6) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(Theme.textDim)
+                        TextField(NSLocalizedString("plugin.search.placeholder", comment: ""), text: $pluginManager.searchQuery)
+                            .font(Theme.mono(10)).textFieldStyle(.plain)
+                    }
+                    .padding(8)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Theme.bgSurface))
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.border.opacity(0.5), lineWidth: 1))
+
+                    // 태그 필터
+                    if !pluginManager.allRegistryTags.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 4) {
+                                ForEach(pluginManager.allRegistryTags.prefix(10), id: \.tag) { item in
+                                    let isSelected = pluginManager.selectedTags.contains(item.tag)
+                                    Button(action: {
+                                        if isSelected { pluginManager.selectedTags.remove(item.tag) }
+                                        else { pluginManager.selectedTags.insert(item.tag) }
+                                    }) {
+                                        HStack(spacing: 3) {
+                                            Text("#\(item.tag)")
+                                                .font(Theme.mono(8, weight: isSelected ? .bold : .regular))
+                                            Text("\(item.count)")
+                                                .font(Theme.mono(7))
+                                                .foregroundColor(isSelected ? Theme.accent : Theme.textDim)
+                                        }
+                                        .foregroundColor(isSelected ? Theme.accent : Theme.textSecondary)
+                                        .padding(.horizontal, 8).padding(.vertical, 4)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .fill(isSelected ? Theme.accent.opacity(0.12) : Theme.bgSurface)
+                                        )
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .stroke(isSelected ? Theme.accent.opacity(0.3) : Color.clear, lineWidth: 1)
+                                        )
+                                    }.buttonStyle(.plain)
+                                }
+
+                                if !pluginManager.selectedTags.isEmpty {
+                                    Button(action: { pluginManager.selectedTags.removeAll() }) {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .font(.system(size: 10))
+                                            .foregroundColor(Theme.textDim)
+                                    }.buttonStyle(.plain)
+                                }
+                            }
+                        }
                     }
 
                     if pluginManager.isLoadingRegistry {
@@ -1343,18 +1413,21 @@ struct SettingsView: View {
                         }
                     }
 
-                    if !pluginManager.registryPlugins.isEmpty {
+                    let filtered = pluginManager.filteredRegistryPlugins
+                    if !filtered.isEmpty {
                         VStack(spacing: 6) {
-                            ForEach(pluginManager.registryPlugins) { item in
+                            ForEach(filtered) { item in
                                 marketplaceRow(item)
                             }
                         }
                     } else if !pluginManager.isLoadingRegistry && pluginManager.registryError == nil {
                         HStack(spacing: 8) {
-                            Image(systemName: "tray")
+                            Image(systemName: pluginManager.searchQuery.isEmpty && pluginManager.selectedTags.isEmpty ? "tray" : "magnifyingglass")
                                 .font(.system(size: Theme.iconSize(12), weight: .light))
                                 .foregroundColor(Theme.textDim)
-                            Text(NSLocalizedString("plugin.marketplace.empty", comment: ""))
+                            Text(pluginManager.searchQuery.isEmpty && pluginManager.selectedTags.isEmpty
+                                 ? NSLocalizedString("plugin.marketplace.empty", comment: "")
+                                 : NSLocalizedString("plugin.search.empty", comment: ""))
                                 .font(Theme.mono(9)).foregroundColor(Theme.textDim)
                         }
                         .frame(maxWidth: .infinity).padding(.vertical, 12)
@@ -1379,6 +1452,10 @@ struct SettingsView: View {
             if pluginManager.registryPlugins.isEmpty && !pluginManager.isLoadingRegistry {
                 pluginManager.fetchRegistry()
             }
+            pluginManager.startWatchingLocalPlugins()
+        }
+        .onDisappear {
+            pluginManager.stopWatchingAll()
         }
         .alert(NSLocalizedString("plugin.confirm.uninstall", comment: ""), isPresented: $showPluginUninstallConfirm) {
             Button(NSLocalizedString("delete", comment: ""), role: .destructive) {
@@ -1505,63 +1582,155 @@ struct SettingsView: View {
     }
 
     private func pluginRow(_ plugin: PluginEntry) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: pluginTypeIcon(plugin.sourceType))
-                .font(.system(size: Theme.iconSize(14), weight: .bold))
-                .foregroundColor(plugin.enabled ? Theme.accent : Theme.textDim)
+        let isExpanded = expandedPluginId == plugin.id
+        let hasUpdate = pluginManager.hasUpdate(plugin)
+        let badges = pluginManager.contributionSummary(for: plugin)
+        let depIssues = pluginManager.validateDependencies(for: plugin.localPath)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(plugin.name)
-                    .font(Theme.mono(10, weight: .bold))
-                    .foregroundColor(plugin.enabled ? Theme.textPrimary : Theme.textDim)
-                HStack(spacing: 6) {
-                    Text("v\(plugin.version)")
-                        .font(Theme.mono(8))
+        return VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                // 확장 토글
+                Button(action: { withAnimation(.easeOut(duration: 0.2)) {
+                    expandedPluginId = isExpanded ? nil : plugin.id
+                }}) {
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 8, weight: .bold))
                         .foregroundColor(Theme.textDim)
-                    Text("\u{00B7}").foregroundColor(Theme.textDim)
-                    Text(plugin.source)
-                        .font(Theme.mono(8))
-                        .foregroundColor(Theme.textDim)
-                        .lineLimit(1).truncationMode(.middle)
+                        .frame(width: 12)
+                }.buttonStyle(.plain)
+
+                Image(systemName: pluginTypeIcon(plugin.sourceType))
+                    .font(.system(size: Theme.iconSize(14), weight: .bold))
+                    .foregroundColor(plugin.enabled ? Theme.accent : Theme.textDim)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(plugin.name)
+                            .font(Theme.mono(10, weight: .bold))
+                            .foregroundColor(plugin.enabled ? Theme.textPrimary : Theme.textDim)
+                        // 업데이트 배지
+                        if hasUpdate, let newVer = pluginManager.availableVersion(for: plugin) {
+                            Text("v\(newVer)")
+                                .font(Theme.mono(7, weight: .bold))
+                                .foregroundColor(Theme.green)
+                                .padding(.horizontal, 5).padding(.vertical, 1)
+                                .background(RoundedRectangle(cornerRadius: 4).fill(Theme.green.opacity(0.12)))
+                        }
+                        // 의존성 경고
+                        if !depIssues.isEmpty {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 9))
+                                .foregroundColor(Theme.orange)
+                                .help(depIssues.map { $0.localizedMessage }.joined(separator: "\n"))
+                        }
+                    }
+                    HStack(spacing: 6) {
+                        Text("v\(plugin.version)")
+                            .font(Theme.mono(8))
+                            .foregroundColor(Theme.textDim)
+                        Text("\u{00B7}").foregroundColor(Theme.textDim)
+                        Text(plugin.source)
+                            .font(Theme.mono(8))
+                            .foregroundColor(Theme.textDim)
+                            .lineLimit(1).truncationMode(.middle)
+                    }
                 }
-            }
 
-            Spacer()
+                Spacer()
 
-            Toggle("", isOn: Binding(
-                get: { plugin.enabled },
-                set: { _ in pluginManager.toggleEnabled(plugin) }
-            ))
-            .toggleStyle(.switch).tint(Theme.green).labelsHidden().controlSize(.mini)
+                Toggle("", isOn: Binding(
+                    get: { plugin.enabled },
+                    set: { _ in pluginManager.toggleEnabled(plugin) }
+                ))
+                .toggleStyle(.switch).tint(Theme.green).labelsHidden().controlSize(.mini)
 
-            // Finder에서 열기
-            Button(action: { pluginManager.revealInFinder(plugin) }) {
-                Image(systemName: "folder")
-                    .font(.system(size: Theme.iconSize(11), weight: .medium))
-                    .foregroundColor(Theme.textSecondary)
-            }.buttonStyle(.plain)
+                // 업데이트 버튼
+                if hasUpdate {
+                    Button(action: { pluginManager.updatePlugin(plugin) }) {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: Theme.iconSize(12), weight: .medium))
+                            .foregroundColor(Theme.green)
+                    }.buttonStyle(.plain)
+                }
 
-            // brew 업그레이드 (brew만)
-            if plugin.sourceType == .brewFormula || plugin.sourceType == .brewTap {
-                Button(action: { pluginManager.upgrade(plugin) }) {
-                    Image(systemName: "arrow.clockwise.circle")
-                        .font(.system(size: Theme.iconSize(12), weight: .medium))
-                        .foregroundColor(Theme.cyan)
+                // Finder에서 열기
+                Button(action: { pluginManager.revealInFinder(plugin) }) {
+                    Image(systemName: "folder")
+                        .font(.system(size: Theme.iconSize(11), weight: .medium))
+                        .foregroundColor(Theme.textSecondary)
+                }.buttonStyle(.plain)
+
+                // brew 업그레이드 (brew만)
+                if plugin.sourceType == .brewFormula || plugin.sourceType == .brewTap {
+                    Button(action: { pluginManager.upgrade(plugin) }) {
+                        Image(systemName: "arrow.clockwise.circle")
+                            .font(.system(size: Theme.iconSize(12), weight: .medium))
+                            .foregroundColor(Theme.cyan)
+                    }.buttonStyle(.plain)
+                }
+
+                Button(action: {
+                    pluginToUninstall = plugin
+                    showPluginUninstallConfirm = true
+                }) {
+                    Image(systemName: "trash")
+                        .font(.system(size: Theme.iconSize(11), weight: .medium))
+                        .foregroundColor(Theme.red.opacity(0.7))
                 }.buttonStyle(.plain)
             }
+            .padding(10)
 
-            Button(action: {
-                pluginToUninstall = plugin
-                showPluginUninstallConfirm = true
-            }) {
-                Image(systemName: "trash")
-                    .font(.system(size: Theme.iconSize(11), weight: .medium))
-                    .foregroundColor(Theme.red.opacity(0.7))
-            }.buttonStyle(.plain)
+            // 확장 상세 정보
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 8) {
+                    // 기여 배지
+                    if !badges.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 6) {
+                                ForEach(Array(badges.enumerated()), id: \.offset) { _, badge in
+                                    HStack(spacing: 3) {
+                                        Image(systemName: badge.icon)
+                                            .font(.system(size: 9, weight: .medium))
+                                        Text("\(badge.label) \(badge.count)")
+                                            .font(Theme.mono(8, weight: .medium))
+                                    }
+                                    .foregroundColor(Theme.accent)
+                                    .padding(.horizontal, 8).padding(.vertical, 4)
+                                    .background(RoundedRectangle(cornerRadius: 6).fill(Theme.accent.opacity(0.08)))
+                                }
+                            }
+                        }
+                    }
+
+                    // 의존성 경고
+                    if !depIssues.isEmpty {
+                        ForEach(Array(depIssues.enumerated()), id: \.offset) { _, issue in
+                            HStack(spacing: 4) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.system(size: 9)).foregroundColor(Theme.orange)
+                                Text(issue.localizedMessage)
+                                    .font(Theme.mono(8)).foregroundColor(Theme.orange)
+                            }
+                        }
+                    }
+
+                    // 설치 정보
+                    HStack(spacing: 10) {
+                        Text(String(format: NSLocalizedString("plugin.detail.installed", comment: ""), plugin.installedAt.formatted(.dateTime.year().month().day())))
+                            .font(Theme.mono(7)).foregroundColor(Theme.textDim)
+                        Text(String(format: NSLocalizedString("plugin.detail.type", comment: ""), plugin.sourceType.rawValue))
+                            .font(Theme.mono(7)).foregroundColor(Theme.textDim)
+                    }
+                }
+                .padding(.horizontal, 14).padding(.bottom, 10)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
-        .padding(10)
         .background(RoundedRectangle(cornerRadius: 10).fill(plugin.enabled ? Theme.bgSurface : Theme.bgSurface.opacity(0.4)))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(plugin.enabled ? Theme.border.opacity(0.4) : Theme.border.opacity(0.2), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(
+            hasUpdate ? Theme.green.opacity(0.4) : (plugin.enabled ? Theme.border.opacity(0.4) : Theme.border.opacity(0.2)),
+            lineWidth: hasUpdate ? 1.5 : 1
+        ))
     }
 
     private func pluginFormatHint(icon: String, text: String, example: String) -> some View {

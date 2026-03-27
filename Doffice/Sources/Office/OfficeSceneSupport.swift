@@ -392,18 +392,30 @@ public final class OfficeSceneStore: ObservableObject {
             return
         }
         lastAdvanceTime = now
-        let prevCharacters = controller.characters
-        frame += 1
+
+        // 캐릭터 이전 상태 스냅샷 (위치 + 프레임만 비교)
+        let prevPositions: [(String, CGFloat, CGFloat, Int)] = controller.characters.map {
+            ($0.key, $0.value.pixelX, $0.value.pixelY, $0.value.frame)
+        }
+        let prevCount = prevPositions.count
+
         syncCharactersIfNeeded(with: tabs)
-        let dt = min(elapsed, 0.25)  // cap delta to prevent physics jumps after long pauses
+        let dt = min(elapsed, 0.25)
         controller.tick(deltaTime: dt)
         updateCamera(activeTabId: activeTabId, focusMode: focusMode)
-        // Mark redraw needed if any character state actually changed
-        let changed = prevCharacters.count != controller.characters.count ||
-            prevCharacters.contains { id, ch in
-                guard let newCh = controller.characters[id] else { return true }
-                return ch.pixelX != newCh.pixelX || ch.pixelY != newCh.pixelY || ch.frame != newCh.frame
+
+        // 변경 감지 — 위치/프레임이 바뀌었을 때만 frame 증가
+        let newCount = controller.characters.count
+        var changed = prevCount != newCount
+        if !changed {
+            for (id, px, py, f) in prevPositions {
+                guard let ch = controller.characters[id] else { changed = true; break }
+                if ch.pixelX != px || ch.pixelY != py || ch.frame != f { changed = true; break }
             }
+        }
+        if changed {
+            frame += 1
+        }
         needsRedraw = changed
     }
 
@@ -451,12 +463,13 @@ public final class OfficeSceneStore: ObservableObject {
         if isPreparingBackgroundSnapshot { return }
 
         isPreparingBackgroundSnapshot = true
-        defer { isPreparingBackgroundSnapshot = false }
 
         let size = CGSize(
             width: CGFloat(map.cols) * OfficeConstants.tileSize,
             height: CGFloat(map.rows) * OfficeConstants.tileSize
         )
+        // ImageRenderer는 반드시 메인 스레드에서 실행해야 하지만,
+        // 렌더링이 끝나면 즉시 완료 마크하여 다음 프레임에서 재진입 방지
         let renderer = ImageRenderer(
             content: OfficeStaticBackgroundSnapshotView(
                 map: map,
@@ -467,6 +480,7 @@ public final class OfficeSceneStore: ObservableObject {
         )
         renderer.scale = 1
         backgroundSnapshot = renderer.cgImage
+        isPreparingBackgroundSnapshot = false
         backgroundSnapshotSignature = signature
     }
 
@@ -554,21 +568,18 @@ public final class OfficeSceneStore: ObservableObject {
     private func syncSignature(for tabs: [TerminalTab]) -> Int {
         var hasher = Hasher()
         hasher.combine(tabs.count)
-        for tab in tabs.sorted(by: { $0.id < $1.id }) {
+        // 정렬 제거 — 매 프레임 O(n log n) → O(n)
+        for tab in tabs {
             hasher.combine(tab.id)
-            hasher.combine(tab.groupId ?? "")
             hasher.combine(tab.isProcessing)
             hasher.combine(tab.claudeActivity.rawValue)
-            hasher.combine(tab.officeSeatLockReason ?? "")
             hasher.combine(tab.isCompleted)
         }
-        let hiredRoster = CharacterRegistry.shared.hiredCharacters.sorted { $0.id < $1.id }
+        let hiredRoster = CharacterRegistry.shared.hiredCharacters
         hasher.combine(hiredRoster.count)
         for character in hiredRoster {
             hasher.combine(character.id)
             hasher.combine(character.isOnVacation)
-            hasher.combine(character.jobRole.rawValue)
-            hasher.combine(character.name)
         }
         return hasher.finalize()
     }
