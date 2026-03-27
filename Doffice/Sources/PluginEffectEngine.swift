@@ -125,9 +125,13 @@ class PluginEffectEngine: ObservableObject {
 
         let burst = ParticleBurst(emojis: emojis, positions: positions, createdAt: Date(), duration: duration)
 
-        // 누적 파티클이 너무 많으면 오래된 것 제거
-        if activeParticles.count > 15 {
-            activeParticles.removeFirst(activeParticles.count - 10)
+        // 타임스탬프 기반 만료: duration + 1초 이상 지난 파티클 제거
+        let now = Date()
+        activeParticles.removeAll { now.timeIntervalSince($0.createdAt) > $0.duration + 1.0 }
+
+        // 하드 캡: 최대 100개 파티클 유지
+        if activeParticles.count >= 100 {
+            activeParticles.removeFirst(activeParticles.count - 99)
         }
         activeParticles.append(burst)
 
@@ -347,10 +351,10 @@ struct PluginEffectOverlay: View {
     private func particleBurstView(_ burst: PluginEffectEngine.ParticleBurst) -> some View {
         GeometryReader { geo in
             let elapsed = Date().timeIntervalSince(burst.createdAt)
-            let progress = min(elapsed / burst.duration, 1.0)
+            let progress = min(elapsed / max(0.001, burst.duration), 1.0)
 
             ForEach(Array(burst.positions.enumerated()), id: \.offset) { idx, pos in
-                let emoji = burst.emojis[idx % burst.emojis.count]
+                let emoji = burst.emojis.isEmpty ? "✨" : burst.emojis[idx % burst.emojis.count]
                 Text(emoji)
                     .font(.system(size: 20))
                     .position(

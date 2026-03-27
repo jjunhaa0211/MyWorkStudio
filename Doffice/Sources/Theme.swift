@@ -1220,36 +1220,49 @@ enum Theme {
     private static var _cacheSignature: Int = -1
     private static var _fontCache: [String: Font] = [:]
 
-    /// settings의 테마 관련 값들로 시그니처 생성 — 변경 감지에 사용
+    /// settings 시그니처 — 메모이제이션으로 중복 해싱 방지
+    /// ensureCache()가 렌더 당 수십~수백 번 호출되므로 빠른 비교가 핵심
+    private static var _memoizedSigInputs: (Bool, String, Double, String) = (false, "", 0, "")
+    private static var _memoizedSigValue: Int = -1
+
     private static func settingsSignature() -> Int {
         let s = AppSettings.shared
+        let inputs = (s.isDarkMode, s.themeMode, s.fontSizeScale, s.customThemeJSON)
+        // 입력이 동일하면 해시 재사용 (O(1) 비교 vs O(n) 해싱)
+        if inputs.0 == _memoizedSigInputs.0 &&
+           inputs.1 == _memoizedSigInputs.1 &&
+           inputs.2 == _memoizedSigInputs.2 &&
+           inputs.3 == _memoizedSigInputs.3 {
+            return _memoizedSigValue
+        }
         var h = Hasher()
-        h.combine(s.isDarkMode)
-        h.combine(s.themeMode)
-        h.combine(s.fontSizeScale)
-        h.combine(s.customThemeJSON)
-        return h.finalize()
+        h.combine(inputs.0)
+        h.combine(inputs.1)
+        h.combine(inputs.2)
+        h.combine(inputs.3)
+        let sig = h.finalize()
+        _memoizedSigInputs = inputs
+        _memoizedSigValue = sig
+        return sig
     }
 
     private static func ensureCache() {
-        // 시그니처 계산은 lock 밖에서 (AppSettings 접근은 메인 스레드 권장이나 read-only)
         let sig = settingsSignature()
         _lock.lock()
         guard sig != _cacheSignature else { _lock.unlock(); return }
         _lock.unlock()
-        // 설정값 스냅샷을 lock 밖에서 읽기
         let settings = AppSettings.shared
         let dark = settings.isDarkMode
         let isCustom = settings.themeMode == "custom"
         let config: CustomThemeConfig? = isCustom ? settings.customTheme : nil
         let scale = CGFloat(settings.fontSizeScale)
-        // lock 안에서 캐시 갱신
         _lock.lock()
         _cachedDark = dark
         _cachedIsCustom = isCustom
         _cachedCustomConfig = config
         _cachedScale = scale
         _fontCache.removeAll()
+        _colorCache.removeAll()
         _cacheSignature = sig
         _lock.unlock()
     }
@@ -1258,7 +1271,18 @@ enum Theme {
     static func invalidateCache() {
         _lock.lock()
         _cacheSignature = -1
+        _colorCache.removeAll()
         _lock.unlock()
+    }
+
+    // ── Color 캐시 — hex → Color 변환을 한 번만 수행 ──
+    private static var _colorCache: [String: Color] = [:]
+
+    private static func cachedColor(_ key: String, _ hex: String) -> Color {
+        if let c = _colorCache[key] { return c }
+        let c = Color(hex: hex)
+        _colorCache[key] = c
+        return c
     }
 
     private static var dark: Bool { ensureCache(); return _lock.withLock { _cachedDark } }
@@ -1304,35 +1328,35 @@ enum Theme {
     // ── Background Surfaces (4-layer depth system) ──
     // Layer 0: App background (deepest)
     static var bg: Color {
-        if let config = cachedCustomConfig, let hex = config.bgHex, !hex.isEmpty { return Color(hex: hex) }
-        return dark ? Color(hex: "000000") : Color(hex: "fafafa")
+        if let config = cachedCustomConfig, let hex = config.bgHex, !hex.isEmpty { return cachedColor("bg_\(hex)", hex) }
+        return cachedColor(dark ? "bg_d" : "bg_l", dark ? "000000" : "fafafa")
     }
     // Layer 1: Card / elevated panel
     static var bgCard: Color {
-        if let config = cachedCustomConfig, let hex = config.bgCardHex, !hex.isEmpty { return Color(hex: hex) }
-        return dark ? Color(hex: "0a0a0a") : Color(hex: "ffffff")
+        if let config = cachedCustomConfig, let hex = config.bgCardHex, !hex.isEmpty { return cachedColor("bgC_\(hex)", hex) }
+        return cachedColor(dark ? "bgC_d" : "bgC_l", dark ? "0a0a0a" : "ffffff")
     }
     // Layer 2: Raised surface / nested element
     static var bgSurface: Color {
-        if let config = cachedCustomConfig, let hex = config.bgSurfaceHex, !hex.isEmpty { return Color(hex: hex) }
-        return dark ? Color(hex: "111111") : Color(hex: "f5f5f5")
+        if let config = cachedCustomConfig, let hex = config.bgSurfaceHex, !hex.isEmpty { return cachedColor("bgS_\(hex)", hex) }
+        return cachedColor(dark ? "bgSf_d" : "bgSf_l", dark ? "111111" : "f5f5f5")
     }
     // Layer 3: Tertiary surface (badges, code blocks)
     static var bgTertiary: Color {
-        if let config = cachedCustomConfig, let hex = config.bgTertiaryHex, !hex.isEmpty { return Color(hex: hex) }
-        return dark ? Color(hex: "1a1a1a") : Color(hex: "ebebeb")
+        if let config = cachedCustomConfig, let hex = config.bgTertiaryHex, !hex.isEmpty { return cachedColor("bgT_\(hex)", hex) }
+        return cachedColor(dark ? "bgT_d" : "bgT_l", dark ? "1a1a1a" : "ebebeb")
     }
 
     // ── Functional backgrounds ──
     static var bgTerminal: Color {
-        if let config = cachedCustomConfig, let hex = config.bgHex, !hex.isEmpty { return Color(hex: hex) }
-        return dark ? Color(hex: "0a0a0a") : Color(hex: "fafafa")
+        if let config = cachedCustomConfig, let hex = config.bgHex, !hex.isEmpty { return cachedColor("bgTm_\(hex)", hex) }
+        return cachedColor(dark ? "bgTm_d" : "bgTm_l", dark ? "0a0a0a" : "fafafa")
     }
-    static var bgInput: Color { dark ? Color(hex: "000000") : Color(hex: "ffffff") }
-    static var bgHover: Color { dark ? Color(hex: "1a1a1a") : Color(hex: "f0f0f0") }
-    static var bgSelected: Color { dark ? Color(hex: "1a1a1a") : Color(hex: "eaeaea") }
-    static var bgPressed: Color { dark ? Color(hex: "222222") : Color(hex: "e5e5e5") }
-    static var bgDisabled: Color { dark ? Color(hex: "0a0a0a") : Color(hex: "f5f5f5") }
+    static var bgInput: Color { cachedColor(dark ? "bgI_d" : "bgI_l", dark ? "000000" : "ffffff") }
+    static var bgHover: Color { cachedColor(dark ? "bgH_d" : "bgH_l", dark ? "1a1a1a" : "f0f0f0") }
+    static var bgSelected: Color { cachedColor(dark ? "bgSel_d" : "bgSel_l", dark ? "1a1a1a" : "eaeaea") }
+    static var bgPressed: Color { cachedColor(dark ? "bgP_d" : "bgP_l", dark ? "222222" : "e5e5e5") }
+    static var bgDisabled: Color { cachedColor(dark ? "bgD_d" : "bgD_l", dark ? "0a0a0a" : "f5f5f5") }
     static var bgOverlay: Color { dark ? Color(hex: "000000").opacity(0.7) : Color(hex: "000000").opacity(0.4) }
     static var bgPaneFocused: Color { dark ? Color(hex: "0d0d0d") : Color(hex: "f8f8f8") }
     static var dividerColor: Color { dark ? Color(hex: "2a2a2a") : Color(hex: "d0d0d0") }
@@ -1356,33 +1380,33 @@ enum Theme {
 
     // ── Borders (single-weight system: always 1px, vary opacity) ──
     static var border: Color {
-        if let config = cachedCustomConfig, let hex = config.borderHex, !hex.isEmpty { return Color(hex: hex) }
-        return dark ? Color(hex: "282828") : Color(hex: "e5e5e5")
+        if let config = cachedCustomConfig, let hex = config.borderHex, !hex.isEmpty { return cachedColor("bd_\(hex)", hex) }
+        return cachedColor(dark ? "bd_d" : "bd_l", dark ? "282828" : "e5e5e5")
     }
     static var borderStrong: Color {
-        if let config = cachedCustomConfig, let hex = config.borderStrongHex, !hex.isEmpty { return Color(hex: hex) }
-        return dark ? Color(hex: "3e3e3e") : Color(hex: "d0d0d0")
+        if let config = cachedCustomConfig, let hex = config.borderStrongHex, !hex.isEmpty { return cachedColor("bds_\(hex)", hex) }
+        return cachedColor(dark ? "bds_d" : "bds_l", dark ? "3e3e3e" : "d0d0d0")
     }
-    static var borderActive: Color { dark ? Color(hex: "555555") : Color(hex: "999999") }
-    static var borderSubtle: Color { dark ? Color(hex: "1e1e1e") : Color(hex: "eeeeee") }
+    static var borderActive: Color { cachedColor(dark ? "bda_d" : "bda_l", dark ? "555555" : "999999") }
+    static var borderSubtle: Color { cachedColor(dark ? "bdsb_d" : "bdsb_l", dark ? "1e1e1e" : "eeeeee") }
     static var focusRing: Color { Color(hex: "0070f3").opacity(0.5) }
 
     // ── Text (5-step hierarchy) ──
     static var textPrimary: Color {
-        if let config = cachedCustomConfig, let hex = config.textPrimaryHex, !hex.isEmpty { return Color(hex: hex) }
-        return dark ? Color(hex: "ededed") : Color(hex: "171717")
+        if let config = cachedCustomConfig, let hex = config.textPrimaryHex, !hex.isEmpty { return cachedColor("tp_\(hex)", hex) }
+        return cachedColor(dark ? "tp_d" : "tp_l", dark ? "ededed" : "171717")
     }
     static var textSecondary: Color {
-        if let config = cachedCustomConfig, let hex = config.textSecondaryHex, !hex.isEmpty { return Color(hex: hex) }
-        return dark ? Color(hex: "a1a1a1") : Color(hex: "636363")
+        if let config = cachedCustomConfig, let hex = config.textSecondaryHex, !hex.isEmpty { return cachedColor("ts_\(hex)", hex) }
+        return cachedColor(dark ? "ts_d" : "ts_l", dark ? "a1a1a1" : "636363")
     }
     static var textDim: Color {
-        if let config = cachedCustomConfig, let hex = config.textDimHex, !hex.isEmpty { return Color(hex: hex) }
-        return dark ? Color(hex: "707070") : Color(hex: "8f8f8f")
+        if let config = cachedCustomConfig, let hex = config.textDimHex, !hex.isEmpty { return cachedColor("td_\(hex)", hex) }
+        return cachedColor(dark ? "td_d" : "td_l", dark ? "707070" : "8f8f8f")
     }
     static var textMuted: Color {
-        if let config = cachedCustomConfig, let hex = config.textMutedHex, !hex.isEmpty { return Color(hex: hex) }
-        return dark ? Color(hex: "484848") : Color(hex: "b0b0b0")
+        if let config = cachedCustomConfig, let hex = config.textMutedHex, !hex.isEmpty { return cachedColor("tm_\(hex)", hex) }
+        return cachedColor(dark ? "tm_d" : "tm_l", dark ? "484848" : "b0b0b0")
     }
     static var textTerminal: Color { dark ? Color(hex: "ededed") : Color(hex: "171717") }
 

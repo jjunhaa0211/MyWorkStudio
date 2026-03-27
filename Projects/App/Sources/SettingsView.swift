@@ -1468,6 +1468,26 @@ struct SettingsView: View {
         } message: {
             Text(String(format: NSLocalizedString("plugin.confirm.uninstall.msg", comment: ""), pluginToUninstall?.name ?? ""))
         }
+        .alert(NSLocalizedString("plugin.permission.title", comment: ""),
+               isPresented: Binding(
+                   get: { pluginManager.pendingPermission != nil },
+                   set: { if !$0 { pluginManager.denyPermission() } }
+               )) {
+            Button(NSLocalizedString("plugin.permission.allow", comment: "")) {
+                pluginManager.approvePermission(alwaysTrust: false)
+            }
+            Button(NSLocalizedString("plugin.permission.always", comment: "")) {
+                pluginManager.approvePermission(alwaysTrust: true)
+            }
+            Button(NSLocalizedString("plugin.permission.deny", comment: ""), role: .cancel) {
+                pluginManager.denyPermission()
+            }
+        } message: {
+            if let req = pluginManager.pendingPermission {
+                Text(String(format: NSLocalizedString("plugin.permission.desc", comment: ""),
+                            req.pluginName, URL(fileURLWithPath: req.scriptPath).lastPathComponent))
+            }
+        }
         .sheet(isPresented: $showPluginScaffold) {
             VStack(spacing: 16) {
                 HStack {
@@ -1616,6 +1636,13 @@ struct SettingsView: View {
                                 .padding(.horizontal, 5).padding(.vertical, 1)
                                 .background(RoundedRectangle(cornerRadius: 4).fill(Theme.green.opacity(0.12)))
                         }
+                        // 신뢰 상태
+                        if pluginManager.isPluginTrusted(plugin.name) {
+                            Image(systemName: "checkmark.shield.fill")
+                                .font(.system(size: 9))
+                                .foregroundColor(Theme.green.opacity(0.7))
+                                .help(NSLocalizedString("plugin.permission.trusted", comment: ""))
+                        }
                         // 의존성 경고
                         if !depIssues.isEmpty {
                             Image(systemName: "exclamationmark.triangle.fill")
@@ -1652,6 +1679,14 @@ struct SettingsView: View {
                             .foregroundColor(Theme.green)
                     }.buttonStyle(.plain)
                 }
+
+                // 내보내기
+                Button(action: { pluginManager.exportPlugin(plugin) }) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: Theme.iconSize(11), weight: .medium))
+                        .foregroundColor(Theme.textSecondary)
+                }.buttonStyle(.plain)
+                .help(NSLocalizedString("plugin.export", comment: ""))
 
                 // Finder에서 열기
                 Button(action: { pluginManager.revealInFinder(plugin) }) {
@@ -1714,6 +1749,22 @@ struct SettingsView: View {
                         }
                     }
 
+                    // 개별 확장 포인트 토글
+                    extensionToggles(for: plugin)
+
+                    // 충돌 경고
+                    let conflicts = pluginManager.detectConflicts().filter { $0.pluginA == plugin.name || $0.pluginB == plugin.name }
+                    if !conflicts.isEmpty {
+                        ForEach(Array(conflicts.enumerated()), id: \.offset) { _, conflict in
+                            HStack(spacing: 4) {
+                                Image(systemName: "bolt.trianglebadge.exclamationmark.fill")
+                                    .font(.system(size: 9)).foregroundColor(Theme.red)
+                                Text(conflict.localizedMessage)
+                                    .font(Theme.mono(7)).foregroundColor(Theme.red)
+                            }
+                        }
+                    }
+
                     // 설치 정보
                     HStack(spacing: 10) {
                         Text(String(format: NSLocalizedString("plugin.detail.installed", comment: ""), plugin.installedAt.formatted(.dateTime.year().month().day())))
@@ -1731,6 +1782,83 @@ struct SettingsView: View {
             hasUpdate ? Theme.green.opacity(0.4) : (plugin.enabled ? Theme.border.opacity(0.4) : Theme.border.opacity(0.2)),
             lineWidth: hasUpdate ? 1.5 : 1
         ))
+    }
+
+    @ViewBuilder
+    private func extensionToggles(for plugin: PluginEntry) -> some View {
+        let baseURL = URL(fileURLWithPath: plugin.localPath)
+        let manifestURL = baseURL.appendingPathComponent("plugin.json")
+
+        if let data = try? Data(contentsOf: manifestURL),
+           let manifest = try? JSONDecoder().decode(PluginManifest.self, from: data),
+           let c = manifest.contributes {
+            let allExtensions = collectExtensionIds(pluginName: manifest.name, contributes: c)
+            if !allExtensions.isEmpty {
+                VStack(alignment: .leading, spacing: 3) {
+                    ForEach(allExtensions, id: \.id) { ext in
+                        HStack(spacing: 6) {
+                            Image(systemName: ext.icon)
+                                .font(.system(size: 8, weight: .medium))
+                                .foregroundColor(pluginManager.isExtensionEnabled(ext.id) ? Theme.accent : Theme.textDim)
+                                .frame(width: 12)
+                            Text(ext.label)
+                                .font(Theme.mono(8))
+                                .foregroundColor(pluginManager.isExtensionEnabled(ext.id) ? Theme.textPrimary : Theme.textDim)
+                            Spacer()
+                            Button(action: { pluginManager.toggleExtension(ext.id) }) {
+                                Text(pluginManager.isExtensionEnabled(ext.id)
+                                     ? NSLocalizedString("plugin.extension.enable", comment: "")
+                                     : NSLocalizedString("plugin.extension.disable", comment: ""))
+                                    .font(Theme.mono(7, weight: .medium))
+                                    .foregroundColor(pluginManager.isExtensionEnabled(ext.id) ? Theme.green : Theme.textDim)
+                                    .padding(.horizontal, 6).padding(.vertical, 2)
+                                    .background(RoundedRectangle(cornerRadius: 4).fill(
+                                        pluginManager.isExtensionEnabled(ext.id) ? Theme.green.opacity(0.08) : Theme.bgSurface
+                                    ))
+                            }.buttonStyle(.plain)
+                        }
+                    }
+                }
+                .padding(8)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Theme.bgSurface.opacity(0.5)))
+            }
+        }
+    }
+
+    private struct ExtensionInfo: Identifiable {
+        let id: String
+        let icon: String
+        let label: String
+    }
+
+    private func collectExtensionIds(pluginName: String, contributes c: PluginManifest.PluginContributions) -> [ExtensionInfo] {
+        var items: [ExtensionInfo] = []
+        if let themes = c.themes {
+            for t in themes {
+                items.append(ExtensionInfo(id: "\(pluginName)::\(t.id)", icon: "paintpalette.fill", label: t.name))
+            }
+        }
+        if let effects = c.effects {
+            for e in effects {
+                items.append(ExtensionInfo(id: "\(pluginName)::\(e.id)", icon: "sparkles", label: "\(e.type) → \(e.trigger)"))
+            }
+        }
+        if let panels = c.panels {
+            for p in panels {
+                items.append(ExtensionInfo(id: "\(pluginName)::\(p.id)", icon: "rectangle.on.rectangle", label: p.title))
+            }
+        }
+        if let commands = c.commands {
+            for cmd in commands {
+                items.append(ExtensionInfo(id: "\(pluginName)::\(cmd.id)", icon: "terminal", label: cmd.title))
+            }
+        }
+        if let achievements = c.achievements {
+            for a in achievements {
+                items.append(ExtensionInfo(id: "\(pluginName)::\(a.id)", icon: "trophy.fill", label: a.name))
+            }
+        }
+        return items
     }
 
     private func pluginFormatHint(icon: String, text: String, example: String) -> some View {

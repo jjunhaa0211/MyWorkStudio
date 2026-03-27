@@ -577,7 +577,7 @@ class OfficeCharacterController: ObservableObject {
         let previousX = ch.pixelX
         let previousY = ch.pixelY
 
-        if dist <= step {
+        if dist <= step || dist < 0.001 {
             ch.pixelX = tx
             ch.pixelY = ty
             ch.tileCol = next.col

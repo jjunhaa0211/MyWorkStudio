@@ -9,37 +9,55 @@
 /* Begin PBXBuildFile section */
 		06EB9F6799EB996AD2454FB2 /* ModalsCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A414A5C40CE10556517A9878 /* ModalsCatalog.swift */; };
 		0719AD57C2AAF276722B27CB /* DesignSystem.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 69B7BBEAD5472C7195924AC8 /* DesignSystem.framework */; };
+		092C912B20FE30C1988A25B5 /* DSColorPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B260A5D521C37527B1127CD /* DSColorPicker.swift */; };
 		09C2C45E1E812E3E24F1CFF5 /* ColorHex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 561DA4E351C77B322351A1B8 /* ColorHex.swift */; };
 		163E2C5DAB87000F3E94011E /* ToastCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = D59975D964615C2EECDDC322 /* ToastCatalog.swift */; };
+		1BF3657859A77CF30492FAE2 /* DSCommandPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0076434B4F2757BAA342463A /* DSCommandPalette.swift */; };
+		1E2D6F36DD65B4518ED9161C /* DSNotificationDot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A6E699785C248CA53BA170A /* DSNotificationDot.swift */; };
 		1EC31C006BC74EA25442F8E5 /* CustomThemeConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D6A6C1F2EF4BC432AF0A8B4 /* CustomThemeConfig.swift */; };
+		205B78B2D908025D78FFFEA9 /* DSSegmentedControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10E0D65DBDC465AB5F98D093 /* DSSegmentedControl.swift */; };
+		24C7E6A8435FCFE3F9F4E139 /* DSSplitPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF0616C4EE2506B46FE88AEC /* DSSplitPane.swift */; };
 		25D6342FE8A0A3D9D336FCE9 /* DSModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D87EA5184951235DCCD8B7C /* DSModifiers.swift */; };
+		29A84F96827E58ECB58762D8 /* DSChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0832C3346C3477DEFBB3A549 /* DSChart.swift */; };
+		30F4AD61D74E43D08D796296 /* DSShortcutRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CB8891E8807A34FA7B2FFF8 /* DSShortcutRecorder.swift */; };
 		376E83EC8316D46868575E84 /* SpacingCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C665BAE77DEAED1E71A6840A /* SpacingCatalog.swift */; };
 		3C25487E486E542FC7B0955A /* BadgesCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D5B00C7AC2B7311AA4F4604 /* BadgesCatalog.swift */; };
 		3E620AD0A61787150E206879 /* ColorTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C752FB3BFD9183F7EFF135C /* ColorTokens.swift */; };
 		3F6F4505F6F8FD918678E8C5 /* KeyboardCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4377500BAAAD6D7306C9283 /* KeyboardCatalog.swift */; };
+		4024F0CDEF7312A4FB14A75C /* DSCodeBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BA5C7D65595BC4DB618B798 /* DSCodeBlock.swift */; };
 		44A1593DD31F4AF325EB6956 /* DSLists.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5ED8176DA7D14C54CE5DCB0 /* DSLists.swift */; };
 		4831222C52916B4470D99F75 /* DSCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = A567DB31B6B2DDEF6318344C /* DSCards.swift */; };
 		504E1DA9E217A6122CE69C6C /* SkeletonCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 156BE2CC590DEEACA4857605 /* SkeletonCatalog.swift */; };
 		512309DD9DD8B97419FD00E1 /* Notifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8164E0CE079893F23ECA8465 /* Notifications.swift */; };
 		568887E486441002AB44ADB1 /* DSSkeleton.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC22F7A5F3BAB9993BE2D1A0 /* DSSkeleton.swift */; };
 		56E5F40E9E718E755CA3990A /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 408C08B2A6A3D56D188B2053 /* AppSettings.swift */; };
+		6F109F1D343BE21860464719 /* DSSyntaxTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = D856DA6291BF77503519E342 /* DSSyntaxTokens.swift */; };
+		7F9396FE65E24398B01B87EF /* DSToggle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 400D3A36B636BD180E63B957 /* DSToggle.swift */; };
 		80A6A3E7BF66CD91304FFC80 /* DSBadges.swift in Sources */ = {isa = PBXBuildFile; fileRef = 199E5DCB7B70F5281AD12257 /* DSBadges.swift */; };
+		897C5A2E954D1D29B6031CAE /* DSDiffView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D7CAC6C9BFF149677EB0F35 /* DSDiffView.swift */; };
 		8E894D852DC2F1D36174856A /* DSButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A444DA65F9B2C6728BF64405 /* DSButton.swift */; };
 		958C69A9B6F83D922501A6E8 /* TypographyCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 525A18A4940CD5DD652D3959 /* TypographyCatalog.swift */; };
 		969CB265698BEB9A52504F31 /* IndicatorsCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C6158C0E6DA255AB5E02868 /* IndicatorsCatalog.swift */; };
+		9A027907888ED9D20E0F1000 /* DSTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF6E9BABDA98589E739D8B89 /* DSTimeline.swift */; };
 		9DC68347557F7033F7C9136C /* ButtonsCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63FE03042E263FD97A590421 /* ButtonsCatalog.swift */; };
 		9E08392B296AAB20E36294AF /* ColorsCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B908BEAF1D2BA86E363950DA /* ColorsCatalog.swift */; };
 		9EB2C6C8DE8DAAA5BEE649D1 /* FieldsCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C822BB3D5D8B14F1CF2E4EDA /* FieldsCatalog.swift */; };
 		B5C05EC0C273787C2C2AFB7F /* DSKeyboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C05551F4D194B42C5D34791 /* DSKeyboard.swift */; };
 		B785BDA1117FE1A932B79F0D /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = B03BBBE9652637A9E77D1F51 /* Typography.swift */; };
 		BEFF4C36C2B11AEA4C058807 /* DSIndicators.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EF70CEC1F3D3BEDDC2AB6BC /* DSIndicators.swift */; };
+		BF0BA064B9F00B40E501C6DD /* DSSearchField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77996666647BB95390CB56B9 /* DSSearchField.swift */; };
 		C2E25D379CCC562F5370DFE6 /* CatalogApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38EBB7C59A3C02F2FEADDDC2 /* CatalogApp.swift */; };
 		C34AE13B79436FD73E00BC78 /* NavigationCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3266818F3647F4CD292BC6C /* NavigationCatalog.swift */; };
 		C46F5ED7C55ECB686D3DD89C /* AccordionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA4D85E016B741939ED0F628 /* AccordionCatalog.swift */; };
 		C59F6B54CFF3EDD1A388ECF5 /* DSAccordion.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7CF421FCC3DDEA1171068FB /* DSAccordion.swift */; };
+		CF8E280919EA9954E77AB17F /* DSAvatar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21DF3E2150E5427721816842 /* DSAvatar.swift */; };
+		D00022E2CDA7F934D4A6613E /* DSTooltip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9023C71574C489FDB367DE03 /* DSTooltip.swift */; };
 		D15FB107D7CAE1823CD4509D /* CatalogHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFC0E4FE35A8B85E9B2F3630 /* CatalogHelpers.swift */; };
 		D4044A010B336F1D29C39880 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A08B3763787B3CB6C0CA4D2 /* Theme.swift */; };
+		D6A9D58DD143D5664944E225 /* DSDivider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BC50B3E55833393FE1D3E60 /* DSDivider.swift */; };
+		D6B8AB841F13A66CC3639BBA /* DSContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44F7DF93626ACE69CABF5786 /* DSContextMenu.swift */; };
 		E1243FC368F84522A6DD8E66 /* DSCallout.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4677F4A0B40CC3BE2E4B716 /* DSCallout.swift */; };
+		ECF7F6EEF484E73FCFB54938 /* DSRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E90D29B2FFF9C18E2471E77 /* DSRing.swift */; };
 		EF063BDC51990F61DEDD6C28 /* ListsCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 315A78083970E0238D919518 /* ListsCatalog.swift */; };
 		F0E45247A4E133C746687211 /* CatalogRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7CA4281F6FBEA91A71F2C7 /* CatalogRootView.swift */; };
 		F1DEC63A639B265FABD59FFA /* DSToast.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57898B9E29D9E907498A018F /* DSToast.swift */; };
@@ -84,33 +102,48 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		0076434B4F2757BAA342463A /* DSCommandPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSCommandPalette.swift; sourceTree = "<group>"; };
 		0816E1C93ACB03C434C0A349 /* DSNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSNavigation.swift; sourceTree = "<group>"; };
+		0832C3346C3477DEFBB3A549 /* DSChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSChart.swift; sourceTree = "<group>"; };
+		0BC50B3E55833393FE1D3E60 /* DSDivider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSDivider.swift; sourceTree = "<group>"; };
 		0C3868DEB5107AC3BC1DB39A /* DesignSystemCatalog.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DesignSystemCatalog.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0C752FB3BFD9183F7EFF135C /* ColorTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorTokens.swift; sourceTree = "<group>"; };
+		0CB8891E8807A34FA7B2FFF8 /* DSShortcutRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSShortcutRecorder.swift; sourceTree = "<group>"; };
+		10E0D65DBDC465AB5F98D093 /* DSSegmentedControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSSegmentedControl.swift; sourceTree = "<group>"; };
 		156BE2CC590DEEACA4857605 /* SkeletonCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkeletonCatalog.swift; sourceTree = "<group>"; };
 		199E5DCB7B70F5281AD12257 /* DSBadges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSBadges.swift; sourceTree = "<group>"; };
 		1C6158C0E6DA255AB5E02868 /* IndicatorsCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndicatorsCatalog.swift; sourceTree = "<group>"; };
 		1DB4D81C6D19D180486651E7 /* Spacing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Spacing.swift; sourceTree = "<group>"; };
 		1EF70CEC1F3D3BEDDC2AB6BC /* DSIndicators.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSIndicators.swift; sourceTree = "<group>"; };
+		21DF3E2150E5427721816842 /* DSAvatar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSAvatar.swift; sourceTree = "<group>"; };
 		2A08B3763787B3CB6C0CA4D2 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		2C8916864043C35B7718C15D /* CardsCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardsCatalog.swift; sourceTree = "<group>"; };
 		315A78083970E0238D919518 /* ListsCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListsCatalog.swift; sourceTree = "<group>"; };
 		38EBB7C59A3C02F2FEADDDC2 /* CatalogApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogApp.swift; sourceTree = "<group>"; };
 		3D87EA5184951235DCCD8B7C /* DSModifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSModifiers.swift; sourceTree = "<group>"; };
+		3E90D29B2FFF9C18E2471E77 /* DSRing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSRing.swift; sourceTree = "<group>"; };
+		400D3A36B636BD180E63B957 /* DSToggle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSToggle.swift; sourceTree = "<group>"; };
 		408C08B2A6A3D56D188B2053 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		44F7DF93626ACE69CABF5786 /* DSContextMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSContextMenu.swift; sourceTree = "<group>"; };
+		4A6E699785C248CA53BA170A /* DSNotificationDot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSNotificationDot.swift; sourceTree = "<group>"; };
 		4C05551F4D194B42C5D34791 /* DSKeyboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSKeyboard.swift; sourceTree = "<group>"; };
 		525A18A4940CD5DD652D3959 /* TypographyCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypographyCatalog.swift; sourceTree = "<group>"; };
 		561DA4E351C77B322351A1B8 /* ColorHex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorHex.swift; sourceTree = "<group>"; };
 		57898B9E29D9E907498A018F /* DSToast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSToast.swift; sourceTree = "<group>"; };
+		5BA5C7D65595BC4DB618B798 /* DSCodeBlock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSCodeBlock.swift; sourceTree = "<group>"; };
 		63FE03042E263FD97A590421 /* ButtonsCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ButtonsCatalog.swift; sourceTree = "<group>"; };
 		69B7BBEAD5472C7195924AC8 /* DesignSystem.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = DesignSystem.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		6D6A6C1F2EF4BC432AF0A8B4 /* CustomThemeConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomThemeConfig.swift; sourceTree = "<group>"; };
+		77996666647BB95390CB56B9 /* DSSearchField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSSearchField.swift; sourceTree = "<group>"; };
 		77AD9895BEEFDDD211EB88CA /* DesignSystemCatalog-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "DesignSystemCatalog-Info.plist"; sourceTree = "<group>"; };
 		7D5B00C7AC2B7311AA4F4604 /* BadgesCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BadgesCatalog.swift; sourceTree = "<group>"; };
+		7D7CAC6C9BFF149677EB0F35 /* DSDiffView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSDiffView.swift; sourceTree = "<group>"; };
 		8164E0CE079893F23ECA8465 /* Notifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Notifications.swift; sourceTree = "<group>"; };
 		8771C003BDA2F464A3896BBF /* DSModals.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSModals.swift; sourceTree = "<group>"; };
 		8937FA9427EEA938B58C5B3E /* DesignSystem-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "DesignSystem-Info.plist"; sourceTree = "<group>"; };
+		9023C71574C489FDB367DE03 /* DSTooltip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSTooltip.swift; sourceTree = "<group>"; };
 		949E0BAD4B1A994F1CF4F7A8 /* CalloutCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalloutCatalog.swift; sourceTree = "<group>"; };
+		9B260A5D521C37527B1127CD /* DSColorPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSColorPicker.swift; sourceTree = "<group>"; };
 		A414A5C40CE10556517A9878 /* ModalsCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModalsCatalog.swift; sourceTree = "<group>"; };
 		A444DA65F9B2C6728BF64405 /* DSButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSButton.swift; sourceTree = "<group>"; };
 		A567DB31B6B2DDEF6318344C /* DSCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSCards.swift; sourceTree = "<group>"; };
@@ -119,12 +152,15 @@
 		B3266818F3647F4CD292BC6C /* NavigationCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationCatalog.swift; sourceTree = "<group>"; };
 		B908BEAF1D2BA86E363950DA /* ColorsCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorsCatalog.swift; sourceTree = "<group>"; };
 		BC22F7A5F3BAB9993BE2D1A0 /* DSSkeleton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSSkeleton.swift; sourceTree = "<group>"; };
+		BF0616C4EE2506B46FE88AEC /* DSSplitPane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSSplitPane.swift; sourceTree = "<group>"; };
 		C4377500BAAAD6D7306C9283 /* KeyboardCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardCatalog.swift; sourceTree = "<group>"; };
 		C5ED8176DA7D14C54CE5DCB0 /* DSLists.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSLists.swift; sourceTree = "<group>"; };
 		C665BAE77DEAED1E71A6840A /* SpacingCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpacingCatalog.swift; sourceTree = "<group>"; };
 		C822BB3D5D8B14F1CF2E4EDA /* FieldsCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FieldsCatalog.swift; sourceTree = "<group>"; };
 		D59975D964615C2EECDDC322 /* ToastCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastCatalog.swift; sourceTree = "<group>"; };
 		D7CF421FCC3DDEA1171068FB /* DSAccordion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSAccordion.swift; sourceTree = "<group>"; };
+		D856DA6291BF77503519E342 /* DSSyntaxTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSSyntaxTokens.swift; sourceTree = "<group>"; };
+		DF6E9BABDA98589E739D8B89 /* DSTimeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSTimeline.swift; sourceTree = "<group>"; };
 		EA4D85E016B741939ED0F628 /* AccordionCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccordionCatalog.swift; sourceTree = "<group>"; };
 		F4677F4A0B40CC3BE2E4B716 /* DSCallout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSCallout.swift; sourceTree = "<group>"; };
 		FD7CA4281F6FBEA91A71F2C7 /* CatalogRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogRootView.swift; sourceTree = "<group>"; };
@@ -248,17 +284,35 @@
 			isa = PBXGroup;
 			children = (
 				D7CF421FCC3DDEA1171068FB /* DSAccordion.swift */,
+				21DF3E2150E5427721816842 /* DSAvatar.swift */,
 				199E5DCB7B70F5281AD12257 /* DSBadges.swift */,
 				A444DA65F9B2C6728BF64405 /* DSButton.swift */,
 				F4677F4A0B40CC3BE2E4B716 /* DSCallout.swift */,
 				A567DB31B6B2DDEF6318344C /* DSCards.swift */,
+				0832C3346C3477DEFBB3A549 /* DSChart.swift */,
+				5BA5C7D65595BC4DB618B798 /* DSCodeBlock.swift */,
+				9B260A5D521C37527B1127CD /* DSColorPicker.swift */,
+				0076434B4F2757BAA342463A /* DSCommandPalette.swift */,
+				44F7DF93626ACE69CABF5786 /* DSContextMenu.swift */,
+				7D7CAC6C9BFF149677EB0F35 /* DSDiffView.swift */,
+				0BC50B3E55833393FE1D3E60 /* DSDivider.swift */,
 				1EF70CEC1F3D3BEDDC2AB6BC /* DSIndicators.swift */,
 				4C05551F4D194B42C5D34791 /* DSKeyboard.swift */,
 				C5ED8176DA7D14C54CE5DCB0 /* DSLists.swift */,
 				8771C003BDA2F464A3896BBF /* DSModals.swift */,
 				0816E1C93ACB03C434C0A349 /* DSNavigation.swift */,
+				4A6E699785C248CA53BA170A /* DSNotificationDot.swift */,
+				3E90D29B2FFF9C18E2471E77 /* DSRing.swift */,
+				77996666647BB95390CB56B9 /* DSSearchField.swift */,
+				10E0D65DBDC465AB5F98D093 /* DSSegmentedControl.swift */,
+				0CB8891E8807A34FA7B2FFF8 /* DSShortcutRecorder.swift */,
 				BC22F7A5F3BAB9993BE2D1A0 /* DSSkeleton.swift */,
+				BF0616C4EE2506B46FE88AEC /* DSSplitPane.swift */,
+				D856DA6291BF77503519E342 /* DSSyntaxTokens.swift */,
+				DF6E9BABDA98589E739D8B89 /* DSTimeline.swift */,
 				57898B9E29D9E907498A018F /* DSToast.swift */,
+				400D3A36B636BD180E63B957 /* DSToggle.swift */,
+				9023C71574C489FDB367DE03 /* DSTooltip.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -425,17 +479,35 @@
 			buildActionMask = 2147483647;
 			files = (
 				C59F6B54CFF3EDD1A388ECF5 /* DSAccordion.swift in Sources */,
+				CF8E280919EA9954E77AB17F /* DSAvatar.swift in Sources */,
 				80A6A3E7BF66CD91304FFC80 /* DSBadges.swift in Sources */,
 				8E894D852DC2F1D36174856A /* DSButton.swift in Sources */,
 				E1243FC368F84522A6DD8E66 /* DSCallout.swift in Sources */,
 				4831222C52916B4470D99F75 /* DSCards.swift in Sources */,
+				29A84F96827E58ECB58762D8 /* DSChart.swift in Sources */,
+				4024F0CDEF7312A4FB14A75C /* DSCodeBlock.swift in Sources */,
+				092C912B20FE30C1988A25B5 /* DSColorPicker.swift in Sources */,
+				1BF3657859A77CF30492FAE2 /* DSCommandPalette.swift in Sources */,
+				D6B8AB841F13A66CC3639BBA /* DSContextMenu.swift in Sources */,
+				897C5A2E954D1D29B6031CAE /* DSDiffView.swift in Sources */,
+				D6A9D58DD143D5664944E225 /* DSDivider.swift in Sources */,
 				BEFF4C36C2B11AEA4C058807 /* DSIndicators.swift in Sources */,
 				B5C05EC0C273787C2C2AFB7F /* DSKeyboard.swift in Sources */,
 				44A1593DD31F4AF325EB6956 /* DSLists.swift in Sources */,
 				F2C77BE7C9F67461D4351F11 /* DSModals.swift in Sources */,
 				FD860CF7E63A47B5D1D3D0E9 /* DSNavigation.swift in Sources */,
+				1E2D6F36DD65B4518ED9161C /* DSNotificationDot.swift in Sources */,
+				ECF7F6EEF484E73FCFB54938 /* DSRing.swift in Sources */,
+				BF0BA064B9F00B40E501C6DD /* DSSearchField.swift in Sources */,
+				205B78B2D908025D78FFFEA9 /* DSSegmentedControl.swift in Sources */,
+				30F4AD61D74E43D08D796296 /* DSShortcutRecorder.swift in Sources */,
 				568887E486441002AB44ADB1 /* DSSkeleton.swift in Sources */,
+				24C7E6A8435FCFE3F9F4E139 /* DSSplitPane.swift in Sources */,
+				6F109F1D343BE21860464719 /* DSSyntaxTokens.swift in Sources */,
+				9A027907888ED9D20E0F1000 /* DSTimeline.swift in Sources */,
 				F1DEC63A639B265FABD59FFA /* DSToast.swift in Sources */,
+				7F9396FE65E24398B01B87EF /* DSToggle.swift in Sources */,
+				D00022E2CDA7F934D4A6613E /* DSTooltip.swift in Sources */,
 				09C2C45E1E812E3E24F1CFF5 /* ColorHex.swift in Sources */,
 				3E620AD0A61787150E206879 /* ColorTokens.swift in Sources */,
 				F88F33D1360CDA40EC342C36 /* Spacing.swift in Sources */,

@@ -70,7 +70,7 @@ indirect enum PaneNode: Identifiable, Codable {
             if remaining.isEmpty { return nil }
             if remaining.count == 1 { return remaining[0].node }  // 단일 자식이면 승격
             // 비율 재조정
-            let totalProp = remaining.reduce(0) { $0 + $1.proportion }
+            let totalProp = max(0.001, remaining.reduce(0) { $0 + $1.proportion })
             let normalized = remaining.map { PaneChild(node: $0.node, proportion: $0.proportion / totalProp) }
             return .split(id: id, axis: axis, children: normalized)
         }

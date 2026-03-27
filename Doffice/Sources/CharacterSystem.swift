@@ -434,6 +434,7 @@ class CharacterRegistry: ObservableObject {
         allCharacters[idx].isHired = true
         allCharacters[idx].hiredAt = Date()
         allCharacters[idx].archetype = Self.personalities.randomElement() ?? NSLocalizedString("char.newbie", comment: "")
+        PluginHost.shared.fireEvent(.onCharacterHire)
         save()
     }
 

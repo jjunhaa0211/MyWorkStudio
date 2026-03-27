@@ -546,6 +546,9 @@ class SessionManager: ObservableObject {
                         tab.claudeActivity = .done
                         tab.generateSummary()
                         AchievementManager.shared.checkCompletionAchievements(tab: tab)
+                        if tab.errorCount > 0 {
+                            AchievementManager.shared.checkErrorRecovery()
+                        }
                     }
                     // 세션 수 업데이트
                     tab.sessionCount = projectSessionCount[tab.projectPath] ?? tab.sessionCount

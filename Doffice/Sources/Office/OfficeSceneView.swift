@@ -8,6 +8,7 @@ struct OfficeSceneView: View {
     @EnvironmentObject var manager: SessionManager
     @ObservedObject private var settings = AppSettings.shared
     @ObservedObject private var registry = CharacterRegistry.shared
+    @ObservedObject private var pluginHost = PluginHost.shared
     @ObservedObject private var store: OfficeSceneStore
     @ObservedObject private var controller: OfficeCharacterController
     @State private var selectedFurnitureId: String?
@@ -345,6 +346,39 @@ struct OfficeSceneView: View {
                     .foregroundColor(Theme.textSecondary)
             }
 
+            // Plugin furniture placement section
+            if !pluginHost.furniture.isEmpty {
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("PLUGIN FURNITURE")
+                        .font(Theme.mono(8, weight: .bold))
+                        .foregroundColor(Theme.purple)
+
+                    ForEach(pluginHost.furniture) { item in
+                        HStack(spacing: 6) {
+                            VStack(alignment: .trailing, spacing: 1) {
+                                Text(item.decl.name)
+                                    .font(Theme.mono(8, weight: .bold))
+                                    .foregroundColor(Theme.textPrimary)
+                                    .lineLimit(1)
+                                Text("\(item.decl.width)x\(item.decl.height)")
+                                    .font(Theme.mono(7))
+                                    .foregroundColor(Theme.textDim)
+                            }
+                            Button("Place") {
+                                placePluginFurniture(item)
+                            }
+                            .buttonStyle(.plain)
+                            .font(Theme.mono(8, weight: .bold))
+                            .foregroundColor(Theme.green)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(RoundedRectangle(cornerRadius: Theme.cornerMedium).fill(Theme.green.opacity(0.14)))
+                            .overlay(RoundedRectangle(cornerRadius: Theme.cornerMedium).stroke(Theme.green.opacity(0.34), lineWidth: 1))
+                        }
+                    }
+                }
+            }
+
             HStack(spacing: 6) {
                 Button(NSLocalizedString("office.save", comment: "")) {
                     store.saveCurrentLayout()
@@ -384,6 +418,74 @@ struct OfficeSceneView: View {
             RoundedRectangle(cornerRadius: Theme.cornerXL)
                 .stroke(Theme.border, lineWidth: 1)
         )
+    }
+
+    /// Place a plugin furniture item at the first available open position on the map
+    private func placePluginFurniture(_ item: PluginHost.LoadedFurniture) {
+        let decl = item.decl
+        let zone: OfficeZone
+        switch decl.zone ?? "mainOffice" {
+        case "pantry": zone = .pantry
+        case "meetingRoom": zone = .meetingRoom
+        case "hallway": zone = .hallway
+        default: zone = .mainOffice
+        }
+
+        // Find an open position by scanning the map for a non-colliding spot
+        let maxRow = map.rows - decl.height
+        let maxCol = map.cols - decl.width
+        var placementPosition: TileCoord?
+        guard maxRow > 1 && maxCol > 1 else { return }
+        for row in 1..<maxRow {
+            for col in 1..<maxCol {
+                // Check that all tiles are walkable floor (not void/wall)
+                var allFloor = true
+                for dr in 0..<decl.height {
+                    for dc in 0..<decl.width {
+                        guard row + dr < map.rows && col + dc < map.cols else {
+                            allFloor = false; break
+                        }
+                        let t = map.tiles[row + dr][col + dc]
+                        if !t.isWalkable { allFloor = false; break }
+                    }
+                    if !allFloor { break }
+                }
+                guard allFloor else { continue }
+
+                // Check no collision with existing furniture (except rugs)
+                let collides = map.furniture.contains { existing in
+                    guard existing.type != .rug else { return false }
+                    let eMinCol = existing.position.col
+                    let eMaxCol = existing.position.col + existing.size.w
+                    let eMinRow = existing.position.row
+                    let eMaxRow = existing.position.row + existing.size.h
+                    return col < eMaxCol && col + decl.width > eMinCol && row < eMaxRow && row + decl.height > eMinRow
+                }
+                if !collides {
+                    placementPosition = TileCoord(col: col, row: row)
+                    break
+                }
+            }
+            if placementPosition != nil { break }
+        }
+
+        guard let position = placementPosition else { return }
+
+        let uniqueId = "plugin_\(item.pluginName)_\(decl.id)_\(Int(Date().timeIntervalSince1970))"
+        let placement = FurniturePlacement(
+            id: uniqueId,
+            type: .plugin,
+            position: position,
+            size: TileSize(w: decl.width, h: decl.height),
+            zone: zone,
+            pluginFurnitureId: decl.id
+        )
+
+        map.furniture.append(placement)
+        map.rebuildWalkability()
+        selectedFurnitureId = uniqueId
+        store.refreshLayout(with: manager.userVisibleTabs)
+        store.saveCurrentLayout()
     }
 
     private func infoStat(title: String, value: String, tint: Color) -> some View {
@@ -587,8 +689,8 @@ struct OfficeSceneView: View {
     }
 
     private func sceneMetrics(for size: CGSize) -> (scale: CGFloat, offsetX: CGFloat, offsetY: CGFloat) {
-        let worldWidth = CGFloat(map.cols) * OfficeConstants.tileSize
-        let worldHeight = CGFloat(map.rows) * OfficeConstants.tileSize
+        let worldWidth = max(1, CGFloat(map.cols) * OfficeConstants.tileSize)
+        let worldHeight = max(1, CGFloat(map.rows) * OfficeConstants.tileSize)
         let overviewScale = min(size.width / worldWidth, size.height / worldHeight)
         let useZoom = isFocusMode || isFollowing
         let scale = useZoom ? min(max(overviewScale * store.cameraZoom, overviewScale), overviewScale * 3.2) : overviewScale

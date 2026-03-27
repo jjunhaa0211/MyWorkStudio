@@ -577,6 +577,7 @@ class AchievementManager: ObservableObject {
         enqueueRecentUnlock(unlockedAchievement)
         addXP(unlockedAchievement.xpReward)
         NSSound(named: "Hero")?.play()
+        PluginHost.shared.fireEvent(.onAchievementUnlock)
         saveState()
 
         // 완벽주의자 체크
@@ -654,6 +655,7 @@ class AchievementManager: ObservableObject {
         // Level up celebration!
         if newLevel > prevLevel {
             OfficeSceneStore.shared.controller.triggerCelebration()
+            PluginHost.shared.fireEvent(.onLevelUp)
         }
 
         if totalXP >= 1000 { unlock("level_5") }

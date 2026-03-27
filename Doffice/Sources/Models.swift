@@ -1259,103 +1259,58 @@ class TerminalTab: ObservableObject, Identifiable {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
 
-            var cmd = "claude -p --output-format stream-json --verbose"
+            // 배열 기반 커맨드 빌더 — += 30회 대신 한 번에 join
+            var parts: [String] = ["claude", "-p", "--output-format", "stream-json", "--verbose"]
 
-            // 권한 모드
-            cmd += " --permission-mode \(effectivePermissionMode.rawValue)"
-            cmd += " --model \(self.selectedModel.rawValue)"
-            cmd += " --effort \(self.effortLevel.rawValue)"
+            parts.append(contentsOf: ["--permission-mode", effectivePermissionMode.rawValue])
+            parts.append(contentsOf: ["--model", self.selectedModel.rawValue])
+            parts.append(contentsOf: ["--effort", self.effortLevel.rawValue])
 
-            // 세션 이어하기
             if self.continueSession && self.sessionId == nil {
-                cmd += " --continue"
+                parts.append("--continue")
             } else if let sid = self.sessionId {
-                cmd += " --resume \(self.shellEscape(sid))"
+                parts.append(contentsOf: ["--resume", self.shellEscape(sid)])
             }
+            if !self.sessionName.isEmpty { parts.append(contentsOf: ["--name", self.shellEscape(self.sessionName)]) }
+            if !self.systemPrompt.isEmpty { parts.append(contentsOf: ["--append-system-prompt", self.shellEscape(self.systemPrompt)]) }
+            if self.maxBudgetUSD > 0 { parts.append(contentsOf: ["--max-budget-usd", String(format: "%.2f", self.maxBudgetUSD)]) }
+            if !self.fallbackModel.isEmpty { parts.append(contentsOf: ["--fallback-model", self.shellEscape(self.fallbackModel)]) }
+            if !self.jsonSchema.isEmpty { parts.append(contentsOf: ["--json-schema", self.shellEscape(self.jsonSchema)]) }
 
-            // 세션 이름
-            if !self.sessionName.isEmpty {
-                cmd += " --name \(self.shellEscape(self.sessionName))"
-            }
-            // 시스템 프롬프트
-            if !self.systemPrompt.isEmpty {
-                cmd += " --append-system-prompt \(self.shellEscape(self.systemPrompt))"
-            }
-            // 예산 제한
-            if self.maxBudgetUSD > 0 {
-                cmd += " --max-budget-usd \(String(format: "%.2f", self.maxBudgetUSD))"
-            }
-            // 대체 모델
-            if !self.fallbackModel.isEmpty {
-                cmd += " --fallback-model \(self.shellEscape(self.fallbackModel))"
-            }
-            // JSON 스키마
-            if !self.jsonSchema.isEmpty {
-                cmd += " --json-schema \(self.shellEscape(self.jsonSchema))"
-            }
-            // 도구 제한
             let effectiveAllowedTools = self.effectiveAllowedTools()
-            if !effectiveAllowedTools.isEmpty {
-                cmd += " --allowed-tools \(self.shellEscape(effectiveAllowedTools))"
-            }
+            if !effectiveAllowedTools.isEmpty { parts.append(contentsOf: ["--allowed-tools", self.shellEscape(effectiveAllowedTools)]) }
             let effectiveDisallowedTools = self.effectiveDisallowedTools()
-            if !effectiveDisallowedTools.isEmpty {
-                cmd += " --disallowed-tools \(self.shellEscape(effectiveDisallowedTools))"
-            }
-            // 빌트인 도구
-            if !self.customTools.trimmingCharacters(in: .whitespaces).isEmpty {
-                cmd += " --tools \(self.shellEscape(self.customTools.trimmingCharacters(in: .whitespaces)))"
-            }
-            // 추가 디렉토리
-            for dir in self.additionalDirs where !dir.isEmpty {
-                cmd += " --add-dir \(self.shellEscape(dir))"
-            }
-            // MCP 설정
-            for mcpPath in self.mcpConfigPaths where !mcpPath.isEmpty {
-                cmd += " --mcp-config \(self.shellEscape(mcpPath))"
-            }
-            if self.strictMcpConfig { cmd += " --strict-mcp-config" }
-            // 에이전트
-            if !self.customAgent.isEmpty {
-                cmd += " --agent \(self.shellEscape(self.customAgent))"
-            }
-            if !self.customAgentsJSON.isEmpty {
-                cmd += " --agents \(self.shellEscape(self.customAgentsJSON))"
-            }
-            // 플러그인 (수동 + PluginManager 자동 주입)
+            if !effectiveDisallowedTools.isEmpty { parts.append(contentsOf: ["--disallowed-tools", self.shellEscape(effectiveDisallowedTools)]) }
+            let trimmedTools = self.customTools.trimmingCharacters(in: .whitespaces)
+            if !trimmedTools.isEmpty { parts.append(contentsOf: ["--tools", self.shellEscape(trimmedTools)]) }
+
+            for dir in self.additionalDirs where !dir.isEmpty { parts.append(contentsOf: ["--add-dir", self.shellEscape(dir)]) }
+            for mcpPath in self.mcpConfigPaths where !mcpPath.isEmpty { parts.append(contentsOf: ["--mcp-config", self.shellEscape(mcpPath)]) }
+            if self.strictMcpConfig { parts.append("--strict-mcp-config") }
+            if !self.customAgent.isEmpty { parts.append(contentsOf: ["--agent", self.shellEscape(self.customAgent)]) }
+            if !self.customAgentsJSON.isEmpty { parts.append(contentsOf: ["--agents", self.shellEscape(self.customAgentsJSON)]) }
+
             var allPluginDirs = self.pluginDirs.filter { !$0.isEmpty }
             let managedPaths = PluginManager.shared.activePluginPaths
-            for path in managedPaths where !allPluginDirs.contains(path) {
-                allPluginDirs.append(path)
-            }
-            for pluginDir in allPluginDirs {
-                cmd += " --plugin-dir \(self.shellEscape(pluginDir))"
-            }
-            // 크롬
-            if self.enableChrome { cmd += " --chrome" }
-            // 워크트리
-            if self.useWorktree { cmd += " --worktree" }
-            if self.tmuxMode { cmd += " --tmux" }
-            // 포크
-            if self.forkSession { cmd += " --fork-session" }
-            // PR
-            if !self.fromPR.isEmpty { cmd += " --from-pr \(self.shellEscape(self.fromPR))" }
-            // Brief
-            if self.enableBrief { cmd += " --brief" }
-            // 베타
-            if !self.betaHeaders.isEmpty { cmd += " --betas \(self.shellEscape(self.betaHeaders))" }
-            // 설정 소스
-            if !self.settingSources.isEmpty { cmd += " --setting-sources \(self.shellEscape(self.settingSources))" }
-            if !self.settingsFileOrJSON.isEmpty { cmd += " --settings \(self.shellEscape(self.settingsFileOrJSON))" }
+            for path in managedPaths where !allPluginDirs.contains(path) { allPluginDirs.append(path) }
+            for pluginDir in allPluginDirs { parts.append(contentsOf: ["--plugin-dir", self.shellEscape(pluginDir)]) }
 
-            // 첨부 이미지
-            let images = self.attachedImages
-            for imageURL in images {
-                cmd += " --image \(self.shellEscape(imageURL.path))"
-            }
+            if self.enableChrome { parts.append("--chrome") }
+            if self.useWorktree { parts.append("--worktree") }
+            if self.tmuxMode { parts.append("--tmux") }
+            if self.forkSession { parts.append("--fork-session") }
+            if !self.fromPR.isEmpty { parts.append(contentsOf: ["--from-pr", self.shellEscape(self.fromPR)]) }
+            if self.enableBrief { parts.append("--brief") }
+            if !self.betaHeaders.isEmpty { parts.append(contentsOf: ["--betas", self.shellEscape(self.betaHeaders)]) }
+            if !self.settingSources.isEmpty { parts.append(contentsOf: ["--setting-sources", self.shellEscape(self.settingSources)]) }
+            if !self.settingsFileOrJSON.isEmpty { parts.append(contentsOf: ["--settings", self.shellEscape(self.settingsFileOrJSON)]) }
 
-            // 프롬프트
-            cmd += " -- \(self.shellEscape(prompt))"
+            for imageURL in self.attachedImages { parts.append(contentsOf: ["--image", self.shellEscape(imageURL.path)]) }
+
+            parts.append("--")
+            parts.append(self.shellEscape(prompt))
+
+            let cmd = parts.joined(separator: " ")
 
             // 이미지 첨부 초기화
             DispatchQueue.main.async { [weak self] in self?.attachedImages.removeAll() }

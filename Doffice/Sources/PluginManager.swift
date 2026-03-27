@@ -198,6 +198,8 @@ class PluginHost: ObservableObject {
     @Published var commands: [LoadedCommand] = []
     /// 상태바 위젯 목록
     @Published var statusBarItems: [LoadedStatusBarItem] = []
+    /// 상태바 위젯 실행 결과 (key = item id)
+    @Published var statusBarResults: [String: StatusBarResult] = [:]
 
     // ── 네이티브 확장 ──
     @Published var themes: [LoadedTheme] = []
@@ -263,6 +265,13 @@ class PluginHost: ObservableObject {
         let enabled: Bool
     }
 
+    /// 상태바 위젯 스크립트 실행 결과
+    struct StatusBarResult {
+        var text: String
+        var icon: String
+        var color: String
+    }
+
     // MARK: - 이벤트 발행
 
     func fireEvent(_ event: PluginEventType, context: [String: Any] = [:]) {
@@ -307,7 +316,7 @@ class PluginHost: ObservableObject {
                     let htmlURL = baseURL.appendingPathComponent(decl.entry)
                     guard FileManager.default.fileExists(atPath: htmlURL.path) else { continue }
                     newPanels.append(LoadedPanel(
-                        id: "\(pluginName).\(decl.id)",
+                        id: "\(pluginName)::\(decl.id)",
                         pluginName: pluginName,
                         title: decl.title,
                         icon: decl.icon ?? "puzzlepiece.fill",
@@ -325,7 +334,7 @@ class PluginHost: ObservableObject {
                     let scriptPath = baseURL.appendingPathComponent(decl.script).path
                     guard FileManager.default.fileExists(atPath: scriptPath) else { continue }
                     newCommands.append(LoadedCommand(
-                        id: "\(pluginName).\(decl.id)",
+                        id: "\(pluginName)::\(decl.id)",
                         pluginName: pluginName,
                         title: decl.title,
                         icon: decl.icon ?? "terminal",
@@ -340,7 +349,7 @@ class PluginHost: ObservableObject {
                     let scriptPath = baseURL.appendingPathComponent(decl.script).path
                     guard FileManager.default.fileExists(atPath: scriptPath) else { continue }
                     newStatusBars.append(LoadedStatusBarItem(
-                        id: "\(pluginName).\(decl.id)",
+                        id: "\(pluginName)::\(decl.id)",
                         pluginName: pluginName,
                         scriptPath: scriptPath,
                         interval: decl.interval ?? 30
@@ -354,7 +363,7 @@ class PluginHost: ObservableObject {
             if let themeDecls = contributes.themes {
                 for decl in themeDecls {
                     newThemes.append(LoadedTheme(
-                        id: "\(pluginName).\(decl.id)",
+                        id: "\(pluginName)::\(decl.id)",
                         pluginName: pluginName,
                         decl: decl
                     ))
@@ -365,7 +374,7 @@ class PluginHost: ObservableObject {
             if let furnitureDecls = contributes.furniture {
                 for decl in furnitureDecls {
                     newFurniture.append(LoadedFurniture(
-                        id: "\(pluginName).\(decl.id)",
+                        id: "\(pluginName)::\(decl.id)",
                         pluginName: pluginName,
                         decl: decl
                     ))
@@ -376,7 +385,7 @@ class PluginHost: ObservableObject {
             if let presetDecls = contributes.officePresets {
                 for decl in presetDecls {
                     newOfficePresets.append(LoadedOfficePreset(
-                        id: "\(pluginName).\(decl.id)",
+                        id: "\(pluginName)::\(decl.id)",
                         pluginName: pluginName,
                         decl: decl
                     ))
@@ -399,7 +408,7 @@ class PluginHost: ObservableObject {
                     guard let trigger = PluginEventType(rawValue: decl.trigger),
                           let effectType = PluginEffectType(rawValue: decl.type) else { continue }
                     newEffects.append(LoadedEffect(
-                        id: "\(pluginName).\(decl.id)",
+                        id: "\(pluginName)::\(decl.id)",
                         pluginName: pluginName,
                         trigger: trigger,
                         effectType: effectType,
@@ -573,9 +582,13 @@ class PluginHost: ObservableObject {
             DispatchQueue.main.async {
                 guard let self = self,
                       let idx = self.statusBarItems.firstIndex(where: { $0.id == id }) else { return }
-                self.statusBarItems[idx].text = json["text"] as? String ?? ""
-                self.statusBarItems[idx].icon = json["icon"] as? String ?? ""
-                self.statusBarItems[idx].color = json["color"] as? String ?? ""
+                let text = json["text"] as? String ?? ""
+                let icon = json["icon"] as? String ?? ""
+                let color = json["color"] as? String ?? ""
+                self.statusBarItems[idx].text = text
+                self.statusBarItems[idx].icon = icon
+                self.statusBarItems[idx].color = color
+                self.statusBarResults[id] = StatusBarResult(text: text, icon: icon, color: color)
             }
         }
     }

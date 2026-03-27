@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import WebKit
+import UniformTypeIdentifiers
 import DesignSystem
 
 // ═══════════════════════════════════════════════════════
@@ -298,7 +299,7 @@ public class PluginHost: ObservableObject {
                     let htmlURL = baseURL.appendingPathComponent(decl.entry)
                     guard FileManager.default.fileExists(atPath: htmlURL.path) else { continue }
                     newPanels.append(LoadedPanel(
-                        id: "\(pluginName).\(decl.id)",
+                        id: "\(pluginName)::\(decl.id)",
                         pluginName: pluginName,
                         title: decl.title,
                         icon: decl.icon ?? "puzzlepiece.fill",
@@ -316,7 +317,7 @@ public class PluginHost: ObservableObject {
                     let scriptPath = baseURL.appendingPathComponent(decl.script).path
                     guard FileManager.default.fileExists(atPath: scriptPath) else { continue }
                     newCommands.append(LoadedCommand(
-                        id: "\(pluginName).\(decl.id)",
+                        id: "\(pluginName)::\(decl.id)",
                         pluginName: pluginName,
                         title: decl.title,
                         icon: decl.icon ?? "terminal",
@@ -331,7 +332,7 @@ public class PluginHost: ObservableObject {
                     let scriptPath = baseURL.appendingPathComponent(decl.script).path
                     guard FileManager.default.fileExists(atPath: scriptPath) else { continue }
                     newStatusBars.append(LoadedStatusBarItem(
-                        id: "\(pluginName).\(decl.id)",
+                        id: "\(pluginName)::\(decl.id)",
                         pluginName: pluginName,
                         scriptPath: scriptPath,
                         interval: decl.interval ?? 30
@@ -345,7 +346,7 @@ public class PluginHost: ObservableObject {
             if let themeDecls = contributes.themes {
                 for decl in themeDecls {
                     newThemes.append(LoadedTheme(
-                        id: "\(pluginName).\(decl.id)",
+                        id: "\(pluginName)::\(decl.id)",
                         pluginName: pluginName,
                         decl: decl
                     ))
@@ -368,7 +369,7 @@ public class PluginHost: ObservableObject {
                     guard let trigger = PluginEventType(rawValue: decl.trigger),
                           let effectType = PluginEffectType(rawValue: decl.type) else { continue }
                     newEffects.append(LoadedEffect(
-                        id: "\(pluginName).\(decl.id)",
+                        id: "\(pluginName)::\(decl.id)",
                         pluginName: pluginName,
                         trigger: trigger,
                         effectType: effectType,
@@ -379,13 +380,16 @@ public class PluginHost: ObservableObject {
             }
         }
 
+        // 개별 비활성화된 확장 포인트 필터링
+        let disabled = PluginManager.shared.disabledExtensions
+
         DispatchQueue.main.async {
-            self.panels = newPanels
-            self.commands = newCommands
-            self.statusBarItems = newStatusBars
-            self.themes = newThemes
-            self.effects = newEffects
-            self.achievements = newAchievements
+            self.panels = newPanels.filter { !disabled.contains($0.id) }
+            self.commands = newCommands.filter { !disabled.contains($0.id) }
+            self.statusBarItems = newStatusBars.filter { !disabled.contains($0.id) }
+            self.themes = newThemes.filter { !disabled.contains($0.id) }
+            self.effects = newEffects.filter { !disabled.contains($0.id) }
+            self.achievements = newAchievements.filter { !disabled.contains($0.id) }
             self.bossLines = newBossLines
             self.startStatusBarTimers()
         }
@@ -410,16 +414,21 @@ public class PluginHost: ObservableObject {
 
     public func executeCommand(_ command: LoadedCommand, projectPath: String? = nil) {
         #if os(macOS)
-        DispatchQueue.global(qos: .userInitiated).async {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-            process.arguments = ["-c", command.scriptPath]
-            if let path = projectPath {
-                process.currentDirectoryURL = URL(fileURLWithPath: path)
+        PluginManager.shared.requestPermission(
+            pluginName: command.pluginName,
+            scriptPath: command.scriptPath
+        ) {
+            DispatchQueue.global(qos: .userInitiated).async {
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+                process.arguments = ["-c", command.scriptPath]
+                if let path = projectPath {
+                    process.currentDirectoryURL = URL(fileURLWithPath: path)
+                }
+                process.environment = ProcessInfo.processInfo.environment
+                try? process.run()
+                process.waitUntilExit()
             }
-            process.environment = ProcessInfo.processInfo.environment
-            try? process.run()
-            process.waitUntilExit()
         }
         #endif
     }
@@ -620,6 +629,18 @@ public class PluginManager: ObservableObject {
     @Published public var searchQuery: String = ""
     @Published public var selectedTags: Set<String> = []
 
+    // 개별 확장 포인트 비활성화 목록 (extensionID set)
+    @Published public var disabledExtensions: Set<String> = []
+    private let disabledExtensionsKey = "WorkManDisabledExtensions"
+
+    // 플러그인 권한 (신뢰된 플러그인 목록)
+    @Published public var trustedPlugins: Set<String> = []   // pluginName set
+    private let trustedPluginsKey = "WorkManTrustedPlugins"
+    @Published public var pendingPermission: PermissionRequest?
+
+    // 매니페스트 캐시 (detectConflicts 성능 개선)
+    private var manifestCache: [String: PluginManifest] = [:]  // pluginPath → manifest
+
     // 핫 리로드
     private var fileWatchers: [String: DispatchSourceFileSystemObject] = [:]
 
@@ -654,12 +675,111 @@ public class PluginManager: ObservableObject {
         guard let data = UserDefaults.standard.data(forKey: storageKey),
               let decoded = try? JSONDecoder().decode([PluginEntry].self, from: data) else { return }
         plugins = decoded
+        loadDisabledExtensions()
+        loadTrustedPlugins()
+    }
+
+    private func loadDisabledExtensions() {
+        if let arr = UserDefaults.standard.stringArray(forKey: disabledExtensionsKey) {
+            disabledExtensions = Set(arr)
+        }
+    }
+
+    private func saveDisabledExtensions() {
+        UserDefaults.standard.set(Array(disabledExtensions), forKey: disabledExtensionsKey)
+    }
+
+    /// 개별 확장 포인트 활성/비활성 토글
+    public func toggleExtension(_ extensionId: String) {
+        if disabledExtensions.contains(extensionId) {
+            disabledExtensions.remove(extensionId)
+        } else {
+            disabledExtensions.insert(extensionId)
+        }
+        saveDisabledExtensions()
+        PluginHost.shared.reload()
+    }
+
+    /// 확장 포인트가 활성화되어 있는지 확인
+    public func isExtensionEnabled(_ extensionId: String) -> Bool {
+        !disabledExtensions.contains(extensionId)
+    }
+
+    // MARK: - 플러그인 권한 시스템
+
+    public struct PermissionRequest: Identifiable {
+        public let id = UUID()
+        public let pluginName: String
+        public let scriptPath: String
+        public let onAllow: () -> Void
+        public let onDeny: () -> Void
+    }
+
+    private func loadTrustedPlugins() {
+        if let arr = UserDefaults.standard.stringArray(forKey: trustedPluginsKey) {
+            trustedPlugins = Set(arr)
+        }
+    }
+
+    private func saveTrustedPlugins() {
+        UserDefaults.standard.set(Array(trustedPlugins), forKey: trustedPluginsKey)
+    }
+
+    /// 플러그인을 신뢰 목록에 추가
+    public func trustPlugin(_ pluginName: String) {
+        trustedPlugins.insert(pluginName)
+        saveTrustedPlugins()
+    }
+
+    /// 플러그인 신뢰 해제
+    public func untrustPlugin(_ pluginName: String) {
+        trustedPlugins.remove(pluginName)
+        saveTrustedPlugins()
+    }
+
+    /// 플러그인이 신뢰된 상태인지 확인
+    public func isPluginTrusted(_ pluginName: String) -> Bool {
+        trustedPlugins.contains(pluginName)
+    }
+
+    /// 스크립트 실행 전 권한 확인 (신뢰된 플러그인이면 바로 실행, 아니면 요청)
+    public func requestPermission(pluginName: String, scriptPath: String, onAllow: @escaping () -> Void, onDeny: @escaping () -> Void = {}) {
+        if isPluginTrusted(pluginName) {
+            onAllow()
+            return
+        }
+
+        DispatchQueue.main.async {
+            self.pendingPermission = PermissionRequest(
+                pluginName: pluginName,
+                scriptPath: scriptPath,
+                onAllow: onAllow,
+                onDeny: onDeny
+            )
+        }
+    }
+
+    /// 권한 요청 승인
+    public func approvePermission(alwaysTrust: Bool = false) {
+        guard let req = pendingPermission else { return }
+        if alwaysTrust {
+            trustPlugin(req.pluginName)
+        }
+        req.onAllow()
+        pendingPermission = nil
+    }
+
+    /// 권한 요청 거부
+    public func denyPermission() {
+        pendingPermission?.onDeny()
+        pendingPermission = nil
     }
 
     private func savePlugins() {
         if let data = try? JSONEncoder().encode(plugins) {
             UserDefaults.standard.set(data, forKey: storageKey)
         }
+        manifestCache.removeAll()
     }
 
     // MARK: - 활성 플러그인 경로 목록 (세션에 주입)
@@ -923,6 +1043,79 @@ public class PluginManager: ObservableObject {
         public let count: Int
     }
 
+    // MARK: - 충돌 감지
+
+    /// 활성 플러그인 간 확장 포인트 ID 충돌 감지
+    public func detectConflicts() -> [PluginConflict] {
+        var conflicts: [PluginConflict] = []
+
+        // pluginName → (extensionType, [IDs]) 맵
+        var themeMap: [String: String] = [:]    // themeID → pluginName
+        var effectMap: [String: String] = [:]
+        var furnitureMap: [String: String] = [:]
+        var achievementMap: [String: String] = [:]
+
+        for pluginPath in activePluginPaths {
+            let manifest: PluginManifest
+            if let cached = manifestCache[pluginPath] {
+                manifest = cached
+            } else {
+                let baseURL = URL(fileURLWithPath: pluginPath)
+                let manifestURL = baseURL.appendingPathComponent("plugin.json")
+                guard let data = try? Data(contentsOf: manifestURL),
+                      let decoded = try? JSONDecoder().decode(PluginManifest.self, from: data) else { continue }
+                manifest = decoded
+                manifestCache[pluginPath] = manifest
+            }
+
+            guard let c = manifest.contributes else { continue }
+
+            let name = manifest.name
+
+            if let themes = c.themes {
+                for t in themes {
+                    if let existing = themeMap[t.id] {
+                        conflicts.append(PluginConflict(pluginA: existing, pluginB: name, extensionType: NSLocalizedString("plugin.badge.theme", comment: ""), conflictingId: t.id))
+                    } else { themeMap[t.id] = name }
+                }
+            }
+            if let effects = c.effects {
+                for e in effects {
+                    if let existing = effectMap[e.id] {
+                        conflicts.append(PluginConflict(pluginA: existing, pluginB: name, extensionType: NSLocalizedString("plugin.badge.effect", comment: ""), conflictingId: e.id))
+                    } else { effectMap[e.id] = name }
+                }
+            }
+            if let furniture = c.furniture {
+                for f in furniture {
+                    if let existing = furnitureMap[f.id] {
+                        conflicts.append(PluginConflict(pluginA: existing, pluginB: name, extensionType: NSLocalizedString("plugin.badge.furniture", comment: ""), conflictingId: f.id))
+                    } else { furnitureMap[f.id] = name }
+                }
+            }
+            if let achievements = c.achievements {
+                for a in achievements {
+                    if let existing = achievementMap[a.id] {
+                        conflicts.append(PluginConflict(pluginA: existing, pluginB: name, extensionType: NSLocalizedString("plugin.badge.achievement", comment: ""), conflictingId: a.id))
+                    } else { achievementMap[a.id] = name }
+                }
+            }
+        }
+        return conflicts
+    }
+
+    public struct PluginConflict {
+        public let pluginA: String
+        public let pluginB: String
+        public let extensionType: String
+        public let conflictingId: String
+
+        public var localizedMessage: String {
+            String(format: NSLocalizedString("plugin.conflict.desc", comment: ""),
+                   pluginA, pluginB, extensionType, conflictingId)
+        }
+    }
+
     // MARK: - 핫 리로드 (로컬 플러그인 파일 변경 감지)
 
     /// 로컬 플러그인 디렉토리 감시 시작
@@ -966,6 +1159,42 @@ public class PluginManager: ObservableObject {
         fileWatchers[pluginId] = source
         #endif
     }
+
+    // MARK: - 플러그인 내보내기
+
+    #if os(macOS)
+    /// 플러그인을 tar.gz로 내보내기 (NSSavePanel)
+    public func exportPlugin(_ plugin: PluginEntry) {
+        let panel = NSSavePanel()
+        panel.title = NSLocalizedString("plugin.export.panel.title", comment: "")
+        panel.nameFieldStringValue = "\(plugin.name)-v\(plugin.version).tar.gz"
+        panel.allowedContentTypes = [.archive]
+
+        panel.begin { [weak self] result in
+            guard result == .OK, let destURL = panel.url else { return }
+
+            DispatchQueue.global(qos: .userInitiated).async {
+                let sourcePath = self?.shellEscape(plugin.localPath) ?? ""
+                let destPath = self?.shellEscape(destURL.path) ?? ""
+                let parentDir = self?.shellEscape(URL(fileURLWithPath: plugin.localPath).deletingLastPathComponent().path) ?? ""
+                let dirName = URL(fileURLWithPath: plugin.localPath).lastPathComponent
+
+                let (ok, output) = self?.runShell("tar -czf \(destPath) -C \(parentDir) \(self?.shellEscape(dirName) ?? "")") ?? (false, "")
+
+                DispatchQueue.main.async {
+                    if ok {
+                        self?.installProgress = String(format: NSLocalizedString("plugin.export.success", comment: ""), destURL.lastPathComponent)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                            self?.installProgress = ""
+                        }
+                    } else {
+                        self?.lastError = String(format: NSLocalizedString("plugin.export.failed", comment: ""), output)
+                    }
+                }
+            }
+        }
+    }
+    #endif
 
     // MARK: - 소스 타입 자동 감지
 
@@ -1764,6 +1993,54 @@ public class PluginManager: ObservableObject {
                 tags: ["hidden", "market", "characters"],
                 previewImageURL: nil,
                 stars: 42
+            ),
+            RegistryPlugin(
+                id: "typing-combo-pack",
+                name: "타이핑 콤보 팩",
+                author: "WorkMan",
+                description: "터미널 외부에서 타이핑할 때 콤보 카운터, 파티클, 화면 흔들림 이펙트가 발동합니다.",
+                version: "1.0.0",
+                downloadURL: "bundled://typing-combo-pack",
+                characterCount: 0,
+                tags: ["effects", "combo", "typing", "particles"],
+                previewImageURL: nil,
+                stars: 128
+            ),
+            RegistryPlugin(
+                id: "premium-furniture-pack",
+                name: "프리미엄 가구 팩",
+                author: "WorkMan",
+                description: "아쿠아리움, 아케이드 머신, 네온사인 등 프리미엄 가구 8종을 추가합니다.",
+                version: "1.0.0",
+                downloadURL: "bundled://premium-furniture-pack",
+                characterCount: 0,
+                tags: ["furniture", "office", "premium"],
+                previewImageURL: nil,
+                stars: 85
+            ),
+            RegistryPlugin(
+                id: "vacation-beach-pack",
+                name: "바캉스 비치 팩",
+                author: "WorkMan",
+                description: "사무실을 열대 해변으로! 야자수, 파라솔, 비치 테마 2종, 캐릭터 2종 포함.",
+                version: "1.0.0",
+                downloadURL: "bundled://vacation-beach-pack",
+                characterCount: 2,
+                tags: ["theme", "beach", "furniture", "characters", "effects"],
+                previewImageURL: nil,
+                stars: 156
+            ),
+            RegistryPlugin(
+                id: "battleground-pack",
+                name: "배틀그라운드 팩",
+                author: "WorkMan",
+                description: "사무실이 전장으로! 참나무, 바위, 수풀 가구 8종 + 배그 테마 + 전투 이펙트.",
+                version: "1.0.0",
+                downloadURL: "bundled://battleground-pack",
+                characterCount: 3,
+                tags: ["theme", "battle", "furniture", "characters", "effects"],
+                previewImageURL: nil,
+                stars: 201
             )
         ]
     }
@@ -1847,7 +2124,46 @@ public class PluginManager: ObservableObject {
         let files: [BundledPluginFile]
     }
 
+    /// Bundle 리소스에서 번들 플러그인 로드 (plugins/ 디렉토리)
+    private static func loadBundledFromBundle(id: String) -> BundledPluginDefinition? {
+        // Bundle.main에서 plugins/<id> 디렉토리 찾기
+        guard let bundleURL = Bundle.main.resourceURL?.appendingPathComponent("plugins").appendingPathComponent(id),
+              FileManager.default.fileExists(atPath: bundleURL.path) else {
+            return nil
+        }
+
+        let fm = FileManager.default
+        var files: [BundledPluginFile] = []
+
+        // 재귀적으로 모든 파일 수집
+        if let enumerator = fm.enumerator(at: bundleURL, includingPropertiesForKeys: nil) {
+            while let fileURL = enumerator.nextObject() as? URL {
+                var isDir: ObjCBool = false
+                fm.fileExists(atPath: fileURL.path, isDirectory: &isDir)
+                if !isDir.boolValue {
+                    let relativePath = fileURL.path.replacingOccurrences(of: bundleURL.path + "/", with: "")
+                    do {
+                        let content = try String(contentsOf: fileURL, encoding: .utf8)
+                        files.append(BundledPluginFile(path: relativePath, contents: content))
+                    } catch {
+                        print("[Plugin] Failed to read bundled file \(relativePath): \(error.localizedDescription)")
+                    }
+                }
+            }
+        }
+
+        guard !files.isEmpty, files.contains(where: { $0.path == "plugin.json" }) else {
+            return nil
+        }
+
+        return BundledPluginDefinition(directoryName: id, files: files)
+    }
+
     private static func bundledPluginDefinition(for id: String) -> BundledPluginDefinition? {
+        // 먼저 Bundle 리소스에서 찾기
+        if let def = loadBundledFromBundle(id: id) { return def }
+
+        // fallback: 인라인 데이터 (flea-market-hidden-pack만)
         switch id {
         case "flea-market-hidden-pack":
             let characters = """

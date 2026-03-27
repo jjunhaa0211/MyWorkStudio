@@ -44,6 +44,33 @@ struct BrowserTab: Identifiable, Equatable {
 }
 
 // ═══════════════════════════════════════════════════════
+// MARK: - History Entry Model
+// ═══════════════════════════════════════════════════════
+
+struct BrowserHistoryEntry: Identifiable, Codable, Equatable {
+    let id: UUID
+    var url: String
+    var title: String
+    var visitedAt: Date
+
+    init(id: UUID = UUID(), url: String, title: String, visitedAt: Date = Date()) {
+        self.id = id
+        self.url = url
+        self.title = title
+        self.visitedAt = visitedAt
+    }
+}
+
+// ═══════════════════════════════════════════════════════
+// MARK: - Saved Tab Model (for persistence)
+// ═══════════════════════════════════════════════════════
+
+private struct SavedTab: Codable {
+    let urlString: String
+    let title: String
+}
+
+// ═══════════════════════════════════════════════════════
 // MARK: - Bookmark Model
 // ═══════════════════════════════════════════════════════
 
@@ -68,12 +95,34 @@ class BrowserManager: ObservableObject {
     @Published var activeTabId: UUID?
     @Published var bookmarks: [BrowserBookmark] = []
     @Published var showBookmarks: Bool = false
+    @Published var history: [BrowserHistoryEntry] = []
+    @Published var showHistory: Bool = false
 
     private let bookmarksKey = "browser_bookmarks"
+    private let historyKey = "browser_history"
+    private let savedTabsKey = "browser_saved_tabs"
+    private let maxHistoryEntries = 500
+    private var terminationObserver: NSObjectProtocol?
 
     init() {
         loadBookmarks()
+        loadHistory()
+        restoreTabs()
         if tabs.isEmpty { createNewTab() }
+
+        // Save tabs when app is about to terminate
+        terminationObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.willTerminateNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.saveTabs()
+        }
+    }
+
+    deinit {
+        if let obs = terminationObserver {
+            NotificationCenter.default.removeObserver(obs)
+        }
     }
 
     var activeTab: BrowserTab? {
@@ -150,6 +199,70 @@ class BrowserManager: ObservableObject {
               let decoded = try? JSONDecoder().decode([BrowserBookmark].self, from: data) else { return }
         bookmarks = decoded
     }
+
+    // ── History ──
+
+    func recordHistory(url: String, title: String) {
+        let entry = BrowserHistoryEntry(url: url, title: title)
+        // Skip if same URL as most recent entry (consecutive dedup only)
+        if let last = history.first, last.url == url { return }
+        history.insert(entry, at: 0)
+        if history.count > maxHistoryEntries {
+            history = Array(history.prefix(maxHistoryEntries))
+        }
+        saveHistory()
+    }
+
+    func removeHistoryEntry(_ id: UUID) {
+        history.removeAll(where: { $0.id == id })
+        saveHistory()
+    }
+
+    func clearHistory() {
+        history.removeAll()
+        saveHistory()
+    }
+
+    private func saveHistory() {
+        if let data = try? JSONEncoder().encode(history) {
+            UserDefaults.standard.set(data, forKey: historyKey)
+        }
+    }
+
+    private func loadHistory() {
+        guard let data = UserDefaults.standard.data(forKey: historyKey),
+              let decoded = try? JSONDecoder().decode([BrowserHistoryEntry].self, from: data) else { return }
+        history = decoded
+    }
+
+    // ── Tab Persistence ──
+
+    func saveTabs() {
+        let saved = tabs.compactMap { tab -> SavedTab? in
+            guard let url = tab.url else { return nil }
+            return SavedTab(urlString: url.absoluteString, title: tab.title)
+        }
+        if let data = try? JSONEncoder().encode(saved) {
+            UserDefaults.standard.set(data, forKey: savedTabsKey)
+        }
+    }
+
+    private func restoreTabs() {
+        guard let data = UserDefaults.standard.data(forKey: savedTabsKey),
+              let saved = try? JSONDecoder().decode([SavedTab].self, from: data),
+              !saved.isEmpty else { return }
+        for savedTab in saved {
+            if let url = URL(string: savedTab.urlString) {
+                let tab = BrowserTab(url: url, title: savedTab.title)
+                tabs.append(tab)
+            }
+        }
+        if !tabs.isEmpty {
+            activeTabId = tabs.first?.id
+        }
+        // Clear saved tabs after restoring
+        UserDefaults.standard.removeObject(forKey: savedTabsKey)
+    }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -192,6 +305,13 @@ struct WebViewRepresentable: NSViewRepresentable {
                 canGoForward: webView.canGoForward,
                 estimatedProgress: 1.0
             )
+            // Record history
+            if let url = webView.url?.absoluteString,
+               url != "about:blank",
+               !url.isEmpty {
+                let title = webView.title ?? url
+                parent.manager.recordHistory(url: url, title: title)
+            }
         }
 
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
@@ -390,6 +510,7 @@ struct BrowserPanelView: View {
         }
         .onChange(of: manager.activeTabId) { _ in syncURLBar() }
         .overlay(bookmarksSidebar, alignment: .leading)
+        .overlay(historySidebar, alignment: .leading)
         // Keyboard shortcuts
         .keyboardShortcut(for: .focusURLBar) { urlFieldFocused = true }
     }
@@ -409,10 +530,19 @@ struct BrowserPanelView: View {
             Spacer(minLength: 0)
 
             HStack(spacing: 2) {
+                // History toggle
+                toolbarButton(icon: "clock.arrow.circlepath", active: manager.showHistory) {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        manager.showHistory.toggle()
+                        if manager.showHistory { manager.showBookmarks = false }
+                    }
+                }
+
                 // Bookmark toggle
                 toolbarButton(icon: "book", active: manager.showBookmarks) {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         manager.showBookmarks.toggle()
+                        if manager.showBookmarks { manager.showHistory = false }
                     }
                 }
 
@@ -714,6 +844,125 @@ struct BrowserPanelView: View {
         .onHover { hovering in
             if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
+    }
+
+    // ── History Sidebar ──
+
+    private var historySidebar: some View {
+        Group {
+            if manager.showHistory {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack {
+                        Text("History")
+                            .font(Theme.chrome(10, weight: .bold))
+                            .foregroundColor(Theme.textPrimary)
+                        Spacer()
+                        if !manager.history.isEmpty {
+                            Button(action: { manager.clearHistory() }) {
+                                Text("Clear")
+                                    .font(Theme.chrome(8, weight: .medium))
+                                    .foregroundColor(Theme.textDim)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        Button(action: { manager.showHistory = false }) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(Theme.textDim)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, Theme.sp3)
+                    .padding(.vertical, Theme.sp2)
+                    .overlay(Rectangle().fill(Theme.border).frame(height: 1), alignment: .bottom)
+
+                    if manager.history.isEmpty {
+                        VStack(spacing: Theme.sp2) {
+                            Image(systemName: "clock")
+                                .font(.system(size: Theme.iconSize(20)))
+                                .foregroundColor(Theme.textMuted)
+                            Text("No history yet")
+                                .font(Theme.chrome(9))
+                                .foregroundColor(Theme.textDim)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        ScrollView(.vertical, showsIndicators: false) {
+                            VStack(spacing: 1) {
+                                ForEach(manager.history) { entry in
+                                    historyRow(entry)
+                                }
+                            }
+                            .padding(.vertical, Theme.sp1)
+                        }
+                    }
+                }
+                .frame(width: 260)
+                .background(Theme.bgCard)
+                .overlay(Rectangle().fill(Theme.border).frame(width: 1), alignment: .trailing)
+                .transition(.move(edge: .leading))
+            }
+        }
+    }
+
+    private func historyRow(_ entry: BrowserHistoryEntry) -> some View {
+        Button(action: {
+            if let url = URL(string: entry.url), let id = manager.activeTabId {
+                navigateSubjects[id]?.send(url)
+                urlBarText = entry.url
+            }
+        }) {
+            HStack(spacing: Theme.sp2) {
+                Image(systemName: "clock.fill")
+                    .font(.system(size: Theme.iconSize(8)))
+                    .foregroundColor(Theme.textDim)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(entry.title.isEmpty ? entry.url : entry.title)
+                        .font(Theme.chrome(9))
+                        .foregroundColor(Theme.textPrimary)
+                        .lineLimit(1)
+                    HStack(spacing: 4) {
+                        Text(entry.url)
+                            .font(Theme.mono(7))
+                            .foregroundColor(Theme.textDim)
+                            .lineLimit(1)
+                        Spacer(minLength: 0)
+                        Text(historyTimeString(entry.visitedAt))
+                            .font(Theme.mono(7))
+                            .foregroundColor(Theme.textDim)
+                    }
+                }
+
+                Button(action: { manager.removeHistoryEntry(entry.id) }) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 8))
+                        .foregroundColor(Theme.textDim)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, Theme.sp3)
+            .padding(.vertical, Theme.sp1 + 2)
+            .background(Color.clear)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
+    }
+
+    private func historyTimeString(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) {
+            formatter.dateFormat = "HH:mm"
+        } else if calendar.isDateInYesterday(date) {
+            return "Yesterday"
+        } else {
+            formatter.dateFormat = "M/d"
+        }
+        return formatter.string(from: date)
     }
 
     // ── Toolbar Buttons ──
