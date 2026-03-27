@@ -306,13 +306,13 @@ class PluginHost: ObservableObject {
 
             // Use cached manifest to avoid redundant disk I/O + JSON decoding
             let manifest: PluginManifest
-            if let cached = PluginManager.shared.manifestCache[pluginPath] {
+            if let cached = PluginManager.shared.manifestCacheGet(pluginPath) {
                 manifest = cached
             } else {
                 guard let data = try? Data(contentsOf: manifestURL),
                       let decoded = try? JSONDecoder().decode(PluginManifest.self, from: data) else { continue }
                 manifest = decoded
-                PluginManager.shared.manifestCache[pluginPath] = manifest
+                PluginManager.shared.manifestCacheSet(pluginPath, manifest)
             }
             guard let contributes = manifest.contributes else { continue }
 
@@ -740,8 +740,22 @@ class PluginManager: ObservableObject {
     private let storageKey = "WorkManPlugins"
     private let pluginBaseDir: URL
     private var currentFetchTask: URLSessionDataTask?
-    /// Manifest cache to avoid redundant disk I/O + JSON decoding during reload
-    private var manifestCache: [String: PluginManifest] = [:]
+    /// Manifest cache to avoid redundant disk I/O + JSON decoding during reload.
+    /// Access must go through the thread-safe helpers below.
+    private var _manifestCache: [String: PluginManifest] = [:]
+    private let manifestCacheQueue = DispatchQueue(label: "com.workman.manifestCache", attributes: .concurrent)
+
+    func manifestCacheGet(_ key: String) -> PluginManifest? {
+        manifestCacheQueue.sync { _manifestCache[key] }
+    }
+
+    func manifestCacheSet(_ key: String, _ value: PluginManifest) {
+        manifestCacheQueue.async(flags: .barrier) { self._manifestCache[key] = value }
+    }
+
+    func manifestCacheClear() {
+        manifestCacheQueue.async(flags: .barrier) { self._manifestCache.removeAll() }
+    }
 
     /// 레지스트리 URL — GitHub Pages 또는 raw 파일
     /// 기여자는 이 저장소에 PR로 registry.json에 자기 플러그인을 추가
@@ -772,7 +786,7 @@ class PluginManager: ObservableObject {
         if let data = try? JSONEncoder().encode(plugins) {
             UserDefaults.standard.set(data, forKey: storageKey)
         }
-        manifestCache.removeAll()
+        manifestCacheClear()
     }
 
     // MARK: - 활성 플러그인 경로 목록 (세션에 주입)

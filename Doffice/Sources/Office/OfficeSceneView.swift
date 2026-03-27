@@ -435,7 +435,7 @@ struct OfficeSceneView: View {
         let maxRow = map.rows - decl.height
         let maxCol = map.cols - decl.width
         var placementPosition: TileCoord?
-        guard maxRow > 1 && maxCol > 1 else { return }
+        guard maxRow >= 1 && maxCol >= 1 else { return }
         for row in 1..<maxRow {
             for col in 1..<maxCol {
                 // Check that all tiles are walkable floor (not void/wall)

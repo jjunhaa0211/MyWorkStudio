@@ -1680,6 +1680,7 @@ struct SettingsView: View {
                     }.buttonStyle(.plain)
                 }
 
+                #if os(macOS)
                 // 내보내기
                 Button(action: { pluginManager.exportPlugin(plugin) }) {
                     Image(systemName: "square.and.arrow.up")
@@ -1703,6 +1704,7 @@ struct SettingsView: View {
                             .foregroundColor(Theme.cyan)
                     }.buttonStyle(.plain)
                 }
+                #endif
 
                 Button(action: {
                     pluginToUninstall = plugin

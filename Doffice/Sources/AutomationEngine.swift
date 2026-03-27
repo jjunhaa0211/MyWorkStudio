@@ -115,8 +115,7 @@ class AutomationEngine: ObservableObject {
         let startTime = Date()
         let checkInterval: UInt64 = 500_000_000 // 0.5s
 
-        while Date().timeIntervalSince(startTime) < timeout {
-            // 메인 스레드에서 블록 확인 (UI 데이터 접근)
+        while !Task.isCancelled && Date().timeIntervalSince(startTime) < timeout {
             let found = await MainActor.run {
                 SessionManager.shared.tabs
                     .first(where: { $0.id == tabId })?
@@ -124,7 +123,8 @@ class AutomationEngine: ObservableObject {
                     .contains(where: { $0.content.contains(pattern) }) ?? false
             }
             if found { return }
-            try? await Task.sleep(nanoseconds: checkInterval)
+            do { try await Task.sleep(nanoseconds: checkInterval) }
+            catch { return } // 취소 시 즉시 종료
         }
     }
 
@@ -222,8 +222,4 @@ struct AutomationMacro: Codable, Identifiable {
     }
 }
 
-// MARK: - Notification Names
-
-extension Notification.Name {
-    static let workmanSendKeysToTerminal = Notification.Name("workmanSendKeysToTerminal")
-}
+// Notification.Name.workmanSendKeysToTerminal is declared in WorkManApp.swift

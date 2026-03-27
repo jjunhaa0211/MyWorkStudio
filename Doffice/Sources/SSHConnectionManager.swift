@@ -35,7 +35,10 @@ struct SSHProfile: Codable, Identifiable, Equatable {
         case .password: break
         }
         cmd += " \(username)@\(host)"
-        if let dir = remoteWorkDir, !dir.isEmpty { cmd += " -t 'cd \(dir) && exec $SHELL -l'" }
+        if let dir = remoteWorkDir, !dir.isEmpty {
+            let escaped = dir.replacingOccurrences(of: "'", with: "'\\''")
+            cmd += " -t 'cd '\\''\\(escaped)'\\'' && exec $SHELL -l'"
+        }
         return cmd
     }
 }

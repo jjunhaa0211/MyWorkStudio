@@ -72,6 +72,7 @@ extension Notification.Name {
     static let workmanCommandPalette = Notification.Name("workmanCommandPalette")
     static let workmanActionCenter = Notification.Name("workmanActionCenter")
     static let workmanSSHTabCreated = Notification.Name("workmanSSHTabCreated")
+    static let workmanSendKeysToTerminal = Notification.Name("workmanSendKeysToTerminal")
     static let workmanSplitHorizontal = Notification.Name("workmanSplitHorizontal")
     static let workmanSplitVertical = Notification.Name("workmanSplitVertical")
     static let workmanClosePane = Notification.Name("workmanClosePane")

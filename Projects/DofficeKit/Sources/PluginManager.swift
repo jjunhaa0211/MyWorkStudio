@@ -296,13 +296,13 @@ public class PluginHost: ObservableObject {
 
             // Use cached manifest from PluginManager when available
             let manifest: PluginManifest
-            if let cached = PluginManager.shared.manifestCache[pluginPath] {
+            if let cached = PluginManager.shared.manifestCacheGet(pluginPath) {
                 manifest = cached
             } else {
                 guard let data = try? Data(contentsOf: manifestURL),
                       let decoded = try? JSONDecoder().decode(PluginManifest.self, from: data) else { continue }
                 manifest = decoded
-                PluginManager.shared.manifestCache[pluginPath] = manifest
+                PluginManager.shared.manifestCacheSet(pluginPath, manifest)
             }
             guard let contributes = manifest.contributes else { continue }
 
@@ -404,7 +404,9 @@ public class PluginHost: ObservableObject {
             self.statusBarItems = newStatusBars.filter { !disabled.contains($0.id) }
             self.themes = newThemes.filter { !disabled.contains($0.id) }
             self.effects = newEffects.filter { !disabled.contains($0.id) }
-            self.achievements = newAchievements.filter { !disabled.contains($0.id) }
+            // Note: achievements use raw AchievementDecl with local IDs (not "pluginName::id"),
+            // so they cannot be matched against disabledExtensions which stores composite IDs.
+            self.achievements = newAchievements
             self.bossLines = newBossLines
             self.startStatusBarTimers()
             // 충돌 캐시 갱신
@@ -656,8 +658,22 @@ public class PluginManager: ObservableObject {
     @Published public var pendingPermission: PermissionRequest?
 
     // 매니페스트 캐시 (detectConflicts 성능 개선)
-    /// Manifest cache shared with PluginHost to avoid redundant disk I/O + JSON decoding
-    var manifestCache: [String: PluginManifest] = [:]  // pluginPath → manifest
+    /// Manifest cache shared with PluginHost to avoid redundant disk I/O + JSON decoding.
+    /// Access must go through the thread-safe helpers below.
+    private var _manifestCache: [String: PluginManifest] = [:]  // pluginPath → manifest
+    private let manifestCacheQueue = DispatchQueue(label: "com.workman.manifestCache", attributes: .concurrent)
+
+    func manifestCacheGet(_ key: String) -> PluginManifest? {
+        manifestCacheQueue.sync { _manifestCache[key] }
+    }
+
+    func manifestCacheSet(_ key: String, _ value: PluginManifest) {
+        manifestCacheQueue.async(flags: .barrier) { self._manifestCache[key] = value }
+    }
+
+    func manifestCacheClear() {
+        manifestCacheQueue.async(flags: .barrier) { self._manifestCache.removeAll() }
+    }
 
     // 충돌 감지 캐시 (pluginRow마다 재계산 방지)
     @Published public var cachedConflicts: [PluginConflict] = []
@@ -800,7 +816,7 @@ public class PluginManager: ObservableObject {
         if let data = try? JSONEncoder().encode(plugins) {
             UserDefaults.standard.set(data, forKey: storageKey)
         }
-        manifestCache.removeAll()
+        manifestCacheClear()
     }
 
     // MARK: - 활성 플러그인 경로 목록 (세션에 주입)
@@ -956,7 +972,7 @@ public class PluginManager: ObservableObject {
     /// 플러그인 의존성 충족 여부 확인
     public func validateDependencies(for pluginPath: String) -> [DependencyIssue] {
         let manifest: PluginManifest
-        if let cached = manifestCache[pluginPath] {
+        if let cached = manifestCacheGet(pluginPath) {
             manifest = cached
         } else {
             let baseURL = URL(fileURLWithPath: pluginPath)
@@ -966,7 +982,7 @@ public class PluginManager: ObservableObject {
                 return []
             }
             manifest = decoded
-            manifestCache[pluginPath] = manifest
+            manifestCacheSet(pluginPath, manifest)
         }
         guard let requires = manifest.requires, !requires.isEmpty else {
             return []
@@ -1024,7 +1040,7 @@ public class PluginManager: ObservableObject {
     public func contributionSummary(for plugin: PluginEntry) -> [ContributionBadge] {
         let baseURL = URL(fileURLWithPath: plugin.localPath)
         let manifest: PluginManifest
-        if let cached = manifestCache[plugin.localPath] {
+        if let cached = manifestCacheGet(plugin.localPath) {
             manifest = cached
         } else {
             let manifestURL = baseURL.appendingPathComponent("plugin.json")
@@ -1033,7 +1049,7 @@ public class PluginManager: ObservableObject {
                 return []
             }
             manifest = decoded
-            manifestCache[plugin.localPath] = manifest
+            manifestCacheSet(plugin.localPath, manifest)
         }
         guard let c = manifest.contributes else {
             return []
@@ -1083,6 +1099,7 @@ public class PluginManager: ObservableObject {
     // MARK: - 충돌 감지
 
     /// 활성 플러그인 간 확장 포인트 ID 충돌 감지
+    @discardableResult
     public func detectConflicts() -> [PluginConflict] {
         var conflicts: [PluginConflict] = []
 
@@ -1094,7 +1111,7 @@ public class PluginManager: ObservableObject {
 
         for pluginPath in activePluginPaths {
             let manifest: PluginManifest
-            if let cached = manifestCache[pluginPath] {
+            if let cached = manifestCacheGet(pluginPath) {
                 manifest = cached
             } else {
                 let baseURL = URL(fileURLWithPath: pluginPath)
@@ -1102,7 +1119,7 @@ public class PluginManager: ObservableObject {
                 guard let data = try? Data(contentsOf: manifestURL),
                       let decoded = try? JSONDecoder().decode(PluginManifest.self, from: data) else { continue }
                 manifest = decoded
-                manifestCache[pluginPath] = manifest
+                manifestCacheSet(pluginPath, manifest)
             }
 
             guard let c = manifest.contributes else { continue }

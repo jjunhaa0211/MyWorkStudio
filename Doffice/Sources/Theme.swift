@@ -1228,21 +1228,26 @@ enum Theme {
     private static func settingsSignature() -> Int {
         let s = AppSettings.shared
         let inputs = (s.isDarkMode, s.themeMode, s.fontSizeScale, s.customThemeJSON)
-        // 입력이 동일하면 해시 재사용 (O(1) 비교 vs O(n) 해싱)
+        _lock.lock()
         if inputs.0 == _memoizedSigInputs.0 &&
            inputs.1 == _memoizedSigInputs.1 &&
            inputs.2 == _memoizedSigInputs.2 &&
            inputs.3 == _memoizedSigInputs.3 {
-            return _memoizedSigValue
+            let cached = _memoizedSigValue
+            _lock.unlock()
+            return cached
         }
+        _lock.unlock()
         var h = Hasher()
         h.combine(inputs.0)
         h.combine(inputs.1)
         h.combine(inputs.2)
         h.combine(inputs.3)
         let sig = h.finalize()
+        _lock.lock()
         _memoizedSigInputs = inputs
         _memoizedSigValue = sig
+        _lock.unlock()
         return sig
     }
 
@@ -1279,9 +1284,13 @@ enum Theme {
     private static var _colorCache: [String: Color] = [:]
 
     private static func cachedColor(_ key: String, _ hex: String) -> Color {
-        if let c = _colorCache[key] { return c }
+        _lock.lock()
+        if let c = _colorCache[key] { _lock.unlock(); return c }
+        _lock.unlock()
         let c = Color(hex: hex)
+        _lock.lock()
         _colorCache[key] = c
+        _lock.unlock()
         return c
     }
 

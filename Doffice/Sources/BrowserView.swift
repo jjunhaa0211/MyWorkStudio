@@ -123,6 +123,7 @@ class BrowserManager: ObservableObject {
     }
 
     deinit {
+        historySaveWorkItem?.cancel()
         if let obs = terminationObserver {
             NotificationCenter.default.removeObserver(obs)
         }

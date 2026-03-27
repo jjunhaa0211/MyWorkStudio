@@ -130,9 +130,11 @@ class OfficeMap: ObservableObject {
         while !open.isEmpty {
             let current = open.removeLast() // best f-score (smallest) is at end
             if current.coord == end {
+                // O(n) 재구성: append + reverse (insert(at:0)은 O(n²))
                 var path: [TileCoord] = [end]
                 var c = end
-                while let prev = came[c] { path.insert(prev, at: 0); c = prev }
+                while let prev = came[c] { path.append(prev); c = prev }
+                path.reverse()
                 if !path.isEmpty { path.removeFirst() } // start 제거
                 _pathCache[key] = path
                 return path

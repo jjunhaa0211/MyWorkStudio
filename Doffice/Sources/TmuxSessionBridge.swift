@@ -173,6 +173,8 @@ class TmuxSessionBridge {
         }
     }
 
+    /// 셸 이스케이프 — 단일 따옴표로 감싸기
+    /// NOTE: TerminalTab, PluginManager에도 동일한 함수 있음. 향후 공유 유틸리티로 통합 권장.
     private func shellEscape(_ str: String) -> String {
         "'" + str.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }

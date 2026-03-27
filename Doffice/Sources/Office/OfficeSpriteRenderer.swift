@@ -117,10 +117,9 @@ enum SpriteRasterizer {
         return cgCtx.makeImage()
     }
 
-    // CGImage 캐시: "spriteKey|dir|state|frame" → CGImage
-    // 캐시 크기를 넉넉하게 (캐릭터 12명 × 4방향 × 7프레임 = 336)
+    // CGImage 캐시: "spriteKey|dir|state|frame" → CGImage (FIFO eviction)
     private static var imageCache: [String: CGImage] = [:]
-    private static var imageCacheOrder: [String] = []  // LRU 순서 추적
+    private static var imageCacheInsertOrder: [String] = []
     private static var lock = os_unfair_lock()
     private static let maxCacheSize = 600
 
@@ -135,15 +134,20 @@ enum SpriteRasterizer {
         guard let img = rasterize(sprite) else { return nil }
 
         os_unfair_lock_lock(&lock)
-        // LRU eviction: 오래된 1/4 제거
+        // 중복 삽입 방지
+        if imageCache[key] != nil {
+            os_unfair_lock_unlock(&lock)
+            return img
+        }
+        // FIFO eviction: 오래된 1/4 제거
         if imageCache.count >= maxCacheSize {
             let removeCount = maxCacheSize / 4
-            let keysToRemove = Array(imageCacheOrder.prefix(removeCount))
+            let keysToRemove = Array(imageCacheInsertOrder.prefix(removeCount))
             for k in keysToRemove { imageCache.removeValue(forKey: k) }
-            imageCacheOrder.removeFirst(min(removeCount, imageCacheOrder.count))
+            imageCacheInsertOrder.removeFirst(min(removeCount, imageCacheInsertOrder.count))
         }
         imageCache[key] = img
-        imageCacheOrder.append(key)
+        imageCacheInsertOrder.append(key)
         os_unfair_lock_unlock(&lock)
         return img
     }
@@ -151,7 +155,9 @@ enum SpriteRasterizer {
     static func clearCache() {
         os_unfair_lock_lock(&lock)
         imageCache.removeAll()
+        imageCacheInsertOrder.removeAll()
         os_unfair_lock_unlock(&lock)
+        pluginFurnitureImageCache.removeAll()
     }
 }
 
@@ -981,34 +987,29 @@ struct OfficeSpriteRenderer {
     // MARK: - Plugin Furniture Sprite Renderer
     // ═══════════════════════════════════════════════════
 
-    /// 플러그인 가구의 sprite 데이터를 읽어서 픽셀 단위로 렌더링
+    /// 플러그인 가구 CGImage 캐시 — 매 프레임 Color(hex:) 생성 방지
+    private static var pluginFurnitureImageCache: [String: CGImage] = [:]
+
+    /// 플러그인 가구의 sprite 데이터를 CGImage로 사전 래스터화하여 렌더링
     private static func drawPluginFurniture(_ ctx: GraphicsContext, pluginId: String,
                                              x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat) {
+        // 캐시된 이미지가 있으면 바로 그리기
+        if let cached = pluginFurnitureImageCache[pluginId] {
+            ctx.draw(Image(decorative: cached, scale: 1),
+                     in: CGRect(x: x, y: y, width: w, height: h))
+            return
+        }
+
         // PluginHost에서 스프라이트 데이터 조회
         guard let loaded = PluginHost.shared.furniture.first(where: { $0.decl.id == pluginId }) else { return }
         let sprite = loaded.decl.sprite
         guard !sprite.isEmpty else { return }
 
-        let spriteRows = sprite.count
-        let spriteCols = sprite.map(\.count).max() ?? 0
-        guard spriteRows > 0, spriteCols > 0 else { return }
-
-        // 각 픽셀의 크기 계산 (스프라이트를 타일 영역에 맞춤)
-        let pixelW = w / CGFloat(spriteCols)
-        let pixelH = h / CGFloat(spriteRows)
-
-        for row in 0..<spriteRows {
-            for col in 0..<sprite[row].count {
-                let hex = sprite[row][col]
-                guard !hex.isEmpty else { continue }  // 투명 픽셀
-                let color = Color(hex: hex)
-                let px = x + CGFloat(col) * pixelW
-                let py = y + CGFloat(row) * pixelH
-                ctx.fill(
-                    Path(CGRect(x: px, y: py, width: pixelW + 0.5, height: pixelH + 0.5)),
-                    with: .color(color)
-                )
-            }
+        // SpriteRasterizer로 CGImage 생성 (한 번만)
+        if let img = SpriteRasterizer.rasterize(sprite) {
+            pluginFurnitureImageCache[pluginId] = img
+            ctx.draw(Image(decorative: img, scale: 1),
+                     in: CGRect(x: x, y: y, width: w, height: h))
         }
     }
 

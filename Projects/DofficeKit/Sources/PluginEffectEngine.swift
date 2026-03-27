@@ -313,21 +313,20 @@ public class PluginEffectEngine: ObservableObject {
         let position = config["position"]?.stringValue ?? "center"
         let holdDuration = config["holdDuration"]?.doubleValue ?? 2.0
 
-        let initialState = TypewriterState(fullText: text, colorHex: colorHex, fontSize: fontSize, position: position)
-        let stateId = initialState.id
-        typewriterText = initialState
+        let stateId = UUID()
+        typewriterText = TypewriterState(id: stateId, fullText: text, colorHex: colorHex, fontSize: fontSize, position: position)
 
         typewriterTimer?.invalidate()
         var charIndex = 0
         typewriterTimer = Timer.scheduledTimer(withTimeInterval: speed, repeats: true) { [weak self] timer in
             guard let self = self else { timer.invalidate(); return }
             charIndex += 1
-            // 새 struct를 생성하여 @Published 변경 트리거
-            var updated = TypewriterState(fullText: text, colorHex: colorHex, fontSize: fontSize, position: position)
-            updated.displayedCount = charIndex
             DispatchQueue.main.async {
                 guard self.typewriterText?.id == stateId else { timer.invalidate(); return }
-                self.typewriterText = updated
+                self.typewriterText = TypewriterState(
+                    id: stateId, fullText: text, displayedCount: charIndex,
+                    colorHex: colorHex, fontSize: fontSize, position: position
+                )
             }
             if charIndex >= text.count {
                 timer.invalidate()
@@ -350,28 +349,20 @@ public class PluginEffectEngine: ObservableObject {
         let trackColor = config["trackColorHex"]?.stringValue ?? "2a2d35"
         let duration = config["duration"]?.doubleValue ?? 3.0
 
-        let initialState = ProgressBarState(
-            progress: 0,
-            label: label,
-            barColorHex: barColor,
-            trackColorHex: trackColor,
-            duration: duration
+        let stateId = UUID()
+        progressBarState = ProgressBarState(
+            id: stateId, progress: 0,
+            label: label, barColorHex: barColor, trackColorHex: trackColor, duration: duration
         )
-        let stateId = initialState.id
-        progressBarState = initialState
 
         // 0 → 1 애니메이션 (0.05초 간격)
         let steps = max(Int(duration / 0.05), 1)
         for i in 1...steps {
             DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.05) { [weak self] in
                 guard let self = self, self.progressBarState?.id == stateId else { return }
-                // 새 struct를 생성하여 @Published 변경 트리거
                 self.progressBarState = ProgressBarState(
-                    progress: min(Double(i) / Double(steps), 1.0),
-                    label: label,
-                    barColorHex: barColor,
-                    trackColorHex: trackColor,
-                    duration: duration
+                    id: stateId, progress: min(Double(i) / Double(steps), 1.0),
+                    label: label, barColorHex: barColor, trackColorHex: trackColor, duration: duration
                 )
             }
         }
