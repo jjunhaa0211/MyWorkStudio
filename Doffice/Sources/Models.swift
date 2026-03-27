@@ -909,6 +909,11 @@ class TerminalTab: ObservableObject, Identifiable {
     var automationSourceTabId: String?
     var automationReportPath: String?
     var manualLaunch: Bool = false
+
+    // SSH & tmux support
+    var sshProfile: SSHProfile?
+    var isSSH: Bool = false
+    var tmuxSessionId: String?
     var workflowSourceRequest: String = ""
     var workflowPlanSummary: String = ""
     var workflowDesignSummary: String = ""

@@ -117,6 +117,7 @@ enum FurnitureType: String, Codable, CaseIterable {
     case desk, chair, monitor, bookshelf, plant, coffeeMachine
     case sofa, roundTable, whiteboard, waterCooler, printer
     case trashBin, lamp, rug, pictureFrame, clock
+    case plugin  // 플러그인 가구 (스프라이트 데이터로 렌더링)
 }
 
 struct TileSize: Codable, Hashable {
@@ -131,6 +132,8 @@ struct FurniturePlacement: Identifiable, Codable, Hashable {
     let size: TileSize
     var zone: OfficeZone
     var mirrored: Bool = false
+    /// 플러그인 가구의 경우 원래 ID (예: "oak-tree", "boulder")
+    var pluginFurnitureId: String?
 
     /// Z-sort용 하단 Y값 (픽셀)
     var zY: CGFloat {
@@ -262,6 +265,7 @@ struct ZFurnitureInfo {
     let dark: Bool
     let frame: Int
     let chromeImage: CGImage?
+    let pluginFurnitureId: String?
 }
 
 struct ZCharacterInfo {

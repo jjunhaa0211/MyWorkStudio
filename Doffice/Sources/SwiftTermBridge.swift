@@ -23,6 +23,8 @@ class SwiftTermContainer: NSView, LocalProcessTerminalViewDelegate {
     weak var tab: TerminalTab?
     let terminalView: LocalProcessTerminalView
 
+    private var sendKeysObserver: NSObjectProtocol?
+
     init(tab: TerminalTab, fontSize: CGFloat) {
         self.tab = tab
         self.terminalView = LocalProcessTerminalView(frame: .zero)
@@ -31,10 +33,21 @@ class SwiftTermContainer: NSView, LocalProcessTerminalViewDelegate {
         terminalView.processDelegate = self
         terminalView.autoresizingMask = [.width, .height]
 
-        // 터미널 스타일 설정
-        terminalView.nativeBackgroundColor = NSColor(red: 0.1, green: 0.1, blue: 0.1, alpha: 1)
-        terminalView.nativeForegroundColor = NSColor(red: 0.85, green: 0.85, blue: 0.85, alpha: 1)
-        let monoFont = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
+        // 테마 연동 터미널 스타일
+        let bgColor = Theme.resolvedBgTerminalNSColor
+        let fgColor = Theme.resolvedFgTerminalNSColor
+        terminalView.nativeBackgroundColor = bgColor
+        terminalView.nativeForegroundColor = fgColor
+
+        // 커스텀 폰트 지원
+        let customFontName = AppSettings.shared.customTheme.fontName
+        let monoFont: NSFont
+        if let fontName = customFontName, !fontName.isEmpty,
+           let customFont = NSFont(name: fontName, size: fontSize) {
+            monoFont = customFont
+        } else {
+            monoFont = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
+        }
         terminalView.font = monoFont
         terminalView.optionAsMetaKey = false
 
@@ -43,22 +56,43 @@ class SwiftTermContainer: NSView, LocalProcessTerminalViewDelegate {
         // 드래그앤드롭 등록
         registerForDraggedTypes([.fileURL, .png, .tiff])
 
-        // 셸 프로세스 시작
-        let userShell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
+        // send-keys 자동화 지원
+        sendKeysObserver = NotificationCenter.default.addObserver(
+            forName: .workmanSendKeysToTerminal,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self = self,
+                  let userInfo = notification.userInfo,
+                  let targetTabId = userInfo["tabId"] as? String,
+                  targetTabId == tab.id,
+                  let text = userInfo["text"] as? String else { return }
+            self.terminalView.send(txt: text)
+        }
 
+        // 셸 프로세스 시작 (SSH 또는 일반 셸)
         var env = ProcessInfo.processInfo.environment
         env["PATH"] = TerminalTab.buildFullPATH()
-        // kitty keyboard protocol을 지원하지 않는 터미널로 설정
-        // "xterm-256color"는 kitty protocol을 트리거할 수 있으므로 "xterm"만 사용
         env["TERM"] = "xterm"
-        env["TERM_PROGRAM"] = "Apple_Terminal"  // Terminal.app으로 위장 → kitty protocol 비활성
-        env["COLORTERM"] = "truecolor"          // 색상은 유지
+        env["TERM_PROGRAM"] = "Apple_Terminal"
+        env["COLORTERM"] = "truecolor"
         env.removeValue(forKey: "TERM_PROGRAM_VERSION")
         if env["LANG"] == nil { env["LANG"] = "ko_KR.UTF-8" }
         env["HOME"] = NSHomeDirectory()
-
         let envArray = env.map { "\($0.key)=\($0.value)" }
-        terminalView.startProcess(executable: userShell, args: ["-l"], environment: envArray, execName: "-zsh")
+
+        if let sshProfile = tab.sshProfile {
+            // SSH 모드: ssh 명령어를 셸을 통해 실행
+            let userShell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
+            terminalView.startProcess(executable: userShell, args: ["-l"], environment: envArray, execName: "-zsh")
+            // SSH 연결 명령 자동 전송
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                self?.terminalView.send(txt: sshProfile.sshCommand + "\r")
+            }
+        } else {
+            let userShell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
+            terminalView.startProcess(executable: userShell, args: ["-l"], environment: envArray, execName: "-zsh")
+        }
 
         // 포커스
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
@@ -69,8 +103,15 @@ class SwiftTermContainer: NSView, LocalProcessTerminalViewDelegate {
     required init?(coder: NSCoder) { return nil }
 
     deinit {
-        // PTY 프로세스 정리 — 뷰 파괴 시 리소스 누수 방지
         terminalView.processDelegate = nil
+        if let observer = sendKeysObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+    }
+
+    /// 외부에서 터미널에 텍스트를 보낼 때 사용
+    func sendText(_ text: String) {
+        terminalView.send(txt: text)
     }
 
     override func layout() {

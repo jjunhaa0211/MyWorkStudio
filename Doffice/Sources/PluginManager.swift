@@ -201,6 +201,8 @@ class PluginHost: ObservableObject {
 
     // ── 네이티브 확장 ──
     @Published var themes: [LoadedTheme] = []
+    @Published var furniture: [LoadedFurniture] = []
+    @Published var officePresets: [LoadedOfficePreset] = []
     @Published var achievements: [PluginManifest.AchievementDecl] = []
     @Published var bossLines: [String] = []
     @Published var effects: [LoadedEffect] = []
@@ -240,6 +242,18 @@ class PluginHost: ObservableObject {
         let decl: PluginManifest.ThemeDecl
     }
 
+    struct LoadedFurniture: Identifiable {
+        let id: String
+        let pluginName: String
+        let decl: PluginManifest.FurnitureDecl
+    }
+
+    struct LoadedOfficePreset: Identifiable {
+        let id: String
+        let pluginName: String
+        let decl: PluginManifest.OfficePresetDecl
+    }
+
     struct LoadedEffect: Identifiable {
         let id: String
         let pluginName: String
@@ -260,10 +274,19 @@ class PluginHost: ObservableObject {
     }
 
     func reload() {
+        // 파일 I/O를 백그라운드에서 수행하여 메인 스레드 블로킹 방지
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            self?._reloadOnBackground()
+        }
+    }
+
+    private func _reloadOnBackground() {
         var newPanels: [LoadedPanel] = []
         var newCommands: [LoadedCommand] = []
         var newStatusBars: [LoadedStatusBarItem] = []
         var newThemes: [LoadedTheme] = []
+        var newFurniture: [LoadedFurniture] = []
+        var newOfficePresets: [LoadedOfficePreset] = []
         var newEffects: [LoadedEffect] = []
         var newAchievements: [PluginManifest.AchievementDecl] = []
         var newBossLines: [String] = []
@@ -338,6 +361,28 @@ class PluginHost: ObservableObject {
                 }
             }
 
+            // 가구
+            if let furnitureDecls = contributes.furniture {
+                for decl in furnitureDecls {
+                    newFurniture.append(LoadedFurniture(
+                        id: "\(pluginName).\(decl.id)",
+                        pluginName: pluginName,
+                        decl: decl
+                    ))
+                }
+            }
+
+            // 오피스 프리셋
+            if let presetDecls = contributes.officePresets {
+                for decl in presetDecls {
+                    newOfficePresets.append(LoadedOfficePreset(
+                        id: "\(pluginName).\(decl.id)",
+                        pluginName: pluginName,
+                        decl: decl
+                    ))
+                }
+            }
+
             // 업적
             if let achDecls = contributes.achievements {
                 newAchievements.append(contentsOf: achDecls)
@@ -370,10 +415,16 @@ class PluginHost: ObservableObject {
             self.commands = newCommands
             self.statusBarItems = newStatusBars
             self.themes = newThemes
+            self.furniture = newFurniture
+            self.officePresets = newOfficePresets
             self.effects = newEffects
             self.achievements = newAchievements
             self.bossLines = newBossLines
             self.startStatusBarTimers()
+
+            // 플러그인 캐릭터도 즉시 동기화 — 설치/활성화 시 재시작 없이 반영
+            CharacterRegistry.shared.removeInactivePluginCharacters()
+            CharacterRegistry.shared.loadPluginCharacters()
         }
     }
 
@@ -381,15 +432,87 @@ class PluginHost: ObservableObject {
 
     func applyTheme(_ theme: LoadedTheme) {
         let d = theme.decl
-        var config = AppSettings.shared.customTheme
-        config.accentHex = d.accentHex
-        config.useGradient = d.useGradient ?? false
-        config.gradientStartHex = d.gradientStartHex
-        config.gradientEndHex = d.gradientEndHex
-        config.fontName = d.fontName
-        AppSettings.shared.isDarkMode = d.isDark
-        AppSettings.shared.saveCustomTheme(config)
-        AppSettings.shared.requestRefreshIfNeeded()
+        // 설정만 저장하고 앱 재시작 — 라이브 전환 race condition 방지
+        AppSettings.shared.performBatchUpdate {
+            var config = AppSettings.shared.customTheme
+            config.accentHex = d.accentHex
+            config.useGradient = d.useGradient ?? false
+            config.gradientStartHex = d.gradientStartHex
+            config.gradientEndHex = d.gradientEndHex
+            config.fontName = d.fontName
+            AppSettings.shared.isDarkMode = d.isDark
+            AppSettings.shared.themeMode = "custom"
+            AppSettings.shared.saveCustomTheme(config)
+        }
+    }
+
+    // MARK: - 오피스 프리셋 적용
+
+    /// 플러그인 오피스 프리셋을 현재 맵에 적용
+    func applyOfficePreset(_ preset: LoadedOfficePreset, to map: OfficeMap) {
+        let decl = preset.decl
+        guard let placements = decl.furniture else { return }
+
+        for placement in placements {
+            // 해당 가구의 스프라이트 정보 찾기
+            guard let furnitureDecl = furniture.first(where: { $0.decl.id == placement.furnitureId })?.decl else { continue }
+
+            // 스프라이트 데이터가 실제로 존재하는지 검증
+            guard !furnitureDecl.sprite.isEmpty,
+                  furnitureDecl.sprite.contains(where: { $0.contains(where: { !$0.isEmpty }) }) else { continue }
+
+            // 맵 범위 내에 있는지 검증
+            guard placement.col >= 0, placement.row >= 0,
+                  placement.col + furnitureDecl.width <= map.cols,
+                  placement.row + furnitureDecl.height <= map.rows else { continue }
+
+            let zone: OfficeZone
+            switch furnitureDecl.zone ?? "mainOffice" {
+            case "pantry": zone = .pantry
+            case "meetingRoom": zone = .meetingRoom
+            case "hallway": zone = .hallway
+            default: zone = .mainOffice
+            }
+
+            let fp = FurniturePlacement(
+                id: "plugin_\(preset.pluginName)_\(placement.furnitureId)_\(placement.col)_\(placement.row)",
+                type: .plugin,
+                position: TileCoord(col: placement.col, row: placement.row),
+                size: TileSize(w: furnitureDecl.width, h: furnitureDecl.height),
+                zone: zone,
+                pluginFurnitureId: furnitureDecl.id
+            )
+
+            // 기존 가구와 겹치지 않는지 확인
+            let collidesWithExisting = map.furniture.contains { existing in
+                guard existing.type != .rug else { return false }  // 러그는 겹침 허용
+                let eMinCol = existing.position.col
+                let eMaxCol = existing.position.col + existing.size.w
+                let eMinRow = existing.position.row
+                let eMaxRow = existing.position.row + existing.size.h
+                let pMinCol = placement.col
+                let pMaxCol = placement.col + furnitureDecl.width
+                let pMinRow = placement.row
+                let pMaxRow = placement.row + furnitureDecl.height
+                return pMinCol < eMaxCol && pMaxCol > eMinCol && pMinRow < eMaxRow && pMaxRow > eMinRow
+            }
+            guard !collidesWithExisting else { continue }
+
+            // 중복 방지
+            if !map.furniture.contains(where: { $0.id == fp.id }) {
+                map.furniture.append(fp)
+            }
+        }
+        map.rebuildWalkability()
+    }
+
+    /// 활성 플러그인의 모든 가구를 맵에 추가 (프리셋 없이 개별 배치용)
+    func addPluginFurnitureToMap(_ map: OfficeMap) {
+        // 가구 스프라이트 데이터가 로드되었는지 확인
+        guard !furniture.isEmpty else { return }
+        for preset in officePresets {
+            applyOfficePreset(preset, to: map)
+        }
     }
 
     // MARK: - 명령어 실행
@@ -595,6 +718,7 @@ class PluginManager: ObservableObject {
 
     private let storageKey = "WorkManPlugins"
     private let pluginBaseDir: URL
+    private var currentFetchTask: URLSessionDataTask?
 
     /// 레지스트리 URL — GitHub Pages 또는 raw 파일
     /// 기여자는 이 저장소에 PR로 registry.json에 자기 플러그인을 추가
@@ -637,26 +761,47 @@ class PluginManager: ObservableObject {
     // MARK: - 마켓플레이스 (레지스트리)
 
     func fetchRegistry() {
+        // 중복 호출 방지: 기존 요청 취소
+        currentFetchTask?.cancel()
+        currentFetchTask = nil
+
         isLoadingRegistry = true
         registryError = nil
 
+        // 번들 플러그인을 즉시 표시 (네트워크 완료 전에도 보이도록)
+        let bundled = Self.mergedRegistry(remote: [])
+        if registryPlugins.isEmpty {
+            registryPlugins = bundled
+        }
+
         guard let url = URL(string: Self.registryURL) else {
-            registryPlugins = Self.mergedRegistry(remote: [])
-            registryError = nil
+            registryPlugins = bundled
             isLoadingRegistry = false
             return
         }
 
-        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+        // 타임아웃 10초 설정
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 10
+
+        let task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 guard let self = self else { return }
+                self.currentFetchTask = nil
                 self.isLoadingRegistry = false
+
+                // 취소된 요청은 무시
+                if let urlError = error as? URLError, urlError.code == .cancelled {
+                    return
+                }
 
                 let remoteItems = Self.resolveRegistryItems(data: data, response: response, error: error)
                 self.registryPlugins = Self.mergedRegistry(remote: remoteItems)
                 self.registryError = nil
             }
-        }.resume()
+        }
+        currentFetchTask = task
+        task.resume()
     }
 
     /// 레지스트리에서 설치
@@ -1305,6 +1450,8 @@ class PluginManager: ObservableObject {
         if let idx = plugins.firstIndex(where: { $0.id == plugin.id }) {
             plugins[idx].enabled.toggle()
             savePlugins()
+            // 즉시 반영: 캐릭터/테마/가구/업적 등 모든 플러그인 리소스 재로드
+            PluginHost.shared.reload()
         }
     }
 
@@ -1409,6 +1556,9 @@ class PluginManager: ObservableObject {
         }
     }
 
+    /// 설치 완료 후 앱 재시작 필요 여부
+    @Published var needsRestart: Bool = false
+
     private func finishInstall(_ entry: PluginEntry) {
         DispatchQueue.main.async {
             if let idx = self.plugins.firstIndex(where: { $0.source == entry.source }) {
@@ -1422,13 +1572,26 @@ class PluginManager: ObservableObject {
                 self.plugins.append(entry)
             }
             self.savePlugins()
-            // 캐릭터 팩 + 확장 포인트 로드
-            CharacterRegistry.shared.loadPluginCharacters()
-            PluginHost.shared.reload()
             self.lastError = nil
             self.isInstalling = false
             self.installProgress = ""
+            // 즉시 반영: 설치된 플러그인의 캐릭터/테마/가구/업적 로드
+            PluginHost.shared.reload()
         }
+    }
+
+    /// 안전하게 앱 재시작
+    func restartApp() {
+        #if os(macOS)
+        let url = Bundle.main.bundleURL
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        task.arguments = ["-n", url.path]
+        try? task.run()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            NSApplication.shared.terminate(nil)
+        }
+        #endif
     }
 
     // MARK: - Registry Helpers

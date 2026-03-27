@@ -260,8 +260,12 @@ struct MenuBarPopoverView: View {
         HStack(spacing: 8) {
             Button(action: {
                 NSApp.activate(ignoringOtherApps: true)
-                if NSApp.windows.filter({ $0.isVisible }).isEmpty {
-                    for w in NSApp.windows { w.makeKeyAndOrderFront(nil) }
+                // canBecomeKey 윈도우만 활성화 — NSStatusBarWindow/TUINSWindow 경고 방지
+                let keyableWindows = NSApp.windows.filter { $0.canBecomeKey }
+                if keyableWindows.filter({ $0.isVisible }).isEmpty {
+                    for w in keyableWindows { w.makeKeyAndOrderFront(nil) }
+                } else if let front = keyableWindows.first(where: { $0.isVisible }) {
+                    front.makeKeyAndOrderFront(nil)
                 }
             }) {
                 HStack(spacing: 4) {

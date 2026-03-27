@@ -89,8 +89,14 @@ enum ShortcutAction: String, CaseIterable, Codable, Identifiable {
     case toggleOfficeView   = "toggleOfficeView"
     case toggleTerminalView = "toggleTerminalView"
 
+    // ── 패인 분할 ──
+    case splitHorizontal    = "splitHorizontal"
+    case splitVertical      = "splitVertical"
+    case closePane          = "closePane"
+
     // ── 액션 ──
     case exportSessionLog   = "exportSessionLog"
+    case openSSH            = "openSSH"
 
     var id: String { rawValue }
 
@@ -103,7 +109,9 @@ enum ShortcutAction: String, CaseIterable, Codable, Identifiable {
             return .terminal
         case .commandPalette, .actionCenter, .toggleSplitView, .toggleOfficeView, .toggleTerminalView:
             return .view
-        case .exportSessionLog:
+        case .splitHorizontal, .splitVertical, .closePane:
+            return .terminal
+        case .exportSessionLog, .openSSH:
             return .action
         }
     }
@@ -129,6 +137,10 @@ enum ShortcutAction: String, CaseIterable, Codable, Identifiable {
         case .toggleOfficeView:   return .workmanToggleOffice
         case .toggleTerminalView: return .workmanToggleTerminal
         case .exportSessionLog:   return .workmanExportLog
+        case .splitHorizontal:    return .workmanSplitHorizontal
+        case .splitVertical:      return .workmanSplitVertical
+        case .closePane:          return .workmanClosePane
+        case .openSSH:            return .workmanOpenSSH
         }
     }
 }
@@ -172,6 +184,10 @@ let defaultShortcutMap: [ShortcutAction: KeyShortcut] = [
     .toggleOfficeView:   KeyShortcut(keyEquivalent: "o", command: true, shift: true,  option: false, control: false),
     .toggleTerminalView: KeyShortcut(keyEquivalent: "t", command: true, shift: true,  option: false, control: false),
     .exportSessionLog:   KeyShortcut(keyEquivalent: "e", command: true, shift: true,  option: false, control: false),
+    .splitHorizontal:    KeyShortcut(keyEquivalent: "d", command: true, shift: false, option: false, control: false),
+    .splitVertical:      KeyShortcut(keyEquivalent: "d", command: true, shift: true,  option: false, control: false),
+    .closePane:          KeyShortcut(keyEquivalent: "w", command: true, shift: true,  option: false, control: false),
+    .openSSH:            KeyShortcut(keyEquivalent: "s", command: true, shift: true,  option: true,  control: false),
 ]
 
 // ═══════════════════════════════════════════════════════

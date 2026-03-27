@@ -8,6 +8,10 @@ class SessionManager: ObservableObject {
     @Published var tabs: [TerminalTab] = []
     @Published var activeTabId: String?
     @Published var showNewTabSheet: Bool = false
+    @Published var showSSHSheet: Bool = false
+
+    // Pane layout for split view (nil = single pane mode)
+    @Published var _paneLayout: PaneNode?
     @Published var showSessionSearch: Bool = false
     @Published var searchQuery: String = "" {
         didSet { debounceSearchResults() }
@@ -815,6 +819,51 @@ class SessionManager: ObservableObject {
 
     func clearPinnedTabs() {
         pinnedTabIds.removeAll()
+    }
+
+    /// Convenience: add tab with just a project path
+    @discardableResult
+    func addTab(projectPath: String) -> TerminalTab {
+        let name = getProjectName(path: projectPath)
+        return addTab(projectName: name, projectPath: projectPath, manualLaunch: true)
+    }
+
+    /// SSH 연결 탭 생성
+    @discardableResult
+    func addSSHTab(profile: SSHProfile) -> TerminalTab {
+        let tab = addTab(
+            projectName: "SSH: \(profile.displayName)",
+            projectPath: NSHomeDirectory(),
+            manualLaunch: true,
+            autoStart: false
+        )
+        tab.sshProfile = profile
+        tab.isSSH = true
+        // SSH는 raw terminal로 실행
+        NotificationCenter.default.post(
+            name: .workmanSSHTabCreated,
+            object: tab,
+            userInfo: ["profile": profile]
+        )
+        return tab
+    }
+
+    /// tmux 세션 복구 (tmux I/O는 백그라운드에서 수행)
+    func restoreTmuxSessions() {
+        let bridge = TmuxSessionBridge.shared
+        guard bridge.isTmuxAvailable else { return }
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let existingSessions = bridge.listSessions()
+            DispatchQueue.main.async {
+                guard let self else { return }
+                for session in existingSessions {
+                    guard !self.tabs.contains(where: { $0.tmuxSessionId == session.id }) else { continue }
+                    let tab = self.addTab(projectPath: NSHomeDirectory())
+                    tab.tmuxSessionId = session.id
+                }
+            }
+        }
     }
 
     func moveTab(from source: IndexSet, to destination: Int) {

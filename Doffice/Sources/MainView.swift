@@ -1386,6 +1386,18 @@ private struct NotificationHandlersModifier: ViewModifier {
                       let idx = tabs.firstIndex(where: { $0.id == currentId }) else { return }
                 manager.selectTab(tabs[(idx - 1 + tabs.count) % tabs.count].id)
             }
+            .onReceive(NotificationCenter.default.publisher(for: .workmanSplitHorizontal)) { _ in
+                if let id = manager.activeTabId { manager.splitPane(tabId: id, axis: .horizontal) }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .workmanSplitVertical)) { _ in
+                if let id = manager.activeTabId { manager.splitPane(tabId: id, axis: .vertical) }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .workmanClosePane)) { _ in
+                if let id = manager.activeTabId, manager.isPaneSplitActive { manager.closePane(tabId: id) }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .workmanOpenSSH)) { _ in
+                manager.showSSHSheet = true
+            }
     }
 
     private func applyPartB(_ content: some View) -> some View {

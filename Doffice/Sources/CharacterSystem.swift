@@ -659,7 +659,7 @@ class CharacterRegistry: ObservableObject {
                     hatType: char.hatType,
                     accessory: char.accessory,
                     species: char.species,
-                    isHired: existingCharacter?.isHired ?? false,
+                    isHired: existingCharacter?.isHired ?? true, // 플러그인 캐릭터는 기본 고용 상태
                     hiredAt: existingCharacter?.hiredAt,
                     requiredAchievement: char.requiredAchievement,
                     jobRole: existingCharacter?.jobRole ?? char.jobRole,

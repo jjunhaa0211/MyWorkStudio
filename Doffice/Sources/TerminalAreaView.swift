@@ -22,16 +22,47 @@ struct TerminalAreaView: View {
         VStack(spacing: 0) {
             topBar
             switch viewMode {
-            case .grid: GridPanelView()
+            case .grid:
+                if manager.isPaneSplitActive, let layout = manager._paneLayout {
+                    PaneSplitView(
+                        node: layout,
+                        focusedTabId: manager.activeTabId,
+                        onSelectTab: { manager.selectTab($0) },
+                        onClosePane: { manager.closePane(tabId: $0) },
+                        onSplitPane: { tabId, axis in manager.splitPane(tabId: tabId, axis: axis) }
+                    )
+                    .padding(3)
+                    .background(Theme.bg)
+                } else {
+                    GridPanelView()
+                }
             case .single:
-                if let tab = manager.activeTab { EventStreamView(tab: tab, compact: false) }
-                else { EmptySessionView() }
+                if manager.isPaneSplitActive, let layout = manager._paneLayout {
+                    PaneSplitView(
+                        node: layout,
+                        focusedTabId: manager.activeTabId,
+                        onSelectTab: { manager.selectTab($0) },
+                        onClosePane: { manager.closePane(tabId: $0) },
+                        onSplitPane: { tabId, axis in manager.splitPane(tabId: tabId, axis: axis) }
+                    )
+                    .padding(3)
+                    .background(Theme.bg)
+                } else if let tab = manager.activeTab {
+                    EventStreamView(tab: tab, compact: false)
+                } else {
+                    EmptySessionView()
+                }
             case .git: GitPanelView()
             case .browser: BrowserPanelView()
             }
         }
         .sheet(isPresented: $manager.showNewTabSheet) {
             NewTabSheet()
+        }
+        .sheet(isPresented: $manager.showSSHSheet) {
+            SSHConnectionSheet { profile in
+                manager.addSSHTab(profile: profile)
+            }
         }
     }
 
@@ -65,6 +96,37 @@ struct TerminalAreaView: View {
                 }.padding(.horizontal, 6)
             }
             Spacer(minLength: 0)
+
+            // Split pane buttons
+            if let activeId = manager.activeTabId {
+                HStack(spacing: 2) {
+                    Button(action: { manager.splitPane(tabId: activeId, axis: .horizontal) }) {
+                        Image(systemName: "rectangle.split.1x2")
+                            .font(.system(size: Theme.iconSize(9)))
+                            .foregroundColor(Theme.textDim)
+                            .frame(width: 24, height: 24)
+                    }
+                    .buttonStyle(.plain)
+                    .help(NSLocalizedString("pane.split.horizontal", comment: "Split Horizontal"))
+
+                    Button(action: { manager.splitPane(tabId: activeId, axis: .vertical) }) {
+                        Image(systemName: "rectangle.split.2x1")
+                            .font(.system(size: Theme.iconSize(9)))
+                            .foregroundColor(Theme.textDim)
+                            .frame(width: 24, height: 24)
+                    }
+                    .buttonStyle(.plain)
+                    .help(NSLocalizedString("pane.split.vertical", comment: "Split Vertical"))
+                }
+
+                Rectangle().fill(Theme.border).frame(width: 1, height: 14)
+            }
+
+            // SSH button
+            Button(action: { manager.showSSHSheet = true }) {
+                Image(systemName: "network").font(.system(size: Theme.iconSize(9))).foregroundColor(Theme.textDim).frame(width: 24, height: 24)
+            }.buttonStyle(.plain).help("SSH")
+
             Button(action: { manager.showNewTabSheet = true }) {
                 Image(systemName: "plus").font(Theme.scaled(10, weight: .medium)).foregroundColor(Theme.textDim).frame(width: 28, height: 28)
             }.buttonStyle(.plain).padding(.trailing, 6)
@@ -750,6 +812,95 @@ struct EventStreamView: View {
             }
             tab.appendBlock(.status(message: lines.joined(separator: "\n")))
         },
+
+        // ── Automation ──
+        SlashCommand("send", NSLocalizedString("slash.cmd.send", comment: "Send keys to tab"), usage: "<tab> <text>", category: NSLocalizedString("slash.category.tools", comment: "")) { tab, manager, args in
+            guard args.count >= 2 else {
+                tab.appendBlock(.status(message: "Usage: /send <workerName> <text>"))
+                return
+            }
+            let targetName = args[0].lowercased()
+            let text = args.dropFirst().joined(separator: " ")
+            guard let target = manager.userVisibleTabs.first(where: { $0.workerName.lowercased().contains(targetName) }) else {
+                tab.appendBlock(.status(message: "Tab '\(args[0])' not found. Available: \(manager.userVisibleTabs.map(\.workerName).joined(separator: ", "))"))
+                return
+            }
+            AutomationEngine.shared.sendKeys(tabId: target.id, text: text)
+            tab.appendBlock(.status(message: "Sent to \(target.workerName): \(text.prefix(50))"))
+        },
+        SlashCommand("macro", NSLocalizedString("slash.cmd.macro", comment: "Run automation macro"), usage: "<name|list>", category: NSLocalizedString("slash.category.tools", comment: "")) { tab, _, args in
+            guard let name = args.first else {
+                tab.appendBlock(.status(message: "Usage: /macro <name> or /macro list"))
+                return
+            }
+            if name == "list" {
+                let macros = AutomationEngine.shared.macros
+                if macros.isEmpty {
+                    tab.appendBlock(.status(message: "No macros saved."))
+                } else {
+                    let list = macros.map { "  \($0.name) — \($0.description)" }.joined(separator: "\n")
+                    tab.appendBlock(.status(message: "Macros:\n\(list)"))
+                }
+                return
+            }
+            AutomationEngine.shared.runMacro(name: name)
+            tab.appendBlock(.status(message: "Running macro: \(name)"))
+        },
+        SlashCommand("split", NSLocalizedString("slash.cmd.split", comment: "Split terminal pane"), usage: "<h|v>", category: NSLocalizedString("slash.category.display", comment: "")) { tab, manager, args in
+            let axis: SplitAxis = (args.first?.lowercased() == "v") ? .vertical : .horizontal
+            manager.splitPane(tabId: tab.id, axis: axis)
+            tab.appendBlock(.status(message: "Pane split \(axis == .horizontal ? "horizontally" : "vertically")"))
+        },
+        SlashCommand("ssh", NSLocalizedString("slash.cmd.ssh", comment: "Open SSH connection"), usage: "[user@host]", category: NSLocalizedString("slash.category.tools", comment: "")) { tab, manager, args in
+            if let target = args.first, target.contains("@") {
+                let parts = target.split(separator: "@")
+                if parts.count == 2 {
+                    let profile = SSHProfile(name: String(parts[1]), host: String(parts[1]), username: String(parts[0]))
+                    manager.addSSHTab(profile: profile)
+                    tab.appendBlock(.status(message: "SSH connecting to \(target)..."))
+                    return
+                }
+            }
+            manager.showSSHSheet = true
+            tab.appendBlock(.status(message: "Opening SSH connection manager..."))
+        },
+        SlashCommand("tmux", NSLocalizedString("slash.cmd.tmux", comment: "Tmux session management"), usage: "<list|restore|kill>", category: NSLocalizedString("slash.category.tools", comment: "")) { tab, manager, args in
+            let bridge = TmuxSessionBridge.shared
+            guard bridge.isTmuxAvailable else {
+                tab.appendBlock(.status(message: "tmux not installed. Install with: brew install tmux"))
+                return
+            }
+            let action = args.first?.lowercased() ?? "list"
+            // 백그라운드에서 tmux 명령 실행 (메인 스레드 블로킹 방지)
+            DispatchQueue.global(qos: .userInitiated).async { [weak tab, weak manager] in
+                switch action {
+                case "list":
+                    let sessions = bridge.listSessions()
+                    DispatchQueue.main.async {
+                        if sessions.isEmpty {
+                            tab?.appendBlock(.status(message: "No active tmux sessions."))
+                        } else {
+                            let list = sessions.map { "  \($0.id) — windows: \($0.windowCount), attached: \($0.isAttached ? "yes" : "no")" }.joined(separator: "\n")
+                            tab?.appendBlock(.status(message: "tmux sessions:\n\(list)"))
+                        }
+                    }
+                case "restore":
+                    DispatchQueue.main.async {
+                        manager?.restoreTmuxSessions()
+                        tab?.appendBlock(.status(message: "Restored tmux sessions."))
+                    }
+                case "kill":
+                    bridge.killAllSessions()
+                    DispatchQueue.main.async {
+                        tab?.appendBlock(.status(message: "All workman tmux sessions killed."))
+                    }
+                default:
+                    DispatchQueue.main.async {
+                        tab?.appendBlock(.status(message: "Usage: /tmux <list|restore|kill>"))
+                    }
+                }
+            }
+        },
     ]
 
     /// /cmd 형태만 명령 모드 (경로 /path/to 제외)
@@ -788,21 +939,64 @@ struct EventStreamView: View {
 
     private var rawTerminalBody: some View {
         VStack(spacing: 0) {
+            // Terminal title bar with traffic light buttons
             HStack(spacing: 8) {
-                Button(action: { tab.forceStop() }) {
-                    Circle().fill(Color.red.opacity(0.85)).frame(width: 10, height: 10)
-                }.buttonStyle(.plain).help(NSLocalizedString("terminal.help.close.session", comment: ""))
-                Text("claude — \(tab.projectName)")
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundColor(Theme.textDim)
+                // Traffic light dots
+                HStack(spacing: 6) {
+                    Button(action: { tab.forceStop() }) {
+                        Circle().fill(Color.red.opacity(0.85)).frame(width: 10, height: 10)
+                            .overlay(Circle().stroke(Color.red.opacity(0.3), lineWidth: 0.5))
+                    }.buttonStyle(.plain).help(NSLocalizedString("terminal.help.close.session", comment: ""))
+
+                    Circle().fill(Color.yellow.opacity(0.85)).frame(width: 10, height: 10)
+                        .overlay(Circle().stroke(Color.yellow.opacity(0.3), lineWidth: 0.5))
+
+                    Circle().fill(Color.green.opacity(0.85)).frame(width: 10, height: 10)
+                        .overlay(Circle().stroke(Color.green.opacity(0.3), lineWidth: 0.5))
+                }
+
+                // Terminal title
+                HStack(spacing: 4) {
+                    if tab.isSSH {
+                        Image(systemName: "network")
+                            .font(.system(size: 9))
+                            .foregroundColor(Theme.cyan)
+                        Text("ssh — \(tab.sshProfile?.displayName ?? tab.projectName)")
+                            .font(.system(size: 11, weight: .medium, design: .monospaced))
+                            .foregroundColor(Theme.textDim)
+                    } else {
+                        Image(systemName: "terminal")
+                            .font(.system(size: 9))
+                            .foregroundColor(Theme.textDim.opacity(0.6))
+                        Text("claude — \(tab.projectName)")
+                            .font(.system(size: 11, weight: .medium, design: .monospaced))
+                            .foregroundColor(Theme.textDim)
+                    }
+                }
                 Spacer()
+
+                // Worker badge
+                HStack(spacing: 3) {
+                    Circle().fill(tab.workerColor).frame(width: 5, height: 5)
+                    Text(tab.workerName)
+                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .foregroundColor(tab.workerColor.opacity(0.8))
+                }
             }
-            .padding(.horizontal, 12).padding(.vertical, 6)
-            .background(Theme.bgSurface)
+            .padding(.horizontal, 12).padding(.vertical, 7)
+            .background(
+                ZStack {
+                    Theme.bgSurface
+                    VisualEffectView(material: .titlebar, blendingMode: .withinWindow)
+                        .opacity(0.3)
+                }
+            )
+            .overlay(Rectangle().fill(Theme.border.opacity(0.3)).frame(height: 1), alignment: .bottom)
 
             CLITerminalView(tab: tab, fontSize: 13 * settings.fontSizeScale)
         }
         .background(Theme.bgTerminal)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
     // MARK: - Normal Body (WorkMan UI)
@@ -960,72 +1154,152 @@ struct EventStreamView: View {
 
     private var statusBar: some View {
         HStack(spacing: 8) {
-            // Worker + Activity
-            HStack(spacing: 4) {
-                Circle().fill(tab.workerColor).frame(width: 6, height: 6)
+            // Worker + Activity (with animated indicator)
+            HStack(spacing: 5) {
+                ZStack {
+                    Circle().fill(tab.workerColor).frame(width: 7, height: 7)
+                    if tab.isProcessing {
+                        Circle()
+                            .stroke(tab.workerColor.opacity(0.4), lineWidth: 1.5)
+                            .frame(width: 13, height: 13)
+                            .scaleEffect(tab.isProcessing ? 1.3 : 1.0)
+                            .opacity(tab.isProcessing ? 0 : 1)
+                            .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: false), value: tab.isProcessing)
+                    }
+                }
+                .frame(width: 14, height: 14)
+
                 Text(tab.workerName).font(Theme.chrome(9, weight: .semibold)).foregroundColor(tab.workerColor)
-                Text(activityLabel).font(Theme.chrome(9)).foregroundColor(activityLabelColor)
+
+                Text(activityLabel)
+                    .font(Theme.chrome(9, weight: tab.isProcessing ? .semibold : .regular))
+                    .foregroundColor(activityLabelColor)
+                    .animation(.easeInOut(duration: 0.2), value: tab.claudeActivity)
             }
 
-            Rectangle().fill(Theme.border).frame(width: 1, height: 12)
+            statusDivider
 
-            // Elapsed time
-            HStack(spacing: 0) {
+            // Elapsed time with subtle animation
+            HStack(spacing: 3) {
+                Image(systemName: "clock").font(.system(size: 8)).foregroundColor(Theme.textDim.opacity(0.6))
                 Text(formatElapsed(elapsedSeconds)).font(Theme.chrome(9)).foregroundColor(Theme.textSecondary)
             }
 
+            // Model badge
+            HStack(spacing: 3) {
+                Text(tab.selectedModel.icon).font(.system(size: 8))
+                Text(tab.selectedModel.rawValue.capitalized)
+                    .font(Theme.chrome(8, weight: .semibold))
+                    .foregroundColor(Theme.textDim)
+            }
+            .padding(.horizontal, 6).padding(.vertical, 2)
+            .background(Theme.bgSurface.opacity(0.8))
+            .cornerRadius(4)
+
             // File count
             if !tab.fileChanges.isEmpty {
-                Rectangle().fill(Theme.border).frame(width: 1, height: 12)
-                HStack(spacing: 3) {
-                    Image(systemName: "doc.fill").font(Theme.chrome(8)).foregroundColor(Theme.green)
-                    Text("\(Set(tab.fileChanges.map(\.fileName)).count) files").font(Theme.chrome(9, weight: .bold)).foregroundColor(Theme.green)
-                }
+                statusDivider
+                statusPill(icon: "doc.fill", text: "\(Set(tab.fileChanges.map(\.fileName)).count)", color: Theme.green)
             }
 
             // Error count
             if tab.errorCount > 0 {
-                HStack(spacing: 3) {
-                    Image(systemName: "exclamationmark.triangle.fill").font(Theme.chrome(7)).foregroundColor(Theme.red)
-                    Text("\(tab.errorCount) errors").font(Theme.chrome(9, weight: .bold)).foregroundColor(Theme.red)
-                }
+                statusPill(icon: "exclamationmark.triangle.fill", text: "\(tab.errorCount)", color: Theme.red)
             }
 
             // Commands
             if tab.commandCount > 0 {
-                HStack(spacing: 3) {
-                    Image(systemName: "terminal").font(Theme.chrome(7)).foregroundColor(Theme.textDim)
-                    Text("\(tab.commandCount) cmds").font(Theme.chrome(9)).foregroundColor(Theme.textSecondary)
+                statusPill(icon: "terminal", text: "\(tab.commandCount)", color: Theme.textDim)
+            }
+
+            // Token sparkline (last 5 prompts)
+            if tab.tokensUsed > 0 {
+                HStack(spacing: 2) {
+                    Text("\(formatK(tab.tokensUsed))")
+                        .font(Theme.chrome(8, weight: .medium))
+                        .foregroundColor(Theme.yellow.opacity(0.8))
                 }
+                .padding(.horizontal, 5).padding(.vertical, 2)
+                .background(Theme.yellow.opacity(0.06))
+                .cornerRadius(4)
             }
 
             Spacer()
 
-            // Toggle buttons
-            Button(action: { withAnimation(.easeInOut(duration: 0.15)) { showFilterBar.toggle() } }) {
+            // SSH indicator
+            if tab.isSSH {
                 HStack(spacing: 3) {
-                    Image(systemName: "line.3.horizontal.decrease.circle\(showFilterBar ? ".fill" : "")")
-                        .font(Theme.chrome(8))
-                    Text(NSLocalizedString("terminal.filter", comment: "")).font(Theme.chrome(8, weight: showFilterBar ? .bold : .regular))
+                    Image(systemName: "network").font(.system(size: 8))
+                    Text("SSH").font(Theme.chrome(8, weight: .bold))
                 }
-                .foregroundColor(showFilterBar || blockFilter.isActive ? Theme.accent : Theme.textDim)
-                .padding(.horizontal, 5).padding(.vertical, 2)
-                .background(showFilterBar ? Theme.accent.opacity(0.08) : .clear).cornerRadius(Theme.cornerSmall)
-            }.buttonStyle(.plain).help(NSLocalizedString("terminal.help.log.filter", comment: ""))
+                .foregroundColor(Theme.cyan)
+                .padding(.horizontal, 6).padding(.vertical, 2)
+                .background(Theme.cyan.opacity(0.08))
+                .cornerRadius(4)
+            }
 
-            Button(action: { withAnimation(.easeInOut(duration: 0.15)) { showFilePanel.toggle() } }) {
-                HStack(spacing: 3) {
-                    Image(systemName: "doc.text.magnifyingglass").font(Theme.chrome(8))
-                    Text(NSLocalizedString("terminal.file", comment: "")).font(Theme.chrome(8, weight: showFilePanel ? .bold : .regular))
-                }
-                .foregroundColor(showFilePanel ? Theme.accent : Theme.textDim)
-                .padding(.horizontal, 5).padding(.vertical, 2)
-                .background(showFilePanel ? Theme.accent.opacity(0.08) : .clear).cornerRadius(Theme.cornerSmall)
-            }.buttonStyle(.plain).help(NSLocalizedString("terminal.help.file.changes", comment: ""))
+            // Toggle buttons with improved styling
+            statusToggleBtn(
+                icon: "line.3.horizontal.decrease.circle\(showFilterBar ? ".fill" : "")",
+                label: NSLocalizedString("terminal.filter", comment: ""),
+                isActive: showFilterBar || blockFilter.isActive,
+                action: { withAnimation(.easeInOut(duration: 0.15)) { showFilterBar.toggle() } }
+            )
+
+            statusToggleBtn(
+                icon: "doc.text.magnifyingglass",
+                label: NSLocalizedString("terminal.file", comment: ""),
+                isActive: showFilePanel,
+                action: { withAnimation(.easeInOut(duration: 0.15)) { showFilePanel.toggle() } }
+            )
         }
         .padding(.horizontal, Theme.sp3).padding(.vertical, 5)
-        .background(Theme.bgSurface.opacity(0.5))
-        .overlay(Rectangle().fill(Theme.border).frame(height: 1), alignment: .bottom)
+        .background(
+            ZStack {
+                Theme.bgSurface.opacity(0.5)
+                // Subtle gradient separator
+                LinearGradient(
+                    colors: [Theme.border.opacity(0.0), Theme.border.opacity(0.05)],
+                    startPoint: .top, endPoint: .bottom
+                )
+            }
+        )
+        .overlay(Rectangle().fill(Theme.border.opacity(0.6)).frame(height: 1), alignment: .bottom)
+    }
+
+    private var statusDivider: some View {
+        RoundedRectangle(cornerRadius: 0.5)
+            .fill(Theme.border.opacity(0.5))
+            .frame(width: 1, height: 12)
+    }
+
+    private func statusPill(icon: String, text: String, color: Color) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: icon).font(.system(size: 7, weight: .semibold)).foregroundColor(color)
+            Text(text).font(Theme.chrome(8, weight: .bold)).foregroundColor(color)
+        }
+        .padding(.horizontal, 5).padding(.vertical, 2)
+        .background(color.opacity(0.06))
+        .cornerRadius(4)
+    }
+
+    private func statusToggleBtn(icon: String, label: String, isActive: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 3) {
+                Image(systemName: icon).font(Theme.chrome(8))
+                Text(label).font(Theme.chrome(8, weight: isActive ? .bold : .regular))
+            }
+            .foregroundColor(isActive ? Theme.accent : Theme.textDim)
+            .padding(.horizontal, 6).padding(.vertical, 3)
+            .background(
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(isActive ? Theme.accent.opacity(0.1) : .clear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(isActive ? Theme.accent.opacity(0.2) : .clear, lineWidth: 1)
+            )
+        }.buttonStyle(.plain)
     }
 
     private var activityLabel: String {
@@ -1361,12 +1635,27 @@ struct EventStreamView: View {
                 }
             }.padding(.horizontal, 14).padding(.vertical, 4)
         }
-        .background(Theme.bgInput)
+        .background(
+            ZStack {
+                Theme.bgInput
+                // Frosted glass effect
+                VisualEffectView(material: .headerView, blendingMode: .withinWindow)
+                    .opacity(0.3)
+            }
+        )
         .overlay(
             VStack(spacing: 0) {
-                Rectangle().fill(Theme.textDim.opacity(0.3)).frame(height: 1)
+                // Top border with gradient accent when focused
+                Rectangle()
+                    .fill(
+                        isFocused ?
+                        LinearGradient(colors: [Theme.accent.opacity(0.3), Theme.accent.opacity(0.1), Theme.border.opacity(0.3)], startPoint: .leading, endPoint: .trailing) :
+                        LinearGradient(colors: [Theme.border.opacity(0.3)], startPoint: .leading, endPoint: .trailing)
+                    )
+                    .frame(height: isFocused ? 1.5 : 1)
+                    .animation(.easeInOut(duration: 0.2), value: isFocused)
                 Spacer()
-                Rectangle().fill(Theme.textDim.opacity(0.3)).frame(height: 1)
+                Rectangle().fill(Theme.textDim.opacity(0.2)).frame(height: 1)
             }
         )
         .onDrop(of: [.fileURL, .image], isTargeted: nil) { providers in
@@ -2714,24 +3003,76 @@ struct GridSinglePanel: View {
     @ObservedObject var tab: TerminalTab
     @ObservedObject private var settings = AppSettings.shared
     let isSelected: Bool
+    @State private var isHovering = false
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 4) {
-                RoundedRectangle(cornerRadius: 1).fill(tab.workerColor).frame(width: 3, height: 12)
-                Text(tab.workerName).font(Theme.chrome(9, weight: .bold)).foregroundColor(tab.workerColor)
-                Text(tab.projectName).font(Theme.chrome(9)).foregroundColor(Theme.textSecondary).lineLimit(1)
+            HStack(spacing: 0) {
+                // Active accent strip
+                RoundedRectangle(cornerRadius: 1.5)
+                    .fill(isSelected ? tab.workerColor : tab.workerColor.opacity(0.3))
+                    .frame(width: 3, height: 14)
+                    .padding(.trailing, 4)
+
+                // Worker info
+                Text(tab.workerName)
+                    .font(Theme.chrome(9, weight: .bold))
+                    .foregroundColor(tab.workerColor)
+                Text(tab.projectName)
+                    .font(Theme.chrome(9))
+                    .foregroundColor(Theme.textSecondary)
+                    .lineLimit(1)
+                    .padding(.leading, 4)
+
                 Spacer()
-                if tab.isProcessing { ProgressView().scaleEffect(0.35).frame(width: 8, height: 8) }
-                Text(tab.selectedModel.icon).font(Theme.chrome(9))
+
+                // SSH badge
+                if tab.isSSH {
+                    Text("SSH")
+                        .font(Theme.chrome(7, weight: .bold))
+                        .foregroundColor(Theme.cyan)
+                        .padding(.horizontal, 4).padding(.vertical, 1)
+                        .background(Theme.cyan.opacity(0.1)).cornerRadius(3)
+                }
+
+                // Activity indicator
+                if tab.isProcessing {
+                    HStack(spacing: 2) {
+                        ForEach(0..<3, id: \.self) { i in
+                            Circle()
+                                .fill(tab.workerColor)
+                                .frame(width: 3, height: 3)
+                                .opacity(tab.isProcessing ? 1.0 : 0.3)
+                                .animation(
+                                    .easeInOut(duration: 0.5)
+                                    .repeatForever(autoreverses: true)
+                                    .delay(Double(i) * 0.15),
+                                    value: tab.isProcessing
+                                )
+                        }
+                    }
+                    .frame(width: 16)
+                }
+
+                Text(tab.selectedModel.icon).font(.system(size: 9))
             }
-            .padding(.horizontal, 6).padding(.vertical, 4)
+            .padding(.horizontal, 8).padding(.vertical, 5)
             .background(isSelected ? Theme.bgSelected : Theme.bgCard)
 
             EventStreamView(tab: tab, compact: true)
         }
-        .background(RoundedRectangle(cornerRadius: 8).fill(Theme.bgCard))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(isSelected ? Theme.accent.opacity(0.5) : Theme.border, lineWidth: 1))
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Theme.bgCard)
+                .shadow(color: .black.opacity(isHovering ? 0.1 : 0.04), radius: isHovering ? 6 : 3, x: 0, y: isHovering ? 3 : 1)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(isSelected ? Theme.accent.opacity(0.5) : (isHovering ? Theme.border.opacity(0.6) : Theme.border.opacity(0.3)), lineWidth: isSelected ? 1.5 : 1)
+        )
+        .scaleEffect(isHovering ? 1.005 : 1.0)
+        .animation(.easeInOut(duration: 0.15), value: isHovering)
+        .onHover { isHovering = $0 }
     }
 }
 
@@ -4264,5 +4605,27 @@ struct SleepWorkSetupSheet: View {
             if let n = Double(trimmed.dropLast()) { return Int(n * 1000) }
         }
         return Int(trimmed)
+    }
+}
+
+// ═══════════════════════════════════════════════════════
+// MARK: - Visual Effect View (Frosted Glass)
+// ═══════════════════════════════════════════════════════
+
+struct VisualEffectView: NSViewRepresentable {
+    let material: NSVisualEffectView.Material
+    let blendingMode: NSVisualEffectView.BlendingMode
+
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = material
+        view.blendingMode = blendingMode
+        view.state = .active
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = material
+        nsView.blendingMode = blendingMode
     }
 }

@@ -1,5 +1,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import os
 
 // ═══════════════════════════════════════════════════════
 // MARK: - Custom Theme Config (JSON 직렬화 모델)
@@ -53,12 +54,16 @@ class AppSettings: ObservableObject {
     private var _batchUpdateInProgress = false
 
     /// Perform multiple settings changes with only a single objectWillChange notification.
+    /// 중첩 호출 안전: 이미 batch 중이면 내부에서 다시 send하지 않음.
     func performBatchUpdate(_ changes: () -> Void) {
+        let wasAlreadyInBatch = _batchUpdateInProgress
         _batchUpdateInProgress = true
         changes()
-        _batchUpdateInProgress = false
-        objectWillChange.send()
-        Theme.invalidateFontCache()
+        if !wasAlreadyInBatch {
+            _batchUpdateInProgress = false
+            objectWillChange.send()
+            Theme.invalidateFontCache()
+        }
     }
 
     /// Sends objectWillChange only if not inside a batch update.
@@ -78,10 +83,12 @@ class AppSettings: ObservableObject {
     var themeMode: String {
         get { _themeMode.isEmpty ? (isDarkMode ? "dark" : "light") : _themeMode }
         set {
-            _themeMode = newValue
-            if newValue == "light" { isDarkMode = false }
-            else if newValue == "dark" { isDarkMode = true }
-            notifyIfNeeded()
+            performBatchUpdate {
+                _themeMode = newValue
+                // isDarkMode를 동기화
+                if newValue == "light" { isDarkMode = false }
+                else if newValue == "dark" { isDarkMode = true }
+            }
         }
     }
     @AppStorage("fontSizeScale") var fontSizeScale: Double = 1.5 {
@@ -105,11 +112,12 @@ class AppSettings: ObservableObject {
     @AppStorage("customThemeJSON") var customThemeJSON: String = "" {
         didSet {
             _cachedCustomTheme = nil
-            notifyIfNeeded()
+            // notifyIfNeeded는 saveCustomTheme의 디바운스에서 처리
         }
     }
 
     private var _cachedCustomTheme: CustomThemeConfig?
+    private var _themeSaveTimer: Timer?
 
     var customTheme: CustomThemeConfig {
         if let cached = _cachedCustomTheme { return cached }
@@ -122,10 +130,22 @@ class AppSettings: ObservableObject {
         return config
     }
 
+    /// 테마 저장 — ColorPicker 드래그 중 초당 60회 호출될 수 있으므로
+    /// 디바운스 적용하여 마지막 변경만 반영. UI 응답없음 방지.
     func saveCustomTheme(_ config: CustomThemeConfig) {
-        if let data = try? JSONEncoder().encode(config),
-           let json = String(data: data, encoding: .utf8) {
-            customThemeJSON = json
+        // 캐시는 즉시 업데이트 (UI에서 바로 반영)
+        _cachedCustomTheme = config
+
+        // 디스크 저장 + 알림은 디바운스 (0.15초)
+        _themeSaveTimer?.invalidate()
+        _themeSaveTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: false) { [weak self] _ in
+            guard let self else { return }
+            if let data = try? JSONEncoder().encode(config),
+               let json = String(data: data, encoding: .utf8) {
+                self.customThemeJSON = json
+            }
+            self.notifyIfNeeded()
+            Theme.invalidateFontCache()
         }
     }
 
@@ -1166,16 +1186,39 @@ struct CoffeeSupportTier: Identifiable, Hashable {
 }
 
 // ═══════════════════════════════════════════════════════
+// MARK: - ThemeLock (os_unfair_lock wrapper)
+// ═══════════════════════════════════════════════════════
+
+/// os_unfair_lock 기반 스레드 안전 잠금 — Theme 캐시 보호용
+final class ThemeLock: @unchecked Sendable {
+    private var _lock = os_unfair_lock()
+
+    func lock() { os_unfair_lock_lock(&_lock) }
+    func unlock() { os_unfair_lock_unlock(&_lock) }
+
+    @inline(__always)
+    func withLock<T>(_ body: () -> T) -> T {
+        os_unfair_lock_lock(&_lock)
+        defer { os_unfair_lock_unlock(&_lock) }
+        return body()
+    }
+}
+
+// ═══════════════════════════════════════════════════════
 // MARK: - Theme (동적 테마)
 // ═══════════════════════════════════════════════════════
 
 enum Theme {
-    // ── Theme Cache (시그니처 기반 — settings 실제 변경 시에만 갱신) ──
+    // ── Thread-safe Theme Cache ──
+    // os_unfair_lock으로 멀티스레드 접근 보호
+    private static let _lock = ThemeLock()
+
     private static var _cachedDark: Bool = false
     private static var _cachedIsCustom: Bool = false
     private static var _cachedCustomConfig: CustomThemeConfig?
     private static var _cachedScale: CGFloat = 1.5
     private static var _cacheSignature: Int = -1
+    private static var _fontCache: [String: Font] = [:]
 
     /// settings의 테마 관련 값들로 시그니처 생성 — 변경 감지에 사용
     private static func settingsSignature() -> Int {
@@ -1189,42 +1232,58 @@ enum Theme {
     }
 
     private static func ensureCache() {
+        // 시그니처 계산은 lock 밖에서 (AppSettings 접근은 메인 스레드 권장이나 read-only)
         let sig = settingsSignature()
-        guard sig != _cacheSignature else { return }
+        _lock.lock()
+        guard sig != _cacheSignature else { _lock.unlock(); return }
+        _lock.unlock()
+        // 설정값 스냅샷을 lock 밖에서 읽기
         let settings = AppSettings.shared
-        _cachedDark = settings.isDarkMode
-        _cachedIsCustom = settings.themeMode == "custom"
-        _cachedCustomConfig = _cachedIsCustom ? settings.customTheme : nil
-        _cachedScale = CGFloat(settings.fontSizeScale)
+        let dark = settings.isDarkMode
+        let isCustom = settings.themeMode == "custom"
+        let config: CustomThemeConfig? = isCustom ? settings.customTheme : nil
+        let scale = CGFloat(settings.fontSizeScale)
+        // lock 안에서 캐시 갱신
+        _lock.lock()
+        _cachedDark = dark
+        _cachedIsCustom = isCustom
+        _cachedCustomConfig = config
+        _cachedScale = scale
         _fontCache.removeAll()
         _cacheSignature = sig
+        _lock.unlock()
     }
 
-    /// 외부에서 강제 캐시 무효화
-    static func invalidateCache() { _cacheSignature = -1 }
+    /// 외부에서 강제 캐시 무효화 (스레드 안전)
+    static func invalidateCache() {
+        _lock.lock()
+        _cacheSignature = -1
+        _lock.unlock()
+    }
 
-    private static var dark: Bool { ensureCache(); return _cachedDark }
-    static var isCustomMode: Bool { ensureCache(); return _cachedIsCustom }
-    private static var cachedCustomConfig: CustomThemeConfig? { ensureCache(); return _cachedCustomConfig }
+    private static var dark: Bool { ensureCache(); return _lock.withLock { _cachedDark } }
+    static var isCustomMode: Bool { ensureCache(); return _lock.withLock { _cachedIsCustom } }
+    static var cachedCustomConfig: CustomThemeConfig? { ensureCache(); return _lock.withLock { _cachedCustomConfig } }
 
-    private static var scale: CGFloat { ensureCache(); return _cachedScale }
+    private static var scale: CGFloat { ensureCache(); return _lock.withLock { _cachedScale } }
     /// UI 크롬(툴바, 사이드바, 필터 등)용 완화된 스케일 — 콘텐츠보다 덜 커짐
     private static var chromeScale: CGFloat { 1 + (scale - 1) * 0.5 }
 
-    // ── Font Cache ──
-    private static var _fontCache: [String: Font] = [:]
-
     private static func cachedFont(key: String, create: () -> Font) -> Font {
-        if let cached = _fontCache[key] { return cached }
+        _lock.lock()
+        if let cached = _fontCache[key] { _lock.unlock(); return cached }
         let font = create()
         _fontCache[key] = font
+        _lock.unlock()
         return font
     }
 
     /// Clear font cache (call when font settings change)
     static func invalidateFontCache() {
+        _lock.lock()
         _fontCache.removeAll()
         _cacheSignature = -1
+        _lock.unlock()
     }
 
     // ═══════════════════════════════════════════════════════
@@ -1275,6 +1334,25 @@ enum Theme {
     static var bgPressed: Color { dark ? Color(hex: "222222") : Color(hex: "e5e5e5") }
     static var bgDisabled: Color { dark ? Color(hex: "0a0a0a") : Color(hex: "f5f5f5") }
     static var bgOverlay: Color { dark ? Color(hex: "000000").opacity(0.7) : Color(hex: "000000").opacity(0.4) }
+    static var bgPaneFocused: Color { dark ? Color(hex: "0d0d0d") : Color(hex: "f8f8f8") }
+    static var dividerColor: Color { dark ? Color(hex: "2a2a2a") : Color(hex: "d0d0d0") }
+    static var paneBorderActive: Color { accent.opacity(0.5) }
+    static var paneBorderInactive: Color { border.opacity(0.3) }
+
+    // NSColor 변환 (SwiftTerm용)
+    static var resolvedBgTerminalNSColor: NSColor {
+        if let config = cachedCustomConfig, let hex = config.bgHex, !hex.isEmpty {
+            return NSColor(hex: hex)
+        }
+        return dark ? NSColor(red: 0.04, green: 0.04, blue: 0.04, alpha: 1) : NSColor(red: 0.98, green: 0.98, blue: 0.98, alpha: 1)
+    }
+
+    static var resolvedFgTerminalNSColor: NSColor {
+        if let config = cachedCustomConfig, let hex = config.textPrimaryHex, !hex.isEmpty {
+            return NSColor(hex: hex)
+        }
+        return dark ? NSColor(red: 0.85, green: 0.85, blue: 0.85, alpha: 1) : NSColor(red: 0.1, green: 0.1, blue: 0.1, alpha: 1)
+    }
 
     // ── Borders (single-weight system: always 1px, vary opacity) ──
     static var border: Color {
@@ -1634,10 +1712,12 @@ private struct AppButtonSurfaceModifier: ViewModifier {
             .overlay(RoundedRectangle(cornerRadius: r).stroke(prominent ? tint.opacity(0.2) : Theme.border, lineWidth: 1))
 
         // 구체 타입으로 foreground 적용 — AnyShapeStyle 타입 소거는 macOS 버튼에서 전파 안 됨
-        let ct = AppSettings.shared.customTheme
-        if !prominent, tone == .accent, Theme.isCustomMode, ct.useGradient,
-           let s = ct.gradientStartHex, !s.isEmpty,
-           let e = ct.gradientEndHex, !e.isEmpty {
+        // 스레드 안전: cachedCustomConfig 스냅샷 사용 (AppSettings 직접 접근 X)
+        let ct = Theme.cachedCustomConfig
+        if !prominent, tone == .accent, Theme.isCustomMode,
+           let config = ct, config.useGradient,
+           let s = config.gradientStartHex, !s.isEmpty,
+           let e = config.gradientEndHex, !e.isEmpty {
             base.foregroundStyle(
                 LinearGradient(colors: [Color(hex: s), Color(hex: e)], startPoint: .topLeading, endPoint: .bottomTrailing)
             )
@@ -2221,6 +2301,7 @@ struct SettingsView: View {
     @State private var pluginToUninstall: PluginEntry?
     @State private var showPluginScaffold = false
     @State private var scaffoldName: String = ""
+    @State private var pluginSubTab: Int = 0
 
     private let settingsTabs: [(String, String)] = [
         ("slider.horizontal.3", NSLocalizedString("settings.general", comment: "")), ("paintbrush.fill", NSLocalizedString("settings.display", comment: "")), ("building.2.fill", NSLocalizedString("settings.office", comment: "")),
@@ -2229,6 +2310,24 @@ struct SettingsView: View {
         ("cup.and.saucer.fill", NSLocalizedString("settings.support", comment: "")), ("lock.shield.fill", NSLocalizedString("settings.security", comment: "")),
         ("keyboard.fill", NSLocalizedString("settings.shortcuts", comment: ""))
     ]
+
+    // body를 분리하여 컴파일러 타입 추론 부담 경감
+    @ViewBuilder
+    private var settingsContentArea: some View {
+        switch selectedSettingsTab {
+        case 0: generalTab
+        case 1: displayTab
+        case 2: officeTab
+        case 3: tokenTab
+        case 4: dataTab
+        case 5: templateTab
+        case 6: pluginTab
+        case 7: supportTab
+        case 8: securityTab
+        case 9: ShortcutsSettingsTab()
+        default: generalTab
+        }
+    }
 
     var body: some View {
         DSModalShell {
@@ -2240,36 +2339,20 @@ struct SettingsView: View {
             )
             .keyboardShortcut(.escape)
 
-            // 탭 바
-            ScrollView(.horizontal, showsIndicators: false) {
-                DSTabBar(tabs: settingsTabs, selectedIndex: $selectedSettingsTab)
-            }
-            .padding(.horizontal, Theme.sp4)
-            .padding(.vertical, Theme.sp2)
-
             Rectangle().fill(Theme.border).frame(height: 1)
 
-            // 탭 내용
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: Theme.sp4) {
-                    switch selectedSettingsTab {
-                    case 0: generalTab
-                    case 1: displayTab
-                    case 2: officeTab
-                    case 3: tokenTab
-                    case 4: dataTab
-                    case 5: templateTab
-                    case 6: pluginTab
-                    case 7: supportTab
-                    case 8: securityTab
-                    case 9: ShortcutsSettingsTab()
-                    default: generalTab
+            HStack(spacing: 0) {
+                settingsSidebar
+                Rectangle().fill(Theme.border).frame(width: 1)
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: Theme.sp4) {
+                        settingsContentArea
                     }
+                    .padding(Theme.sp5)
                 }
-                .padding(Theme.sp5)
             }
         }
-        .frame(width: 580, height: 680)
+        .frame(width: 720, height: 600)
         .background(Theme.bg)
         .onAppear {
             settings.ensureCoffeeSupportPreset()
@@ -2323,26 +2406,8 @@ struct SettingsView: View {
             if let hex = ct.pinkHex, !hex.isEmpty { customPinkColor = Color(hex: hex) }
             else { customPinkColor = settings.isDarkMode ? Color(hex: "e54d9e") : Color(hex: "d23197") }
         }
-        .onChange(of: settings.isDarkMode) { dark in
-            // 커스텀 hex가 없는 색상만 다크/라이트 모드 기본값으로 자동 업데이트
-            let ct = settings.customTheme
-            if ct.bgHex == nil || ct.bgHex!.isEmpty { customBgColor = dark ? Color(hex: "000000") : Color(hex: "fafafa") }
-            if ct.bgCardHex == nil || ct.bgCardHex!.isEmpty { customBgCardColor = dark ? Color(hex: "0a0a0a") : Color(hex: "ffffff") }
-            if ct.bgSurfaceHex == nil || ct.bgSurfaceHex!.isEmpty { customBgSurfaceColor = dark ? Color(hex: "111111") : Color(hex: "f5f5f5") }
-            if ct.bgTertiaryHex == nil || ct.bgTertiaryHex!.isEmpty { customBgTertiaryColor = dark ? Color(hex: "1a1a1a") : Color(hex: "ebebeb") }
-            if ct.textPrimaryHex == nil || ct.textPrimaryHex!.isEmpty { customTextPrimaryColor = dark ? Color(hex: "ededed") : Color(hex: "171717") }
-            if ct.textSecondaryHex == nil || ct.textSecondaryHex!.isEmpty { customTextSecondaryColor = dark ? Color(hex: "a1a1a1") : Color(hex: "636363") }
-            if ct.textDimHex == nil || ct.textDimHex!.isEmpty { customTextDimColor = dark ? Color(hex: "707070") : Color(hex: "8f8f8f") }
-            if ct.textMutedHex == nil || ct.textMutedHex!.isEmpty { customTextMutedColor = dark ? Color(hex: "484848") : Color(hex: "b0b0b0") }
-            if ct.borderHex == nil || ct.borderHex!.isEmpty { customBorderColor = dark ? Color(hex: "282828") : Color(hex: "e5e5e5") }
-            if ct.borderStrongHex == nil || ct.borderStrongHex!.isEmpty { customBorderStrongColor = dark ? Color(hex: "3e3e3e") : Color(hex: "d0d0d0") }
-            if ct.greenHex == nil || ct.greenHex!.isEmpty { customGreenColor = dark ? Color(hex: "3ecf8e") : Color(hex: "18a058") }
-            if ct.redHex == nil || ct.redHex!.isEmpty { customRedColor = dark ? Color(hex: "f14c4c") : Color(hex: "e5484d") }
-            if ct.yellowHex == nil || ct.yellowHex!.isEmpty { customYellowColor = dark ? Color(hex: "f5a623") : Color(hex: "ca8a04") }
-            if ct.purpleHex == nil || ct.purpleHex!.isEmpty { customPurpleColor = dark ? Color(hex: "8e4ec6") : Color(hex: "6e56cf") }
-            if ct.orangeHex == nil || ct.orangeHex!.isEmpty { customOrangeColor = dark ? Color(hex: "f97316") : Color(hex: "e5560a") }
-            if ct.cyanHex == nil || ct.cyanHex!.isEmpty { customCyanColor = dark ? Color(hex: "06b6d4") : Color(hex: "0891b2") }
-            if ct.pinkHex == nil || ct.pinkHex!.isEmpty { customPinkColor = dark ? Color(hex: "e54d9e") : Color(hex: "d23197") }
+        .onChange(of: settings.isDarkMode) { _, dark in
+            syncCustomColorDefaults(dark: dark)
         }
         .alert(clearAllMode ? NSLocalizedString("theme.alert.clear.all", comment: "") : NSLocalizedString("theme.alert.clear.old", comment: ""), isPresented: $showClearConfirm) {
             Button(NSLocalizedString("delete", comment: ""), role: .destructive) {
@@ -2421,30 +2486,39 @@ struct SettingsView: View {
         }.buttonStyle(.plain)
     }
 
-    // MARK: - Tab Button
+    // MARK: - Sidebar
 
-    private func settingsTabButton(_ title: String, icon: String, tab: Int) -> some View {
-        let selected = selectedSettingsTab == tab
-        return Button(action: { withAnimation(.easeInOut(duration: 0.15)) { selectedSettingsTab = tab } }) {
-            VStack(spacing: 4) {
-                Image(systemName: icon)
-                    .font(.system(size: Theme.iconSize(12), weight: .medium))
-                Text(title)
-                    .font(Theme.mono(8, weight: selected ? .bold : .medium))
+    private var settingsSidebar: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: 2) {
+                ForEach(Array(settingsTabs.enumerated()), id: \.offset) { index, tab in
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.12)) { selectedSettingsTab = index }
+                    }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: tab.0)
+                                .font(.system(size: Theme.iconSize(11), weight: .medium))
+                                .foregroundColor(index == selectedSettingsTab ? Theme.accent : Theme.textDim)
+                                .frame(width: 18)
+                            Text(tab.1)
+                                .font(Theme.mono(10, weight: index == selectedSettingsTab ? .semibold : .regular))
+                                .foregroundColor(index == selectedSettingsTab ? Theme.textPrimary : Theme.textSecondary)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background(
+                            RoundedRectangle(cornerRadius: Theme.cornerMedium)
+                                .fill(index == selectedSettingsTab ? Theme.bgSurface : .clear)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
             }
-            .foregroundColor(selected ? Theme.accent : Theme.textDim)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: Theme.cornerSmall)
-                    .fill(selected ? Theme.accent.opacity(0.08) : Theme.bgSurface.opacity(0.45))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.cornerSmall)
-                    .stroke(selected ? Theme.accent.opacity(0.18) : Theme.border.opacity(0.18), lineWidth: 1)
-            )
+            .padding(10)
         }
-        .buttonStyle(.plain)
+        .frame(width: 170)
+        .background(Theme.bgCard)
     }
 
     // MARK: - 일반 탭
@@ -2579,8 +2653,9 @@ struct SettingsView: View {
                         themeModeButton(title: "Custom", icon: "paintpalette.fill", mode: "custom")
                     }
 
-                    // 플러그인 테마
-                    if !PluginHost.shared.themes.isEmpty {
+                    // 플러그인 테마 (로컬 스냅샷으로 race condition 방지)
+                    let pluginThemes = PluginHost.shared.themes
+                    if !pluginThemes.isEmpty {
                         VStack(alignment: .leading, spacing: 6) {
                             HStack(spacing: 4) {
                                 Image(systemName: "puzzlepiece.fill")
@@ -2590,7 +2665,7 @@ struct SettingsView: View {
                             }.foregroundColor(Theme.textDim)
 
                             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
-                                ForEach(PluginHost.shared.themes) { theme in
+                                ForEach(pluginThemes) { theme in
                                     Button(action: { PluginHost.shared.applyTheme(theme) }) {
                                         VStack(spacing: 4) {
                                             Circle()
@@ -2625,7 +2700,7 @@ struct SettingsView: View {
                 VStack(spacing: 10) {
                     HStack(spacing: 6) {
                         ForEach(fontSizeOptions, id: \.value) { opt in
-                            Button(action: { withAnimation(.easeInOut(duration: 0.15)) { settings.fontSizeScale = opt.value } }) {
+                            Button(action: { settings.fontSizeScale = opt.value }) {
                                 VStack(spacing: 4) {
                                     Text("Aa")
                                         .font(.system(size: CGFloat(10 * opt.value), weight: .medium, design: .monospaced))
@@ -3326,6 +3401,125 @@ struct SettingsView: View {
 
     private var pluginTab: some View {
         VStack(spacing: 14) {
+            // 재시작 필요 배너
+            if pluginManager.needsRestart {
+                HStack(spacing: 10) {
+                    Image(systemName: "arrow.clockwise.circle.fill")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(Theme.green)
+                    Text(NSLocalizedString("plugin.restart.needed", comment: "플러그인을 적용하려면 앱을 재시작하세요."))
+                        .font(Theme.mono(11, weight: .medium))
+                        .foregroundColor(Theme.textPrimary)
+                    Spacer()
+                    Button(action: { pluginManager.restartApp() }) {
+                        Text(NSLocalizedString("plugin.restart.btn", comment: "재시작"))
+                            .font(Theme.mono(10, weight: .bold))
+                            .foregroundColor(Theme.textOnAccent)
+                            .padding(.horizontal, 12).padding(.vertical, 6)
+                            .background(RoundedRectangle(cornerRadius: 6).fill(Theme.green))
+                    }.buttonStyle(.plain)
+                }
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Theme.green.opacity(0.08)))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.green.opacity(0.2), lineWidth: 1))
+            }
+
+            // 세그먼트 컨트롤
+            Picker("", selection: $pluginSubTab) {
+                Text(NSLocalizedString("plugin.section.installed", comment: "")).tag(0)
+                Text(NSLocalizedString("plugin.marketplace", comment: "")).tag(1)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+
+            if pluginSubTab == 0 {
+                pluginInstalledContent
+            } else {
+                pluginMarketplaceContent
+            }
+        }
+        .onAppear {
+            if pluginManager.registryPlugins.isEmpty && !pluginManager.isLoadingRegistry {
+                pluginManager.fetchRegistry()
+            }
+        }
+        .alert(NSLocalizedString("plugin.confirm.uninstall", comment: ""), isPresented: $showPluginUninstallConfirm) {
+            Button(NSLocalizedString("delete", comment: ""), role: .destructive) {
+                if let plugin = pluginToUninstall {
+                    pluginManager.uninstall(plugin)
+                    pluginToUninstall = nil
+                }
+            }
+            Button(NSLocalizedString("cancel", comment: ""), role: .cancel) { pluginToUninstall = nil }
+        } message: {
+            Text(String(format: NSLocalizedString("plugin.confirm.uninstall.msg", comment: ""), pluginToUninstall?.name ?? ""))
+        }
+        .sheet(isPresented: $showPluginScaffold) {
+            VStack(spacing: 16) {
+                HStack {
+                    Image(systemName: "hammer.fill")
+                        .font(.system(size: Theme.iconSize(14), weight: .bold))
+                        .foregroundColor(Theme.green)
+                    Text(NSLocalizedString("plugin.scaffold.title", comment: ""))
+                        .font(Theme.mono(13, weight: .bold))
+                        .foregroundColor(Theme.textPrimary)
+                    Spacer()
+                    Button(action: { showPluginScaffold = false }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(Theme.textDim)
+                    }.buttonStyle(.plain)
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(NSLocalizedString("plugin.scaffold.name.label", comment: ""))
+                        .font(Theme.mono(10, weight: .medium))
+                        .foregroundColor(Theme.textSecondary)
+                    TextField(NSLocalizedString("plugin.scaffold.name.placeholder", comment: ""), text: $scaffoldName)
+                        .font(Theme.mono(11)).textFieldStyle(.plain)
+                        .padding(10)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Theme.bgSurface))
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.border, lineWidth: 1))
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(NSLocalizedString("plugin.scaffold.desc", comment: ""))
+                        .font(Theme.mono(8))
+                        .foregroundColor(Theme.textDim)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                HStack {
+                    Spacer()
+                    Button(action: { showPluginScaffold = false }) {
+                        Text(NSLocalizedString("cancel", comment: ""))
+                            .font(Theme.mono(10, weight: .medium))
+                            .foregroundColor(Theme.textSecondary)
+                            .padding(.horizontal, 14).padding(.vertical, 8)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(Theme.bgSurface))
+                    }.buttonStyle(.plain)
+
+                    Button(action: { scaffoldNewPlugin() }) {
+                        Text(NSLocalizedString("plugin.scaffold.btn", comment: ""))
+                            .font(Theme.mono(10, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 14).padding(.vertical, 8)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(scaffoldName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Theme.textDim : Theme.green))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(scaffoldName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            .padding(20)
+            .frame(width: 400)
+            .background(Theme.bg)
+        }
+    }
+
+    // MARK: - Plugin Sub-tabs
+
+    private var pluginInstalledContent: some View {
+        VStack(spacing: 14) {
             settingsSection(title: NSLocalizedString("plugin.section.add", comment: ""), subtitle: NSLocalizedString("plugin.section.add.subtitle", comment: "")) {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 8) {
@@ -3351,7 +3545,6 @@ struct SettingsView: View {
                         .disabled(pluginManager.isInstalling || pluginSourceInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
 
-                    // 로컬 폴더 선택 + 새 플러그인 생성
                     HStack(spacing: 8) {
                         Button(action: { pickLocalPluginFolder() }) {
                             HStack(spacing: 4) {
@@ -3447,7 +3640,22 @@ struct SettingsView: View {
                 }
             }
 
-            // 마켓플레이스
+            settingsSection(title: NSLocalizedString("plugin.section.info", comment: ""), subtitle: NSLocalizedString("plugin.section.info.subtitle", comment: "")) {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "info.circle.fill")
+                        .font(.system(size: Theme.iconSize(11), weight: .bold))
+                        .foregroundStyle(Theme.accentBackground)
+                    Text(NSLocalizedString("plugin.info.desc", comment: ""))
+                        .font(Theme.mono(8))
+                        .foregroundColor(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
+    private var pluginMarketplaceContent: some View {
+        VStack(spacing: 14) {
             settingsSection(
                 title: NSLocalizedString("plugin.marketplace", comment: ""),
                 subtitle: pluginManager.isLoadingRegistry
@@ -3513,95 +3721,6 @@ struct SettingsView: View {
                     }
                 }
             }
-
-            // 정보
-            settingsSection(title: NSLocalizedString("plugin.section.info", comment: ""), subtitle: NSLocalizedString("plugin.section.info.subtitle", comment: "")) {
-                HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "info.circle.fill")
-                        .font(.system(size: Theme.iconSize(11), weight: .bold))
-                        .foregroundStyle(Theme.accentBackground)
-                    Text(NSLocalizedString("plugin.info.desc", comment: ""))
-                        .font(Theme.mono(8))
-                        .foregroundColor(Theme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        }
-        .onAppear {
-            if pluginManager.registryPlugins.isEmpty && !pluginManager.isLoadingRegistry {
-                pluginManager.fetchRegistry()
-            }
-        }
-        .alert(NSLocalizedString("plugin.confirm.uninstall", comment: ""), isPresented: $showPluginUninstallConfirm) {
-            Button(NSLocalizedString("delete", comment: ""), role: .destructive) {
-                if let plugin = pluginToUninstall {
-                    pluginManager.uninstall(plugin)
-                    pluginToUninstall = nil
-                }
-            }
-            Button(NSLocalizedString("cancel", comment: ""), role: .cancel) { pluginToUninstall = nil }
-        } message: {
-            Text(String(format: NSLocalizedString("plugin.confirm.uninstall.msg", comment: ""), pluginToUninstall?.name ?? ""))
-        }
-        .sheet(isPresented: $showPluginScaffold) {
-            VStack(spacing: 16) {
-                HStack {
-                    Image(systemName: "hammer.fill")
-                        .font(.system(size: Theme.iconSize(14), weight: .bold))
-                        .foregroundColor(Theme.green)
-                    Text(NSLocalizedString("plugin.scaffold.title", comment: ""))
-                        .font(Theme.mono(13, weight: .bold))
-                        .foregroundColor(Theme.textPrimary)
-                    Spacer()
-                    Button(action: { showPluginScaffold = false }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 14))
-                            .foregroundColor(Theme.textDim)
-                    }.buttonStyle(.plain)
-                }
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(NSLocalizedString("plugin.scaffold.name.label", comment: ""))
-                        .font(Theme.mono(10, weight: .medium))
-                        .foregroundColor(Theme.textSecondary)
-                    TextField(NSLocalizedString("plugin.scaffold.name.placeholder", comment: ""), text: $scaffoldName)
-                        .font(Theme.mono(11)).textFieldStyle(.plain)
-                        .padding(10)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(Theme.bgSurface))
-                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.border, lineWidth: 1))
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(NSLocalizedString("plugin.scaffold.desc", comment: ""))
-                        .font(Theme.mono(8))
-                        .foregroundColor(Theme.textDim)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                HStack {
-                    Spacer()
-                    Button(action: { showPluginScaffold = false }) {
-                        Text(NSLocalizedString("cancel", comment: ""))
-                            .font(Theme.mono(10, weight: .medium))
-                            .foregroundColor(Theme.textSecondary)
-                            .padding(.horizontal, 14).padding(.vertical, 8)
-                            .background(RoundedRectangle(cornerRadius: 8).fill(Theme.bgSurface))
-                    }.buttonStyle(.plain)
-
-                    Button(action: { scaffoldNewPlugin() }) {
-                        Text(NSLocalizedString("plugin.scaffold.btn", comment: ""))
-                            .font(Theme.mono(10, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 14).padding(.vertical, 8)
-                            .background(RoundedRectangle(cornerRadius: 8).fill(scaffoldName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Theme.textDim : Theme.green))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(scaffoldName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-            }
-            .padding(20)
-            .frame(width: 400)
-            .background(Theme.bg)
         }
     }
 
@@ -4184,8 +4303,8 @@ struct SettingsView: View {
         let selected = settings.themeMode == mode
         let tint: Color = mode == "dark" ? Theme.yellow : (mode == "custom" ? Theme.purple : Theme.orange)
         return Button(action: {
-            withAnimation(.easeInOut(duration: 0.2)) { settings.themeMode = mode }
-            settings.requestRefreshIfNeeded()
+            guard mode != settings.themeMode else { return }
+            settings.themeMode = mode
         }) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
@@ -4210,7 +4329,10 @@ struct SettingsView: View {
     private func themeButton(title: String, icon: String, isDark: Bool) -> some View {
         let selected = settings.isDarkMode == isDark
         let tint = isDark ? Theme.yellow : Theme.orange
-        return Button(action: { withAnimation(.easeInOut(duration: 0.2)) { settings.isDarkMode = isDark }; settings.requestRefreshIfNeeded() }) {
+        return Button(action: {
+            guard settings.isDarkMode != isDark else { return }
+            settings.isDarkMode = isDark
+        }) {
             HStack(spacing: 8) {
                 Image(systemName: icon)
                     .font(.system(size: Theme.iconSize(14)))
@@ -4279,9 +4401,7 @@ struct SettingsView: View {
         let locked = !theme.isUnlocked
         return Button(action: {
             guard !locked else { return }
-            withAnimation(.easeInOut(duration: 0.15)) {
-                settings.backgroundTheme = theme.rawValue
-            }
+            settings.backgroundTheme = theme.rawValue
         }) {
             HStack(spacing: 6) {
                 Image(systemName: locked ? "lock.fill" : theme.icon)
@@ -4552,6 +4672,29 @@ struct SettingsView: View {
                 .font(Theme.mono(9, weight: .medium))
         }
         .foregroundColor(tint)
+    }
+
+    // MARK: - Sync Custom Color Defaults
+
+    private func syncCustomColorDefaults(dark: Bool) {
+        let ct = settings.customTheme
+        if (ct.bgHex ?? "").isEmpty { customBgColor = dark ? Color(hex: "000000") : Color(hex: "fafafa") }
+        if (ct.bgCardHex ?? "").isEmpty { customBgCardColor = dark ? Color(hex: "0a0a0a") : Color(hex: "ffffff") }
+        if (ct.bgSurfaceHex ?? "").isEmpty { customBgSurfaceColor = dark ? Color(hex: "111111") : Color(hex: "f5f5f5") }
+        if (ct.bgTertiaryHex ?? "").isEmpty { customBgTertiaryColor = dark ? Color(hex: "1a1a1a") : Color(hex: "ebebeb") }
+        if (ct.textPrimaryHex ?? "").isEmpty { customTextPrimaryColor = dark ? Color(hex: "ededed") : Color(hex: "171717") }
+        if (ct.textSecondaryHex ?? "").isEmpty { customTextSecondaryColor = dark ? Color(hex: "a1a1a1") : Color(hex: "636363") }
+        if (ct.textDimHex ?? "").isEmpty { customTextDimColor = dark ? Color(hex: "707070") : Color(hex: "8f8f8f") }
+        if (ct.textMutedHex ?? "").isEmpty { customTextMutedColor = dark ? Color(hex: "484848") : Color(hex: "b0b0b0") }
+        if (ct.borderHex ?? "").isEmpty { customBorderColor = dark ? Color(hex: "282828") : Color(hex: "e5e5e5") }
+        if (ct.borderStrongHex ?? "").isEmpty { customBorderStrongColor = dark ? Color(hex: "3e3e3e") : Color(hex: "d0d0d0") }
+        if (ct.greenHex ?? "").isEmpty { customGreenColor = dark ? Color(hex: "3ecf8e") : Color(hex: "18a058") }
+        if (ct.redHex ?? "").isEmpty { customRedColor = dark ? Color(hex: "f14c4c") : Color(hex: "e5484d") }
+        if (ct.yellowHex ?? "").isEmpty { customYellowColor = dark ? Color(hex: "f5a623") : Color(hex: "ca8a04") }
+        if (ct.purpleHex ?? "").isEmpty { customPurpleColor = dark ? Color(hex: "8e4ec6") : Color(hex: "6e56cf") }
+        if (ct.orangeHex ?? "").isEmpty { customOrangeColor = dark ? Color(hex: "f97316") : Color(hex: "e5560a") }
+        if (ct.cyanHex ?? "").isEmpty { customCyanColor = dark ? Color(hex: "06b6d4") : Color(hex: "0891b2") }
+        if (ct.pinkHex ?? "").isEmpty { customPinkColor = dark ? Color(hex: "e54d9e") : Color(hex: "d23197") }
     }
 
     // ── Secret Key ──
@@ -5103,7 +5246,7 @@ struct AccessoryView: View {
     private func bgThemeButton(_ theme: BackgroundTheme) -> some View {
         let selected = settings.backgroundTheme == theme.rawValue
         let locked = !theme.isUnlocked
-        return Button(action: { guard !locked else { return }; withAnimation(.easeInOut(duration: 0.15)) { settings.backgroundTheme = theme.rawValue } }) {
+        return Button(action: { guard !locked else { return }; settings.backgroundTheme = theme.rawValue }) {
             VStack(spacing: 4) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 6)
@@ -5923,5 +6066,23 @@ extension Color {
     /// 배경색 위 텍스트 가독성을 위한 자동 대비 색상
     var contrastingTextColor: Color {
         luminance > 0.179 ? .black : .white
+    }
+}
+
+extension NSColor {
+    convenience init(hex: String) {
+        var hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        if hex.count == 3 {
+            hex = hex.map { "\($0)\($0)" }.joined()
+        }
+        var int: UInt64 = 0
+        guard Scanner(string: hex).scanHexInt64(&int), hex.count == 6 else {
+            self.init(red: 1, green: 0, blue: 1, alpha: 1)
+            return
+        }
+        let r = CGFloat(int >> 16) / 255
+        let g = CGFloat(int >> 8 & 0xFF) / 255
+        let b = CGFloat(int & 0xFF) / 255
+        self.init(srgbRed: r, green: g, blue: b, alpha: 1)
     }
 }

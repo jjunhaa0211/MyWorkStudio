@@ -374,6 +374,9 @@ public final class OfficeSceneStore: ObservableObject {
         let baseLayout = officeMap.layoutSnapshot()
         OfficeLayoutStore.shared.applyStoredLayout(to: officeMap, preset: preset)
 
+        // 플러그인 가구 배치 (오피스 프리셋 적용)
+        PluginHost.shared.addPluginFurnitureToMap(officeMap)
+
         self.map = officeMap
         self.defaultLayout = baseLayout
         self.currentPreset = preset
@@ -420,6 +423,8 @@ public final class OfficeSceneStore: ObservableObject {
         defaultLayout = baseLayout
         map.applyLayoutSnapshot(baseLayout)
         OfficeLayoutStore.shared.applyStoredLayout(to: map, preset: preset)
+        // 플러그인 가구 재배치
+        PluginHost.shared.addPluginFurnitureToMap(map)
         controller.refreshLayout(with: tabs)
         lastSyncSignature = syncSignature(for: tabs)
         invalidateBackgroundSnapshot()

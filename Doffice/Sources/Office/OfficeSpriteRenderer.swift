@@ -1,4 +1,153 @@
 import SwiftUI
+import os
+
+// ═══════════════════════════════════════════════════════
+// MARK: - Hex→Color Fast Cache (전역, 스레드 안전)
+// ═══════════════════════════════════════════════════════
+
+/// 프레임당 수천 번 호출되는 HexColorCache.shared.color(for:) 변환을 O(1)로 캐싱
+/// os_unfair_lock 보호 — 렌더링 스레드에서 안전
+final class HexColorCache {
+    static let shared = HexColorCache()
+
+    private var cache: [String: Color] = [:]
+    private var rgbaCache: [String: (UInt8, UInt8, UInt8)] = [:]
+    private var lock = os_unfair_lock()
+
+    func color(for hex: String) -> Color {
+        os_unfair_lock_lock(&lock)
+        if let cached = cache[hex] {
+            os_unfair_lock_unlock(&lock)
+            return cached
+        }
+        os_unfair_lock_unlock(&lock)
+        let c = HexColorCache.shared.color(for: hex)
+        os_unfair_lock_lock(&lock)
+        cache[hex] = c
+        os_unfair_lock_unlock(&lock)
+        return c
+    }
+
+    /// CGImage 래스터용 — hex → (R, G, B) 바이트
+    func rgb(for hex: String) -> (UInt8, UInt8, UInt8) {
+        os_unfair_lock_lock(&lock)
+        if let cached = rgbaCache[hex] {
+            os_unfair_lock_unlock(&lock)
+            return cached
+        }
+        os_unfair_lock_unlock(&lock)
+
+        var cleanHex = hex.replacingOccurrences(of: "#", with: "").uppercased()
+        if cleanHex.count == 3 {
+            cleanHex = cleanHex.map { "\($0)\($0)" }.joined()
+        }
+        var int: UInt64 = 0
+        Scanner(string: cleanHex).scanHexInt64(&int)
+        let r = UInt8((int >> 16) & 0xFF)
+        let g = UInt8((int >> 8) & 0xFF)
+        let b = UInt8(int & 0xFF)
+        let result = (r, g, b)
+
+        os_unfair_lock_lock(&lock)
+        rgbaCache[hex] = result
+        os_unfair_lock_unlock(&lock)
+        return result
+    }
+
+    func clear() {
+        os_unfair_lock_lock(&lock)
+        cache.removeAll()
+        rgbaCache.removeAll()
+        os_unfair_lock_unlock(&lock)
+    }
+}
+
+// ═══════════════════════════════════════════════════════
+// MARK: - Sprite Rasterizer (SpriteData → CGImage)
+// ═══════════════════════════════════════════════════════
+
+/// 픽셀 그리드 스프라이트를 CGImage로 프리래스터 — Canvas fill 수백 번 → drawImage 1번
+enum SpriteRasterizer {
+    /// SpriteData를 RGBA CGImage로 변환 (16×20 → 18×23 @ 1.15x)
+    /// CGContext 직접 사용 — Data 복사 없이 메모리 효율적
+    static func rasterize(_ sprite: SpriteData) -> CGImage? {
+        guard !sprite.isEmpty, !sprite[0].isEmpty else { return nil }
+        let srcH = sprite.count
+        let srcW = sprite[0].count
+        let dstW = Int(ceil(Double(srcW) * 1.15))
+        let dstH = Int(ceil(Double(srcH) * 1.15))
+
+        // CGContext로 직접 래스터 — 메모리 복사 없음
+        guard let cgCtx = CGContext(
+            data: nil,
+            width: dstW, height: dstH,
+            bitsPerComponent: 8, bytesPerRow: dstW * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return nil }
+
+        // Y축 뒤집기 (CGContext는 좌하단 원점)
+        cgCtx.translateBy(x: 0, y: CGFloat(dstH))
+        cgCtx.scaleBy(x: 1, y: -1)
+
+        let colorCache = HexColorCache.shared
+        for srcY in 0..<srcH {
+            let row = sprite[srcY]
+            // 같은 색 연속 픽셀 배칭 (RLE)
+            var runStart = 0
+            var runHex = ""
+            for srcX in 0...row.count {
+                let hex = srcX < row.count ? row[srcX] : ""
+                if hex == runHex && !hex.isEmpty { continue }
+                // 이전 런 플러시
+                if !runHex.isEmpty {
+                    let (r, g, b) = colorCache.rgb(for: runHex)
+                    cgCtx.setFillColor(red: CGFloat(r) / 255, green: CGFloat(g) / 255, blue: CGFloat(b) / 255, alpha: 1)
+                    let x1 = Int(Double(runStart) * 1.15)
+                    let x2 = min(Int(Double(srcX) * 1.15), dstW)
+                    let y1 = Int(Double(srcY) * 1.15)
+                    let y2 = min(Int(Double(srcY + 1) * 1.15), dstH)
+                    cgCtx.fill(CGRect(x: x1, y: y1, width: x2 - x1, height: y2 - y1))
+                }
+                runStart = srcX
+                runHex = hex
+            }
+        }
+
+        return cgCtx.makeImage()
+    }
+
+    // CGImage 캐시: "spriteKey|dir|state|frame" → CGImage
+    private static var imageCache: [String: CGImage] = [:]
+    private static var lock = os_unfair_lock()
+
+    static func cachedImage(key: String, sprite: SpriteData) -> CGImage? {
+        os_unfair_lock_lock(&lock)
+        if let cached = imageCache[key] {
+            os_unfair_lock_unlock(&lock)
+            return cached
+        }
+        os_unfair_lock_unlock(&lock)
+
+        guard let img = rasterize(sprite) else { return nil }
+
+        os_unfair_lock_lock(&lock)
+        // 캐시 크기 제한 (500개) — 초과 시 절반 제거
+        if imageCache.count > 500 {
+            let keysToRemove = Array(imageCache.keys.prefix(imageCache.count / 2))
+            for k in keysToRemove { imageCache.removeValue(forKey: k) }
+        }
+        imageCache[key] = img
+        os_unfair_lock_unlock(&lock)
+        return img
+    }
+
+    static func clearCache() {
+        os_unfair_lock_lock(&lock)
+        imageCache.removeAll()
+        os_unfair_lock_unlock(&lock)
+    }
+}
 
 // ═══════════════════════════════════════════════════════
 // MARK: - Office Sprite Renderer (Z-sorted Canvas)
@@ -52,6 +201,8 @@ struct OfficeSpriteRenderer {
 
     // Reusable Z-sort buffer — avoids per-frame heap allocation
     private static var zBuffer: [ZDrawable] = []
+    // Z-sort dirty tracking — 이동 없으면 정렬 스킵
+    private static var lastZSortSignature: Int = -1
 
     // Pre-allocated bubble text arrays to avoid per-frame allocation
     private static let greetTexts0 = ["(ᵔᴥᵔ)", "ヾ(＾∇＾)", "(◕‿◕)", "\\(^o^)/"]
@@ -211,7 +362,7 @@ struct OfficeSpriteRenderer {
         let floorPalette = palette.officeFloor
         let outline = floorPalette[3]
         let highlight = floorPalette[2]
-        let baseColor = Color(hex: floorPalette[seed % min(floorPalette.count, 2)])
+        let baseColor = HexColorCache.shared.color(for: floorPalette[seed % min(floorPalette.count, 2)])
         let half = ts / 2
 
         ctx.fill(Path(CGRect(x: x, y: y, width: ts, height: ts)), with: .color(baseColor))
@@ -229,21 +380,21 @@ struct OfficeSpriteRenderer {
         }
 
         ctx.fill(Path(CGRect(x: x, y: y, width: ts, height: 0.7)),
-                 with: .color(Color(hex: highlight).opacity(0.45)))
+                 with: .color(HexColorCache.shared.color(for: highlight).opacity(0.45)))
         ctx.fill(Path(CGRect(x: x, y: y, width: 0.7, height: ts)),
-                 with: .color(Color(hex: highlight).opacity(0.25)))
+                 with: .color(HexColorCache.shared.color(for: highlight).opacity(0.25)))
         ctx.fill(Path(CGRect(x: x, y: y + half - 0.25, width: ts, height: 0.5)),
-                 with: .color(Color(hex: outline).opacity(0.22)))
+                 with: .color(HexColorCache.shared.color(for: outline).opacity(0.22)))
         ctx.fill(Path(CGRect(x: x + half - 0.25, y: y, width: 0.5, height: ts)),
-                 with: .color(Color(hex: outline).opacity(0.18)))
+                 with: .color(HexColorCache.shared.color(for: outline).opacity(0.18)))
         ctx.fill(Path(CGRect(x: x, y: y + ts - 0.6, width: ts, height: 0.6)),
-                 with: .color(Color(hex: outline).opacity(0.3)))
+                 with: .color(HexColorCache.shared.color(for: outline).opacity(0.3)))
 
         if seed % 6 == 0 {
             let knotX = x + CGFloat(3 + seed % 8)
             let knotY = y + CGFloat(4 + (seed / 7) % 7)
             ctx.fill(Path(ellipseIn: CGRect(x: knotX, y: knotY, width: 2.2, height: 1.4)),
-                     with: .color(Color(hex: outline).opacity(0.18)))
+                     with: .color(HexColorCache.shared.color(for: outline).opacity(0.18)))
         }
     }
 
@@ -252,23 +403,23 @@ struct OfficeSpriteRenderer {
         let pantryPalette = palette.pantryFloor
         let checker = (r + c) % 2 == 0
         let baseHex = checker ? pantryPalette[0] : pantryPalette[1]
-        ctx.fill(Path(CGRect(x: x, y: y, width: ts, height: ts)), with: .color(Color(hex: baseHex)))
+        ctx.fill(Path(CGRect(x: x, y: y, width: ts, height: ts)), with: .color(HexColorCache.shared.color(for: baseHex)))
 
         // Grout lines (darker, visible)
         let groutHex = pantryPalette[2]
         // Bottom grout
         ctx.fill(Path(CGRect(x: x, y: y + ts - 0.8, width: ts, height: 0.8)),
-                 with: .color(Color(hex: groutHex).opacity(0.5)))
+                 with: .color(HexColorCache.shared.color(for: groutHex).opacity(0.5)))
         // Right grout
         ctx.fill(Path(CGRect(x: x + ts - 0.8, y: y, width: 0.8, height: ts)),
-                 with: .color(Color(hex: groutHex).opacity(0.5)))
+                 with: .color(HexColorCache.shared.color(for: groutHex).opacity(0.5)))
         // Top highlight
         let hiHex = palette.windowGlow
         ctx.fill(Path(CGRect(x: x, y: y, width: ts, height: 0.5)),
-                 with: .color(Color(hex: hiHex).opacity(0.3)))
+                 with: .color(HexColorCache.shared.color(for: hiHex).opacity(0.3)))
         // Left highlight
         ctx.fill(Path(CGRect(x: x, y: y, width: 0.5, height: ts)),
-                 with: .color(Color(hex: hiHex).opacity(0.2)))
+                 with: .color(HexColorCache.shared.color(for: hiHex).opacity(0.2)))
 
         // Subtle tile variation (soft flower-like center)
         let seed = (r * 13 + c * 29) & 0xFF
@@ -277,7 +428,7 @@ struct OfficeSpriteRenderer {
             let dy = y + CGFloat((seed / 5) % 10) + 3
             let dotHex = palette.trim
             ctx.fill(Path(ellipseIn: CGRect(x: dx, y: dy, width: 1.7, height: 1.7)),
-                     with: .color(Color(hex: dotHex).opacity(0.2)))
+                     with: .color(HexColorCache.shared.color(for: dotHex).opacity(0.2)))
         }
     }
 
@@ -292,7 +443,7 @@ struct OfficeSpriteRenderer {
         } else {
             baseHex = ["B77E48", "AF7641", "BE8851", "A7703E"][variant]
         }
-        ctx.fill(Path(CGRect(x: x, y: y, width: ts, height: ts)), with: .color(Color(hex: baseHex)))
+        ctx.fill(Path(CGRect(x: x, y: y, width: ts, height: ts)), with: .color(HexColorCache.shared.color(for: baseHex)))
 
         // Draw individual plank lines (horizontal grain)
         let plankPositions: [(CGFloat, CGFloat)] = [
@@ -305,10 +456,10 @@ struct OfficeSpriteRenderer {
             let gy = y + py
             // Plank top edge (lighter)
             ctx.fill(Path(CGRect(x: x + 0.5, y: gy, width: ts - 1, height: 0.4)),
-                     with: .color(Color(hex: grainHiHex).opacity(0.3)))
+                     with: .color(HexColorCache.shared.color(for: grainHiHex).opacity(0.3)))
             // Plank bottom edge / gap (darker)
             ctx.fill(Path(CGRect(x: x + 0.5, y: gy + ph - 0.4, width: ts - 1, height: 0.5)),
-                     with: .color(Color(hex: grainHex).opacity(0.45)))
+                     with: .color(HexColorCache.shared.color(for: grainHex).opacity(0.45)))
         }
 
         // Horizontal wood grain lines within planks
@@ -319,7 +470,7 @@ struct OfficeSpriteRenderer {
             let gw = CGFloat(6 + (grainSeed + i * 7) % 6)
             if gy < y + ts - 1 {
                 ctx.fill(Path(CGRect(x: gx, y: gy, width: gw, height: 0.3)),
-                         with: .color(Color(hex: grainHex).opacity(0.2)))
+                         with: .color(HexColorCache.shared.color(for: grainHex).opacity(0.2)))
             }
         }
 
@@ -329,7 +480,7 @@ struct OfficeSpriteRenderer {
             let ky = y + CGFloat(3 + (seed / 3) % 10)
             let knotHex = dark ? "2A2018" : "B09870"
             ctx.fill(Path(ellipseIn: CGRect(x: kx, y: ky, width: 2, height: 1.5)),
-                     with: .color(Color(hex: knotHex).opacity(0.4)))
+                     with: .color(HexColorCache.shared.color(for: knotHex).opacity(0.4)))
         }
 
         // Vertical plank seam (staggered per row)
@@ -338,7 +489,7 @@ struct OfficeSpriteRenderer {
         if seamX > x && seamX < x + ts {
             let seamHex = dark ? "3C2816" : "84562D"
             ctx.fill(Path(CGRect(x: seamX - 0.2, y: y, width: 0.5, height: ts)),
-                     with: .color(Color(hex: seamHex).opacity(0.35)))
+                     with: .color(HexColorCache.shared.color(for: seamHex).opacity(0.35)))
         }
     }
 
@@ -347,7 +498,7 @@ struct OfficeSpriteRenderer {
         let carpetPalette = palette.carpetFloor
         let checker = (r + c) % 2 == 0
         let baseHex = checker ? carpetPalette[0] : carpetPalette[1]
-        ctx.fill(Path(CGRect(x: x, y: y, width: ts, height: ts)), with: .color(Color(hex: baseHex)))
+        ctx.fill(Path(CGRect(x: x, y: y, width: ts, height: ts)), with: .color(HexColorCache.shared.color(for: baseHex)))
 
         // Carpet weave texture: alternating tiny dots
         let texHex = carpetPalette[2]
@@ -357,7 +508,7 @@ struct OfficeSpriteRenderer {
                 let dotX = x + CGFloat(i)
                 let dotY = y + CGFloat(j)
                 ctx.fill(Path(CGRect(x: dotX, y: dotY, width: 0.6, height: 0.6)),
-                         with: .color(Color(hex: texHex).opacity(0.15)))
+                         with: .color(HexColorCache.shared.color(for: texHex).opacity(0.15)))
             }
         }
 
@@ -365,39 +516,39 @@ struct OfficeSpriteRenderer {
         if (r + c) % 4 == 0 {
             let sheenHex = palette.windowGlow
             ctx.fill(Path(CGRect(x: x + 2, y: y + 2, width: ts - 4, height: 0.4)),
-                     with: .color(Color(hex: sheenHex).opacity(0.15)))
+                     with: .color(HexColorCache.shared.color(for: sheenHex).opacity(0.15)))
         }
     }
 
     /// Door tile: warm wooden door with panel detail
     private func drawDoorTile(_ ctx: GraphicsContext, x: CGFloat, y: CGFloat, ts: CGFloat, r: Int, c: Int) {
         let baseHex = palette.trim
-        ctx.fill(Path(CGRect(x: x, y: y, width: ts, height: ts)), with: .color(Color(hex: baseHex)))
+        ctx.fill(Path(CGRect(x: x, y: y, width: ts, height: ts)), with: .color(HexColorCache.shared.color(for: baseHex)))
         // Raised panel
         let panelHex = palette.trimHighlight
         ctx.fill(Path(CGRect(x: x + 2, y: y + 1.5, width: ts - 4, height: ts - 3)),
-                 with: .color(Color(hex: panelHex)))
+                 with: .color(HexColorCache.shared.color(for: panelHex)))
         // Panel bevel top
         let bevelHi = palette.windowGlow
         ctx.fill(Path(CGRect(x: x + 2, y: y + 1.5, width: ts - 4, height: 0.6)),
-                 with: .color(Color(hex: bevelHi).opacity(0.5)))
+                 with: .color(HexColorCache.shared.color(for: bevelHi).opacity(0.5)))
         // Panel bevel bottom
         let bevelLo = palette.wallShadow
         ctx.fill(Path(CGRect(x: x + 2, y: y + ts - 2, width: ts - 4, height: 0.6)),
-                 with: .color(Color(hex: bevelLo).opacity(0.4)))
+                 with: .color(HexColorCache.shared.color(for: bevelLo).opacity(0.4)))
         // Doorknob
         let knobHex = dark ? "C5A15B" : "E7C36C"
         ctx.fill(Path(ellipseIn: CGRect(x: x + ts - 5, y: y + ts / 2 - 1, width: 2, height: 2)),
-                 with: .color(Color(hex: knobHex)))
+                 with: .color(HexColorCache.shared.color(for: knobHex)))
     }
 
     private func drawBackdrop(_ ctx: GraphicsContext) {
         let width = CGFloat(map.cols) * 16
         let height = CGFloat(map.rows) * 16
         let sceneRect = CGRect(x: 0, y: 0, width: width, height: height)
-        let base = Color(hex: palette.backdropBottom)
-        let topGlow = Color(hex: palette.backdropTop)
-        let middleGlow = Color(hex: palette.backdropGlow)
+        let base = HexColorCache.shared.color(for: palette.backdropBottom)
+        let topGlow = HexColorCache.shared.color(for: palette.backdropTop)
+        let middleGlow = HexColorCache.shared.color(for: palette.backdropGlow)
 
         ctx.fill(Path(sceneRect), with: .color(base))
         ctx.fill(Path(CGRect(x: 0, y: 0, width: width, height: height * 0.45)),
@@ -427,7 +578,7 @@ struct OfficeSpriteRenderer {
 
             ctx.fill(
                 beam,
-                with: .color(Color(hex: palette.beamColor).opacity(palette.beamOpacity))
+                with: .color(HexColorCache.shared.color(for: palette.beamColor).opacity(palette.beamOpacity))
             )
         }
     }
@@ -439,22 +590,22 @@ struct OfficeSpriteRenderer {
         let cloudHex = palette.outdoorAccent
 
         ctx.fill(Path(roundedRect: CGRect(x: x + 1.6, y: y + 2, width: ts - 3.2, height: ts - 5.2), cornerRadius: 1.2),
-                 with: .color(Color(hex: frameHex)))
+                 with: .color(HexColorCache.shared.color(for: frameHex)))
         ctx.fill(Path(CGRect(x: x + 3, y: y + 3.5, width: ts - 6, height: ts - 8)),
-                 with: .color(Color(hex: skyHex)))
+                 with: .color(HexColorCache.shared.color(for: skyHex)))
         ctx.fill(Path(CGRect(x: x + 3, y: y + 3.5, width: ts - 6, height: 1.6)),
-                 with: .color(Color(hex: theme.skyColors.top).opacity(0.9)))
+                 with: .color(HexColorCache.shared.color(for: theme.skyColors.top).opacity(0.9)))
         ctx.fill(Path(CGRect(x: x + ts / 2 - 0.4, y: y + 3.5, width: 0.8, height: ts - 8)),
-                 with: .color(Color(hex: frameHex).opacity(0.7)))
+                 with: .color(HexColorCache.shared.color(for: frameHex).opacity(0.7)))
         ctx.fill(Path(CGRect(x: x + 3, y: y + ts / 2, width: ts - 6, height: 0.7)),
-                 with: .color(Color(hex: frameHex).opacity(0.45)))
+                 with: .color(HexColorCache.shared.color(for: frameHex).opacity(0.45)))
         ctx.fill(Path(CGRect(x: x + 2.3, y: y + ts - 3.2, width: ts - 4.6, height: 1.2)),
-                 with: .color(Color(hex: sillHex)))
+                 with: .color(HexColorCache.shared.color(for: sillHex)))
         ctx.fill(Path(ellipseIn: CGRect(x: x + 4.6, y: y + 4.8, width: 4.2, height: 1.8)),
-                 with: .color(Color(hex: cloudHex).opacity(0.55)))
+                 with: .color(HexColorCache.shared.color(for: cloudHex).opacity(0.55)))
         drawWindowExteriorDetail(ctx, x: x, y: y, ts: ts)
         ctx.fill(Path(CGRect(x: x + 4, y: y + 4.3, width: 2.4, height: ts - 9)),
-                 with: .color(Color(hex: palette.windowGlow).opacity(0.12)))
+                 with: .color(HexColorCache.shared.color(for: palette.windowGlow).opacity(0.12)))
     }
 
     private func drawWindowExteriorDetail(_ ctx: GraphicsContext, x: CGFloat, y: CGFloat, ts: CGFloat) {
@@ -465,47 +616,47 @@ struct OfficeSpriteRenderer {
             for index in 0..<3 {
                 let rainX = detailFrame.minX + 1 + CGFloat(index) * 3.4
                 ctx.fill(Path(CGRect(x: rainX, y: detailFrame.minY + 1, width: 0.45, height: detailFrame.height - 2)),
-                         with: .color(Color(hex: palette.outdoorAccent).opacity(theme == .fog ? 0.14 : 0.22)))
+                         with: .color(HexColorCache.shared.color(for: palette.outdoorAccent).opacity(theme == .fog ? 0.14 : 0.22)))
             }
         case .snow:
             for index in 0..<4 {
                 let flakeX = detailFrame.minX + CGFloat((index * 5) % 8)
                 let flakeY = detailFrame.minY + CGFloat((index * 3) % 5) + 1
                 ctx.fill(Path(ellipseIn: CGRect(x: flakeX, y: flakeY, width: 1, height: 1)),
-                         with: .color(Color(hex: palette.windowGlow).opacity(0.6)))
+                         with: .color(HexColorCache.shared.color(for: palette.windowGlow).opacity(0.6)))
             }
         case .forest, .autumn:
             ctx.fill(Path(CGRect(x: detailFrame.minX + 0.5, y: detailFrame.maxY - 2.2, width: detailFrame.width - 1, height: 1.3)),
-                     with: .color(Color(hex: palette.outdoorAccent2).opacity(0.7)))
+                     with: .color(HexColorCache.shared.color(for: palette.outdoorAccent2).opacity(0.7)))
             ctx.fill(Path(ellipseIn: CGRect(x: detailFrame.minX + 0.8, y: detailFrame.maxY - 4.3, width: 2.8, height: 2.4)),
-                     with: .color(Color(hex: palette.outdoorAccent).opacity(0.55)))
+                     with: .color(HexColorCache.shared.color(for: palette.outdoorAccent).opacity(0.55)))
         case .cherryBlossom:
             ctx.fill(Path(ellipseIn: CGRect(x: detailFrame.minX + 1.2, y: detailFrame.minY + 1.5, width: 1.4, height: 1.2)),
-                     with: .color(Color(hex: palette.outdoorAccent).opacity(0.7)))
+                     with: .color(HexColorCache.shared.color(for: palette.outdoorAccent).opacity(0.7)))
             ctx.fill(Path(ellipseIn: CGRect(x: detailFrame.minX + 4.4, y: detailFrame.minY + 3.1, width: 1.2, height: 1.2)),
-                     with: .color(Color(hex: palette.outdoorAccent2).opacity(0.65)))
+                     with: .color(HexColorCache.shared.color(for: palette.outdoorAccent2).opacity(0.65)))
         case .neonCity:
             ctx.fill(Path(CGRect(x: detailFrame.minX + 0.8, y: detailFrame.maxY - 4, width: 1.2, height: 3)),
-                     with: .color(Color(hex: palette.outdoorAccent2).opacity(0.85)))
+                     with: .color(HexColorCache.shared.color(for: palette.outdoorAccent2).opacity(0.85)))
             ctx.fill(Path(CGRect(x: detailFrame.minX + 3.4, y: detailFrame.maxY - 5.3, width: 1.6, height: 4.3)),
-                     with: .color(Color(hex: palette.outdoorAccent).opacity(0.55)))
+                     with: .color(HexColorCache.shared.color(for: palette.outdoorAccent).opacity(0.55)))
         case .ocean:
             ctx.fill(Path(CGRect(x: detailFrame.minX + 0.5, y: detailFrame.maxY - 2.7, width: detailFrame.width - 1, height: 0.8)),
-                     with: .color(Color(hex: palette.outdoorAccent2).opacity(0.7)))
+                     with: .color(HexColorCache.shared.color(for: palette.outdoorAccent2).opacity(0.7)))
             ctx.fill(Path(CGRect(x: detailFrame.minX + 0.5, y: detailFrame.maxY - 1.6, width: detailFrame.width - 1, height: 0.5)),
-                     with: .color(Color(hex: palette.outdoorAccent).opacity(0.45)))
+                     with: .color(HexColorCache.shared.color(for: palette.outdoorAccent).opacity(0.45)))
         case .desert:
             ctx.fill(Path(ellipseIn: CGRect(x: detailFrame.minX + 0.8, y: detailFrame.maxY - 3.2, width: detailFrame.width - 1.6, height: 2.1)),
-                     with: .color(Color(hex: palette.outdoorAccent2).opacity(0.45)))
+                     with: .color(HexColorCache.shared.color(for: palette.outdoorAccent2).opacity(0.45)))
         case .volcano:
             var mountain = Path()
             mountain.move(to: CGPoint(x: detailFrame.minX + 1, y: detailFrame.maxY - 1))
             mountain.addLine(to: CGPoint(x: detailFrame.midX, y: detailFrame.minY + 2.2))
             mountain.addLine(to: CGPoint(x: detailFrame.maxX - 1, y: detailFrame.maxY - 1))
             mountain.closeSubpath()
-            ctx.fill(mountain, with: .color(Color(hex: palette.outdoorAccent2).opacity(0.5)))
+            ctx.fill(mountain, with: .color(HexColorCache.shared.color(for: palette.outdoorAccent2).opacity(0.5)))
             ctx.fill(Path(CGRect(x: detailFrame.midX - 0.4, y: detailFrame.minY + 1.1, width: 0.8, height: 1.6)),
-                     with: .color(Color(hex: palette.outdoorAccent).opacity(0.7)))
+                     with: .color(HexColorCache.shared.color(for: palette.outdoorAccent).opacity(0.7)))
         default:
             break
         }
@@ -541,40 +692,40 @@ struct OfficeSpriteRenderer {
 
         if exposedTop && exposedLeft {
             ctx.fill(Path(CGRect(x: x, y: y, width: 3.2, height: 3.2)),
-                     with: .color(Color(hex: wallHi).opacity(0.34)))
+                     with: .color(HexColorCache.shared.color(for: wallHi).opacity(0.34)))
             ctx.fill(Path(CGRect(x: x, y: y + ts - 4.1, width: 2.8, height: 0.7)),
-                     with: .color(Color(hex: trimHi).opacity(0.35)))
+                     with: .color(HexColorCache.shared.color(for: trimHi).opacity(0.35)))
         }
         if exposedTop && exposedRight {
             ctx.fill(Path(CGRect(x: x + ts - 3.2, y: y, width: 3.2, height: 3.2)),
-                     with: .color(Color(hex: wallHi).opacity(0.34)))
+                     with: .color(HexColorCache.shared.color(for: wallHi).opacity(0.34)))
             ctx.fill(Path(CGRect(x: x + ts - 2.8, y: y + ts - 4.1, width: 2.8, height: 0.7)),
-                     with: .color(Color(hex: trimHi).opacity(0.35)))
+                     with: .color(HexColorCache.shared.color(for: trimHi).opacity(0.35)))
         }
         if exposedBottom && exposedLeft {
             ctx.fill(Path(CGRect(x: x, y: y + ts - 3.4, width: 3, height: 2.6)),
-                     with: .color(Color(hex: trimLo).opacity(0.32)))
+                     with: .color(HexColorCache.shared.color(for: trimLo).opacity(0.32)))
         }
         if exposedBottom && exposedRight {
             ctx.fill(Path(CGRect(x: x + ts - 3, y: y + ts - 3.4, width: 3, height: 2.6)),
-                     with: .color(Color(hex: trimLo).opacity(0.32)))
+                     with: .color(HexColorCache.shared.color(for: trimLo).opacity(0.32)))
         }
 
         if !exposedTop && !exposedLeft && topLeft != .wall {
             ctx.fill(Path(CGRect(x: x, y: y, width: 2.2, height: 2.2)),
-                     with: .color(Color(hex: wallLo).opacity(0.22)))
+                     with: .color(HexColorCache.shared.color(for: wallLo).opacity(0.22)))
         }
         if !exposedTop && !exposedRight && topRight != .wall {
             ctx.fill(Path(CGRect(x: x + ts - 2.2, y: y, width: 2.2, height: 2.2)),
-                     with: .color(Color(hex: wallLo).opacity(0.22)))
+                     with: .color(HexColorCache.shared.color(for: wallLo).opacity(0.22)))
         }
         if !exposedBottom && !exposedLeft && bottomLeft != .wall {
             ctx.fill(Path(CGRect(x: x, y: y + ts - 2.2, width: 2.2, height: 2.2)),
-                     with: .color(Color(hex: wallLo).opacity(0.18)))
+                     with: .color(HexColorCache.shared.color(for: wallLo).opacity(0.18)))
         }
         if !exposedBottom && !exposedRight && bottomRight != .wall {
             ctx.fill(Path(CGRect(x: x + ts - 2.2, y: y + ts - 2.2, width: 2.2, height: 2.2)),
-                     with: .color(Color(hex: wallLo).opacity(0.18)))
+                     with: .color(HexColorCache.shared.color(for: wallLo).opacity(0.18)))
         }
     }
 
@@ -595,34 +746,34 @@ struct OfficeSpriteRenderer {
                 // Main wall body
                 let wallBase = palette.wallBase
                 ctx.fill(Path(CGRect(x: x, y: y, width: ts, height: ts)),
-                         with: .color(Color(hex: wallBase)))
+                         with: .color(HexColorCache.shared.color(for: wallBase)))
 
                 // Top bevel highlight (painted crown)
                 let wallHi = palette.wallHighlight
                 ctx.fill(Path(CGRect(x: x, y: y, width: ts, height: 2.5)),
-                         with: .color(Color(hex: wallHi).opacity(0.7)))
+                         with: .color(HexColorCache.shared.color(for: wallHi).opacity(0.7)))
                 // Very top bright line
                 let wallBright = palette.wallBright
                 ctx.fill(Path(CGRect(x: x, y: y, width: ts, height: 1)),
-                         with: .color(Color(hex: wallBright).opacity(0.6)))
+                         with: .color(HexColorCache.shared.color(for: wallBright).opacity(0.6)))
 
                 // Bottom trim and baseboard
                 let wallLo = palette.wallShadow
                 ctx.fill(Path(CGRect(x: x, y: y + ts - 1.5, width: ts, height: 1.5)),
-                         with: .color(Color(hex: wallLo).opacity(0.5)))
+                         with: .color(HexColorCache.shared.color(for: wallLo).opacity(0.5)))
                 let trimHex = palette.trim
                 ctx.fill(Path(CGRect(x: x, y: y + ts - 3.4, width: ts, height: 1.9)),
-                         with: .color(Color(hex: trimHex)))
+                         with: .color(HexColorCache.shared.color(for: trimHex)))
                 ctx.fill(Path(CGRect(x: x, y: y + ts - 4.1, width: ts, height: 0.7)),
-                         with: .color(Color(hex: palette.trimHighlight).opacity(0.35)))
+                         with: .color(HexColorCache.shared.color(for: palette.trimHighlight).opacity(0.35)))
 
                 // Left bevel
                 ctx.fill(Path(CGRect(x: x, y: y, width: 1, height: ts)),
-                         with: .color(Color(hex: wallHi).opacity(0.2)))
+                         with: .color(HexColorCache.shared.color(for: wallHi).opacity(0.2)))
 
                 // Right shadow edge
                 ctx.fill(Path(CGRect(x: x + ts - 1, y: y, width: 1, height: ts)),
-                         with: .color(Color(hex: wallLo).opacity(0.25)))
+                         with: .color(HexColorCache.shared.color(for: wallLo).opacity(0.25)))
 
                 // Wallpaper subtle texture (reduced for clarity)
                 if hasWindow {
@@ -643,19 +794,19 @@ struct OfficeSpriteRenderer {
 
                 if above != .wall {
                     ctx.fill(Path(CGRect(x: x, y: y, width: ts, height: 0.8)),
-                             with: .color(Color(hex: outHex).opacity(0.5)))
+                             with: .color(HexColorCache.shared.color(for: outHex).opacity(0.5)))
                 }
                 if below != .wall {
                     ctx.fill(Path(CGRect(x: x, y: y + ts - 0.8, width: ts, height: 0.8)),
-                             with: .color(Color(hex: outHex).opacity(0.6)))
+                             with: .color(HexColorCache.shared.color(for: outHex).opacity(0.6)))
                 }
                 if left != .wall {
                     ctx.fill(Path(CGRect(x: x, y: y, width: 0.8, height: ts)),
-                             with: .color(Color(hex: outHex).opacity(0.4)))
+                             with: .color(HexColorCache.shared.color(for: outHex).opacity(0.4)))
                 }
                 if right != .wall {
                     ctx.fill(Path(CGRect(x: x + ts - 0.8, y: y, width: 0.8, height: ts)),
-                             with: .color(Color(hex: outHex).opacity(0.4)))
+                             with: .color(HexColorCache.shared.color(for: outHex).opacity(0.4)))
                 }
 
                 drawWallCornerAccents(
@@ -695,7 +846,7 @@ struct OfficeSpriteRenderer {
             let fy = CGFloat(furniture.position.row) * 16
             let fw = CGFloat(furniture.size.w) * 16
             let fh = CGFloat(furniture.size.h) * 16
-            Self.drawDetailedFurniture(ctx, type: furniture.type, x: fx, y: fy, w: fw, h: fh, dark: dark, frame: frame)
+            Self.drawDetailedFurniture(ctx, type: furniture.type, x: fx, y: fy, w: fw, h: fh, dark: dark, frame: frame, pluginFurnitureId: furniture.pluginFurnitureId)
         }
     }
 
@@ -724,7 +875,8 @@ struct OfficeSpriteRenderer {
                 zY: f.zY,
                 kind: .furniture(ZFurnitureInfo(
                     type: f.type, x: fx, y: fy, w: fw, h: fh,
-                    dark: dark, frame: frame, chromeImage: chromeImg
+                    dark: dark, frame: frame, chromeImage: chromeImg,
+                    pluginFurnitureId: f.pluginFurnitureId
                 ))
             ))
         }
@@ -733,7 +885,7 @@ struct OfficeSpriteRenderer {
         for (_, char) in characters {
             let tab = char.tabId.flatMap { tabLookup[$0] }
             let rosterCharacter = CharacterRegistry.shared.character(with: char.rosterCharacterId)
-            let workerColor = tab?.workerColor ?? Color(hex: Self.normalizedHex(char.accentColorHex))
+            let workerColor = tab?.workerColor ?? HexColorCache.shared.color(for: Self.normalizedHex(char.accentColorHex))
             let hashSeed = tab?.id ?? char.rosterCharacterId ?? char.displayName
             let hashVal = hashSeed.hashValue
 
@@ -747,13 +899,21 @@ struct OfficeSpriteRenderer {
             ))
         }
 
-        Self.zBuffer.sort { $0.zY < $1.zY }
+        // Z-sort: 위치 시그니처가 바뀐 경우에만 정렬 (이동 없으면 스킵)
+        var posHash = Hasher()
+        for d in Self.zBuffer { posHash.combine(Int(d.zY * 100)) }
+        let sig = posHash.finalize()
+        if sig != Self.lastZSortSignature {
+            Self.zBuffer.sort { $0.zY < $1.zY }
+            Self.lastZSortSignature = sig
+        }
 
         for drawable in Self.zBuffer {
             switch drawable.kind {
             case .furniture(let info):
                 Self.drawDetailedFurniture(ctx, type: info.type, x: info.x, y: info.y,
-                                           w: info.w, h: info.h, dark: info.dark, frame: info.frame)
+                                           w: info.w, h: info.h, dark: info.dark, frame: info.frame,
+                                           pluginFurnitureId: info.pluginFurnitureId)
                 if info.type == .monitor, let img = info.chromeImage {
                     let screenX = info.x + 2.5
                     let screenY = info.y + 1.5
@@ -776,7 +936,15 @@ struct OfficeSpriteRenderer {
 
     private static func drawDetailedFurniture(_ ctx: GraphicsContext, type: FurnitureType,
                                                x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat,
-                                               dark: Bool, frame: Int) {
+                                               dark: Bool, frame: Int,
+                                               pluginFurnitureId: String? = nil) {
+        // 플러그인 가구: 스프라이트 데이터가 없으면 아예 그리지 않음 (불투명 사각형 방지)
+        if type == .plugin {
+            guard let pluginId = pluginFurnitureId,
+                  PluginHost.shared.furniture.contains(where: { $0.decl.id == pluginId && !$0.decl.sprite.isEmpty }) else {
+                return
+            }
+        }
         drawFurnitureAmbientShadow(ctx, type: type, x: x, y: y, w: w, h: h, dark: dark)
         switch type {
         case .desk:      drawDesk(ctx, x: x, y: y, w: w, h: h, dark: dark)
@@ -795,6 +963,45 @@ struct OfficeSpriteRenderer {
         case .rug:       drawRug(ctx, x: x, y: y, w: w, h: h, dark: dark)
         case .pictureFrame: drawPictureFrame(ctx, x: x, y: y, w: w, h: h, dark: dark)
         case .clock:     drawClock(ctx, x: x, y: y, w: w, h: h, dark: dark, frame: frame)
+        case .plugin:
+            if let pluginId = pluginFurnitureId {
+                drawPluginFurniture(ctx, pluginId: pluginId, x: x, y: y, w: w, h: h)
+            }
+        }
+    }
+
+    // ═══════════════════════════════════════════════════
+    // MARK: - Plugin Furniture Sprite Renderer
+    // ═══════════════════════════════════════════════════
+
+    /// 플러그인 가구의 sprite 데이터를 읽어서 픽셀 단위로 렌더링
+    private static func drawPluginFurniture(_ ctx: GraphicsContext, pluginId: String,
+                                             x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat) {
+        // PluginHost에서 스프라이트 데이터 조회
+        guard let loaded = PluginHost.shared.furniture.first(where: { $0.decl.id == pluginId }) else { return }
+        let sprite = loaded.decl.sprite
+        guard !sprite.isEmpty else { return }
+
+        let spriteRows = sprite.count
+        let spriteCols = sprite.map(\.count).max() ?? 0
+        guard spriteRows > 0, spriteCols > 0 else { return }
+
+        // 각 픽셀의 크기 계산 (스프라이트를 타일 영역에 맞춤)
+        let pixelW = w / CGFloat(spriteCols)
+        let pixelH = h / CGFloat(spriteRows)
+
+        for row in 0..<spriteRows {
+            for col in 0..<sprite[row].count {
+                let hex = sprite[row][col]
+                guard !hex.isEmpty else { continue }  // 투명 픽셀
+                let color = Color(hex: hex)
+                let px = x + CGFloat(col) * pixelW
+                let py = y + CGFloat(row) * pixelH
+                ctx.fill(
+                    Path(CGRect(x: px, y: py, width: pixelW + 0.5, height: pixelH + 0.5)),
+                    with: .color(color)
+                )
+            }
         }
     }
 
@@ -839,6 +1046,12 @@ struct OfficeSpriteRenderer {
                 Path(ellipseIn: CGRect(x: x + w * 0.12, y: y + h - 2.4, width: w * 0.76, height: max(2.4, h * 0.14))),
                 with: .color(Color.black.opacity(alphaBase))
             )
+        case .plugin:
+            // 플러그인 가구는 일반적인 타원 그림자
+            ctx.fill(
+                Path(ellipseIn: CGRect(x: x + w * 0.1, y: y + h - 2.5, width: w * 0.8, height: max(2.5, h * 0.15))),
+                with: .color(Color.black.opacity(alphaBase))
+            )
         }
     }
 
@@ -852,50 +1065,50 @@ struct OfficeSpriteRenderer {
         let legHex = dark ? "5A4528" : "7A6548"
         for lx in [x + 2, x + 3, x + w - 5, x + w - 4] {
             ctx.fill(Path(CGRect(x: lx, y: y + h - 4, width: 1.5, height: 4)),
-                     with: .color(Color(hex: legHex)))
+                     with: .color(HexColorCache.shared.color(for: legHex)))
         }
 
         // Front panel (darker wood)
         let frontHex = dark ? "5A4830" : "7A6548"
         ctx.fill(Path(CGRect(x: x + 1, y: y + 4, width: w - 2, height: h - 7)),
-                 with: .color(Color(hex: frontHex)))
+                 with: .color(HexColorCache.shared.color(for: frontHex)))
 
         // Drawer lines on front panel
         let drawerLine = dark ? "4A3C28" : "6A5838"
         let midX = x + w / 2
         // Horizontal drawer divider
         ctx.fill(Path(CGRect(x: x + 4, y: y + 7, width: w - 8, height: 0.5)),
-                 with: .color(Color(hex: drawerLine).opacity(0.6)))
+                 with: .color(HexColorCache.shared.color(for: drawerLine).opacity(0.6)))
         ctx.fill(Path(CGRect(x: x + 4, y: y + 10, width: w - 8, height: 0.5)),
-                 with: .color(Color(hex: drawerLine).opacity(0.6)))
+                 with: .color(HexColorCache.shared.color(for: drawerLine).opacity(0.6)))
         // Vertical drawer divider
         ctx.fill(Path(CGRect(x: midX - 0.25, y: y + 4, width: 0.5, height: h - 7)),
-                 with: .color(Color(hex: drawerLine).opacity(0.5)))
+                 with: .color(HexColorCache.shared.color(for: drawerLine).opacity(0.5)))
         // Drawer handles (small dots)
         let handleHex = dark ? "706050" : "B0A080"
         ctx.fill(Path(ellipseIn: CGRect(x: midX - w * 0.2, y: y + 8, width: 2, height: 1)),
-                 with: .color(Color(hex: handleHex)))
+                 with: .color(HexColorCache.shared.color(for: handleHex)))
         ctx.fill(Path(ellipseIn: CGRect(x: midX + w * 0.15, y: y + 8, width: 2, height: 1)),
-                 with: .color(Color(hex: handleHex)))
+                 with: .color(HexColorCache.shared.color(for: handleHex)))
 
         // Table top (thick slab with grain)
         let topHex = dark ? "6A5838" : "A08B68"
         let topHi = dark ? "7A6848" : "B89C78"
         let topLo = dark ? "5A4828" : "8B7355"
         ctx.fill(Path(CGRect(x: x, y: y, width: w, height: 4.5)),
-                 with: .color(Color(hex: topHex)))
+                 with: .color(HexColorCache.shared.color(for: topHex)))
         // Top surface highlight
         ctx.fill(Path(CGRect(x: x, y: y, width: w, height: 1.2)),
-                 with: .color(Color(hex: topHi).opacity(0.6)))
+                 with: .color(HexColorCache.shared.color(for: topHi).opacity(0.6)))
         // Top front edge (darker)
         ctx.fill(Path(CGRect(x: x, y: y + 3.5, width: w, height: 1)),
-                 with: .color(Color(hex: topLo).opacity(0.5)))
+                 with: .color(HexColorCache.shared.color(for: topLo).opacity(0.5)))
 
         // Wood grain on top
         let grainHex = dark ? "5E4C30" : "9A8058"
         for i in stride(from: 3, to: Int(w) - 3, by: 7) {
             ctx.fill(Path(CGRect(x: x + CGFloat(i), y: y + 1, width: 4, height: 0.3)),
-                     with: .color(Color(hex: grainHex).opacity(0.3)))
+                     with: .color(HexColorCache.shared.color(for: grainHex).opacity(0.3)))
         }
     }
 
@@ -904,20 +1117,20 @@ struct OfficeSpriteRenderer {
         // Stand base
         let standHex = dark ? "3A3E4A" : "606878"
         ctx.fill(Path(CGRect(x: x + w * 0.25, y: y + h - 3, width: w * 0.5, height: 2.5)),
-                 with: .color(Color(hex: standHex)))
+                 with: .color(HexColorCache.shared.color(for: standHex)))
         // Stand neck
         ctx.fill(Path(CGRect(x: x + w * 0.4, y: y + h - 5, width: w * 0.2, height: 3)),
-                 with: .color(Color(hex: standHex)))
+                 with: .color(HexColorCache.shared.color(for: standHex)))
 
         // Monitor bezel (outer frame)
         let bezelHex = dark ? "2A2E38" : "3A3E4A"
         ctx.fill(Path(roundedRect: CGRect(x: x + 1, y: y, width: w - 2, height: h - 4), cornerRadius: 1),
-                 with: .color(Color(hex: bezelHex)))
+                 with: .color(HexColorCache.shared.color(for: bezelHex)))
 
         // Screen area
         let screenBg = dark ? "0E1420" : "1A2030"
         ctx.fill(Path(CGRect(x: x + 2.5, y: y + 1.5, width: w - 5, height: h - 7)),
-                 with: .color(Color(hex: screenBg)))
+                 with: .color(HexColorCache.shared.color(for: screenBg)))
 
         // Code lines on screen (colored)
         let screenW = w - 7
@@ -933,19 +1146,19 @@ struct OfficeSpriteRenderer {
             let lineLen = CGFloat(3 + (i * 7 + 5) % Int(max(1, screenW - 2)))
             let indent = CGFloat((i * 3) % 4)
             ctx.fill(Path(CGRect(x: x + 3.5 + indent, y: ly, width: min(lineLen, screenW - indent - 1), height: lineH)),
-                     with: .color(Color(hex: cHex).opacity(0.7)))
+                     with: .color(HexColorCache.shared.color(for: cHex).opacity(0.7)))
         }
 
         // Cursor blink
         if frame % 20 < 12 {
             let cursorY = lineY0 + 2 * lineGap
             ctx.fill(Path(CGRect(x: x + 6, y: cursorY, width: 0.6, height: lineH)),
-                     with: .color(Color(hex: "60D060").opacity(0.8)))
+                     with: .color(HexColorCache.shared.color(for: "60D060").opacity(0.8)))
         }
 
         // Bezel bottom logo dot
         ctx.fill(Path(ellipseIn: CGRect(x: x + w / 2 - 0.5, y: y + h - 5.5, width: 1, height: 1)),
-                 with: .color(Color(hex: dark ? "4A4E58" : "5A5E68").opacity(0.5)))
+                 with: .color(HexColorCache.shared.color(for: dark ? "4A4E58" : "5A5E68").opacity(0.5)))
 
         // Screen reflection highlight
         ctx.fill(Path(CGRect(x: x + 3, y: y + 2, width: 2, height: 0.4)),
@@ -964,47 +1177,47 @@ struct OfficeSpriteRenderer {
         for wx in wheelPositions.prefix(min(5, Int(w / 3))) {
             if wx < w - 1 {
                 ctx.fill(Path(ellipseIn: CGRect(x: x + wx - 0.5, y: y + h - 2.5, width: 1.5, height: 1.5)),
-                         with: .color(Color(hex: wheelHex)))
+                         with: .color(HexColorCache.shared.color(for: wheelHex)))
             }
         }
 
         // Center post
         let postHex = dark ? "3A3A4A" : "60606A"
         ctx.fill(Path(CGRect(x: x + w / 2 - 0.8, y: y + h - 5, width: 1.6, height: 3)),
-                 with: .color(Color(hex: postHex)))
+                 with: .color(HexColorCache.shared.color(for: postHex)))
 
         // Seat cushion
         let cushionHex = dark ? "4A4A5A" : "6A6A7A"
         let cushionHi = dark ? "5A5A6A" : "7A7A8A"
         ctx.fill(Path(roundedRect: CGRect(x: x + 2.5, y: y + 5, width: w - 5, height: h - 9), cornerRadius: 1.5),
-                 with: .color(Color(hex: cushionHex)))
+                 with: .color(HexColorCache.shared.color(for: cushionHex)))
         // Cushion highlight
         ctx.fill(Path(CGRect(x: x + 3, y: y + 5, width: w - 6, height: 1.5)),
-                 with: .color(Color(hex: cushionHi).opacity(0.5)))
+                 with: .color(HexColorCache.shared.color(for: cushionHi).opacity(0.5)))
         // Cushion stitch line
         let stitchHex = dark ? "3E3E4E" : "5E5E6E"
         ctx.fill(Path(CGRect(x: x + w / 2 - 0.2, y: y + 6, width: 0.4, height: h - 12)),
-                 with: .color(Color(hex: stitchHex).opacity(0.3)))
+                 with: .color(HexColorCache.shared.color(for: stitchHex).opacity(0.3)))
 
         // Backrest
         let backHex = dark ? "404050" : "585868"
         ctx.fill(Path(roundedRect: CGRect(x: x + 3, y: y + 1, width: w - 6, height: 5), cornerRadius: 1),
-                 with: .color(Color(hex: backHex)))
+                 with: .color(HexColorCache.shared.color(for: backHex)))
         // Backrest highlight
         ctx.fill(Path(CGRect(x: x + 3.5, y: y + 1, width: w - 7, height: 1)),
-                 with: .color(Color(hex: cushionHi).opacity(0.4)))
+                 with: .color(HexColorCache.shared.color(for: cushionHi).opacity(0.4)))
 
         // Armrests
         let armHex = dark ? "3A3A4A" : "50505A"
         ctx.fill(Path(CGRect(x: x + 1, y: y + 5, width: 2, height: 1.2)),
-                 with: .color(Color(hex: armHex)))
+                 with: .color(HexColorCache.shared.color(for: armHex)))
         ctx.fill(Path(CGRect(x: x + w - 3, y: y + 5, width: 2, height: 1.2)),
-                 with: .color(Color(hex: armHex)))
+                 with: .color(HexColorCache.shared.color(for: armHex)))
         // Armrest posts
         ctx.fill(Path(CGRect(x: x + 1.5, y: y + 6, width: 1, height: 3)),
-                 with: .color(Color(hex: armHex).opacity(0.7)))
+                 with: .color(HexColorCache.shared.color(for: armHex).opacity(0.7)))
         ctx.fill(Path(CGRect(x: x + w - 2.5, y: y + 6, width: 1, height: 3)),
-                 with: .color(Color(hex: armHex).opacity(0.7)))
+                 with: .color(HexColorCache.shared.color(for: armHex).opacity(0.7)))
     }
 
     // ── Plant: multiple leaves, detailed pot with rim, soil ──
@@ -1020,29 +1233,29 @@ struct OfficeSpriteRenderer {
         let potLo = dark ? "7A4830" : "A07050"
         // Main pot
         ctx.fill(Path(CGRect(x: x + 3, y: y + h * 0.55, width: w - 6, height: h * 0.38)),
-                 with: .color(Color(hex: potBase)))
+                 with: .color(HexColorCache.shared.color(for: potBase)))
         // Pot rim
         ctx.fill(Path(CGRect(x: x + 2, y: y + h * 0.52, width: w - 4, height: 2)),
-                 with: .color(Color(hex: potHi)))
+                 with: .color(HexColorCache.shared.color(for: potHi)))
         // Rim highlight
         ctx.fill(Path(CGRect(x: x + 2, y: y + h * 0.52, width: w - 4, height: 0.6)),
-                 with: .color(Color(hex: dark ? "AA7858" : "D0A080").opacity(0.5)))
+                 with: .color(HexColorCache.shared.color(for: dark ? "AA7858" : "D0A080").opacity(0.5)))
         // Pot bottom (narrower)
         ctx.fill(Path(CGRect(x: x + 4, y: y + h * 0.88, width: w - 8, height: h * 0.08)),
-                 with: .color(Color(hex: potLo)))
+                 with: .color(HexColorCache.shared.color(for: potLo)))
         // Pot highlight stripe
         ctx.fill(Path(CGRect(x: x + 4, y: y + h * 0.65, width: 1, height: h * 0.2)),
-                 with: .color(Color(hex: potHi).opacity(0.3)))
+                 with: .color(HexColorCache.shared.color(for: potHi).opacity(0.3)))
 
         // Soil
         let soilHex = dark ? "3A2A1A" : "604830"
         ctx.fill(Path(ellipseIn: CGRect(x: x + 3.5, y: y + h * 0.50, width: w - 7, height: 3)),
-                 with: .color(Color(hex: soilHex)))
+                 with: .color(HexColorCache.shared.color(for: soilHex)))
 
         // Stem
         let stemHex = dark ? "2A5028" : "408040"
         ctx.fill(Path(CGRect(x: cx - 0.6, y: y + 3.5, width: 1.2, height: h * 0.45)),
-                 with: .color(Color(hex: stemHex)))
+                 with: .color(HexColorCache.shared.color(for: stemHex)))
 
         // Leaves (multiple, varied angles using small rects)
         let leafDark = dark ? "2A6028" : "408040"
@@ -1054,23 +1267,23 @@ struct OfficeSpriteRenderer {
 
         // Leaf 1: top center
         ctx.fill(Path(ellipseIn: CGRect(x: cx - 3 + sway, y: y, width: 6, height: 4)),
-                 with: .color(Color(hex: leafBright)))
+                 with: .color(HexColorCache.shared.color(for: leafBright)))
         // Leaf 2: left
         ctx.fill(Path(ellipseIn: CGRect(x: cx - 6 - sway * 0.5, y: y + 2, width: 5, height: 3.5)),
-                 with: .color(Color(hex: leafDark)))
+                 with: .color(HexColorCache.shared.color(for: leafDark)))
         // Leaf 3: right
         ctx.fill(Path(ellipseIn: CGRect(x: cx + 1.5 + sway * 0.5, y: y + 1.5, width: 5.5, height: 3.5)),
-                 with: .color(Color(hex: leafMid)))
+                 with: .color(HexColorCache.shared.color(for: leafMid)))
         // Leaf 4: bottom left
         ctx.fill(Path(ellipseIn: CGRect(x: cx - 5, y: y + 4, width: 4, height: 3)),
-                 with: .color(Color(hex: leafMid)))
+                 with: .color(HexColorCache.shared.color(for: leafMid)))
         // Leaf 5: bottom right
         ctx.fill(Path(ellipseIn: CGRect(x: cx + 2, y: y + 4, width: 4, height: 3)),
-                 with: .color(Color(hex: leafDark)))
+                 with: .color(HexColorCache.shared.color(for: leafDark)))
 
         // Leaf vein highlights
         ctx.fill(Path(CGRect(x: cx - 0.2, y: y + 0.5, width: 0.4, height: 3)),
-                 with: .color(Color(hex: leafBright).opacity(0.4)))
+                 with: .color(HexColorCache.shared.color(for: leafBright).opacity(0.4)))
     }
 
     // ── Coffee Machine: body, buttons, display, drip tray, cup ──
@@ -1082,54 +1295,54 @@ struct OfficeSpriteRenderer {
         // Main body
         let bodyHex = dark ? "505868" : "707880"
         ctx.fill(Path(roundedRect: CGRect(x: x + 2, y: y + 1, width: w - 4, height: h - 3), cornerRadius: 1),
-                 with: .color(Color(hex: bodyHex)))
+                 with: .color(HexColorCache.shared.color(for: bodyHex)))
 
         // Top cap
         let capHex = dark ? "606870" : "808890"
         ctx.fill(Path(CGRect(x: x + 1.5, y: y, width: w - 3, height: 2.5)),
-                 with: .color(Color(hex: capHex)))
+                 with: .color(HexColorCache.shared.color(for: capHex)))
         ctx.fill(Path(CGRect(x: x + 1.5, y: y, width: w - 3, height: 0.8)),
-                 with: .color(Color(hex: dark ? "707880" : "909CA0").opacity(0.5)))
+                 with: .color(HexColorCache.shared.color(for: dark ? "707880" : "909CA0").opacity(0.5)))
 
         // Display panel
         let dispBg = dark ? "1A2028" : "A0B8C0"
         ctx.fill(Path(roundedRect: CGRect(x: x + 4, y: y + 3, width: w - 8, height: 3.5), cornerRadius: 0.5),
-                 with: .color(Color(hex: dispBg)))
+                 with: .color(HexColorCache.shared.color(for: dispBg)))
         // Display text
         let dispText = dark ? "60A0C0" : "205060"
         ctx.fill(Path(CGRect(x: x + 5, y: y + 4, width: 3, height: 0.6)),
-                 with: .color(Color(hex: dispText).opacity(0.7)))
+                 with: .color(HexColorCache.shared.color(for: dispText).opacity(0.7)))
         ctx.fill(Path(CGRect(x: x + 5, y: y + 5.2, width: 2, height: 0.6)),
-                 with: .color(Color(hex: dispText).opacity(0.5)))
+                 with: .color(HexColorCache.shared.color(for: dispText).opacity(0.5)))
 
         // Buttons
         let btnHex = dark ? "404850" : "606868"
         ctx.fill(Path(ellipseIn: CGRect(x: x + 4, y: y + 7.5, width: 2, height: 2)),
-                 with: .color(Color(hex: btnHex)))
+                 with: .color(HexColorCache.shared.color(for: btnHex)))
         ctx.fill(Path(ellipseIn: CGRect(x: x + 7, y: y + 7.5, width: 2, height: 2)),
-                 with: .color(Color(hex: btnHex)))
+                 with: .color(HexColorCache.shared.color(for: btnHex)))
         // LED indicator
         let ledOn = frame % 40 < 30
         ctx.fill(Path(ellipseIn: CGRect(x: x + 10, y: y + 8, width: 1.2, height: 1.2)),
-                 with: .color(Color(hex: ledOn ? "40C040" : "204020")))
+                 with: .color(HexColorCache.shared.color(for: ledOn ? "40C040" : "204020")))
 
         // Drip area (recessed)
         let dripHex = dark ? "303840" : "505860"
         ctx.fill(Path(CGRect(x: x + 4, y: y + h * 0.6, width: w - 8, height: h * 0.28)),
-                 with: .color(Color(hex: dripHex)))
+                 with: .color(HexColorCache.shared.color(for: dripHex)))
 
         // Cup
         let cupHex = dark ? "D8D4C8" : "F0ECE0"
         let cupX = x + w / 2 - 2
         let cupY = y + h * 0.62
         ctx.fill(Path(CGRect(x: cupX, y: cupY, width: 4, height: 3.5)),
-                 with: .color(Color(hex: cupHex)))
+                 with: .color(HexColorCache.shared.color(for: cupHex)))
         // Cup handle
         ctx.fill(Path(CGRect(x: cupX + 4, y: cupY + 0.5, width: 1.2, height: 2.5)),
-                 with: .color(Color(hex: cupHex)))
+                 with: .color(HexColorCache.shared.color(for: cupHex)))
         // Coffee surface
         ctx.fill(Path(ellipseIn: CGRect(x: cupX + 0.3, y: cupY + 0.3, width: 3.4, height: 1.2)),
-                 with: .color(Color(hex: dark ? "4A3020" : "6A4030").opacity(0.7)))
+                 with: .color(HexColorCache.shared.color(for: dark ? "4A3020" : "6A4030").opacity(0.7)))
 
         // Steam
         if frame % 30 < 20 {
@@ -1144,7 +1357,7 @@ struct OfficeSpriteRenderer {
         let gridHex = dark ? "3A4248" : "585E68"
         for gx in stride(from: 5, to: Int(w) - 5, by: 2) {
             ctx.fill(Path(CGRect(x: x + CGFloat(gx), y: y + h - 3, width: 0.4, height: 1.5)),
-                     with: .color(Color(hex: gridHex).opacity(0.3)))
+                     with: .color(HexColorCache.shared.color(for: gridHex).opacity(0.3)))
         }
     }
 
@@ -1158,7 +1371,7 @@ struct OfficeSpriteRenderer {
         let legHex = dark ? "3A2850" : "5A4070"
         for lx in [x + 5, x + w - 7] {
             ctx.fill(Path(CGRect(x: lx, y: y + h - 4, width: 2, height: 4)),
-                     with: .color(Color(hex: legHex)))
+                     with: .color(HexColorCache.shared.color(for: legHex)))
         }
 
         let sofaBase = dark ? "4A3868" : "6A5080"
@@ -1168,21 +1381,21 @@ struct OfficeSpriteRenderer {
 
         // Backrest
         ctx.fill(Path(roundedRect: CGRect(x: x + 3, y: y + 1, width: w - 6, height: h * 0.35), cornerRadius: 2),
-                 with: .color(Color(hex: sofaBase)))
+                 with: .color(HexColorCache.shared.color(for: sofaBase)))
         // Backrest highlight
         ctx.fill(Path(CGRect(x: x + 5, y: y + 1.5, width: w - 10, height: 1.5)),
-                 with: .color(Color(hex: cushionHi).opacity(0.35)))
+                 with: .color(HexColorCache.shared.color(for: cushionHi).opacity(0.35)))
 
         // Armrests
         ctx.fill(Path(roundedRect: CGRect(x: x, y: y + 2, width: 5, height: h * 0.65), cornerRadius: 1.5),
-                 with: .color(Color(hex: armHex)))
+                 with: .color(HexColorCache.shared.color(for: armHex)))
         ctx.fill(Path(roundedRect: CGRect(x: x + w - 5, y: y + 2, width: 5, height: h * 0.65), cornerRadius: 1.5),
-                 with: .color(Color(hex: armHex)))
+                 with: .color(HexColorCache.shared.color(for: armHex)))
         // Armrest highlights
         ctx.fill(Path(CGRect(x: x + 0.5, y: y + 2, width: 4, height: 1)),
-                 with: .color(Color(hex: cushionHi).opacity(0.25)))
+                 with: .color(HexColorCache.shared.color(for: cushionHi).opacity(0.25)))
         ctx.fill(Path(CGRect(x: x + w - 4.5, y: y + 2, width: 4, height: 1)),
-                 with: .color(Color(hex: cushionHi).opacity(0.25)))
+                 with: .color(HexColorCache.shared.color(for: cushionHi).opacity(0.25)))
 
         // Seat cushions (2 or 3 segments)
         let seatY = y + h * 0.35
@@ -1191,13 +1404,13 @@ struct OfficeSpriteRenderer {
         for i in 0..<2 {
             let cx = x + 6 + CGFloat(i) * (cushionW + 2)
             ctx.fill(Path(roundedRect: CGRect(x: cx, y: seatY, width: cushionW, height: seatH), cornerRadius: 2),
-                     with: .color(Color(hex: cushionHex)))
+                     with: .color(HexColorCache.shared.color(for: cushionHex)))
             // Cushion top highlight
             ctx.fill(Path(CGRect(x: cx + 1, y: seatY + 1, width: cushionW - 2, height: 2)),
-                     with: .color(Color(hex: cushionHi).opacity(0.4)))
+                     with: .color(HexColorCache.shared.color(for: cushionHi).opacity(0.4)))
             // Cushion center dimple
             ctx.fill(Path(ellipseIn: CGRect(x: cx + cushionW / 2 - 2, y: seatY + seatH * 0.3, width: 4, height: 2)),
-                     with: .color(Color(hex: sofaBase).opacity(0.25)))
+                     with: .color(HexColorCache.shared.color(for: sofaBase).opacity(0.25)))
         }
     }
 
@@ -1210,30 +1423,30 @@ struct OfficeSpriteRenderer {
         // Frame (aluminum)
         let frameHex = dark ? "808898" : "A0A0B0"
         ctx.fill(Path(roundedRect: CGRect(x: x, y: y, width: w, height: h), cornerRadius: 0.5),
-                 with: .color(Color(hex: frameHex)))
+                 with: .color(HexColorCache.shared.color(for: frameHex)))
 
         // White board surface
         let boardHex = dark ? "D0D0D8" : "F0F0F4"
         ctx.fill(Path(CGRect(x: x + 1.5, y: y + 1.5, width: w - 3, height: h - 3)),
-                 with: .color(Color(hex: boardHex)))
+                 with: .color(HexColorCache.shared.color(for: boardHex)))
 
         // Content: lines and diagrams
         let lineColors = ["4060B0", "40A060", "C04040", "D09020"]
         let boardW = w - 6
         // Title line
         ctx.fill(Path(CGRect(x: x + 3, y: y + 3, width: min(boardW * 0.4, 14), height: 0.8)),
-                 with: .color(Color(hex: lineColors[0]).opacity(0.7)))
+                 with: .color(HexColorCache.shared.color(for: lineColors[0]).opacity(0.7)))
         // Bullet points
         for i in 0..<3 {
             let ly = y + 5.5 + CGFloat(i) * 2.5
             if ly > y + h - 4 { break }
             // Bullet dot
             ctx.fill(Path(ellipseIn: CGRect(x: x + 3, y: ly, width: 1, height: 1)),
-                     with: .color(Color(hex: lineColors[i % lineColors.count]).opacity(0.6)))
+                     with: .color(HexColorCache.shared.color(for: lineColors[i % lineColors.count]).opacity(0.6)))
             // Text line
             let lineLen = CGFloat(8 + (i * 5) % Int(max(1, boardW - 8)))
             ctx.fill(Path(CGRect(x: x + 5, y: ly + 0.2, width: min(lineLen, boardW - 5), height: 0.6)),
-                     with: .color(Color(hex: lineColors[i % lineColors.count]).opacity(0.5)))
+                     with: .color(HexColorCache.shared.color(for: lineColors[i % lineColors.count]).opacity(0.5)))
         }
 
         // Small box diagram in corner
@@ -1242,20 +1455,20 @@ struct OfficeSpriteRenderer {
             let diagY = y + 4
             let diagHex = "C04040"
             ctx.stroke(Path(CGRect(x: diagX, y: diagY, width: 8, height: 5)),
-                       with: .color(Color(hex: diagHex).opacity(0.5)), lineWidth: 0.5)
+                       with: .color(HexColorCache.shared.color(for: diagHex).opacity(0.5)), lineWidth: 0.5)
             ctx.stroke(Path(CGRect(x: diagX + 2, y: diagY + 6, width: 6, height: 3)),
-                       with: .color(Color(hex: "40A060").opacity(0.5)), lineWidth: 0.5)
+                       with: .color(HexColorCache.shared.color(for: "40A060").opacity(0.5)), lineWidth: 0.5)
         }
 
         // Marker tray at bottom
         let trayHex = dark ? "707880" : "909098"
         ctx.fill(Path(CGRect(x: x + 2, y: y + h - 2.5, width: w - 4, height: 1.5)),
-                 with: .color(Color(hex: trayHex)))
+                 with: .color(HexColorCache.shared.color(for: trayHex)))
         // Markers on tray
         let markerColors = ["2040B0", "B02020", "20A040"]
         for (i, mc) in markerColors.enumerated() {
             ctx.fill(Path(CGRect(x: x + 4 + CGFloat(i) * 3, y: y + h - 2.8, width: 2, height: 1.2)),
-                     with: .color(Color(hex: mc).opacity(0.8)))
+                     with: .color(HexColorCache.shared.color(for: mc).opacity(0.8)))
         }
     }
 
@@ -1269,30 +1482,30 @@ struct OfficeSpriteRenderer {
         let frameHex = dark ? "4A3820" : "6A5030"
         let frameHi = dark ? "5A4830" : "7A6040"
         ctx.fill(Path(CGRect(x: x, y: y, width: w, height: h)),
-                 with: .color(Color(hex: frameHex)))
+                 with: .color(HexColorCache.shared.color(for: frameHex)))
 
         // Frame edges
         ctx.fill(Path(CGRect(x: x, y: y, width: w, height: 1)),
-                 with: .color(Color(hex: frameHi).opacity(0.6)))
+                 with: .color(HexColorCache.shared.color(for: frameHi).opacity(0.6)))
         ctx.fill(Path(CGRect(x: x, y: y, width: 1.2, height: h)),
-                 with: .color(Color(hex: frameHi).opacity(0.3)))
+                 with: .color(HexColorCache.shared.color(for: frameHi).opacity(0.3)))
         ctx.fill(Path(CGRect(x: x + w - 1.2, y: y, width: 1.2, height: h)),
-                 with: .color(Color(hex: dark ? "3A2818" : "5A4028").opacity(0.4)))
+                 with: .color(HexColorCache.shared.color(for: dark ? "3A2818" : "5A4028").opacity(0.4)))
 
         // Back panel (dark recess)
         let backHex = dark ? "2A1E14" : "5A4428"
         ctx.fill(Path(CGRect(x: x + 1.5, y: y + 1, width: w - 3, height: h - 2)),
-                 with: .color(Color(hex: backHex)))
+                 with: .color(HexColorCache.shared.color(for: backHex)))
 
         // Shelves
         let shelfHex = dark ? "5A4830" : "7A6040"
         let shelfPositions = [y, y + h * 0.48, y + h - 1]
         for sy in shelfPositions {
             ctx.fill(Path(CGRect(x: x, y: sy, width: w, height: 1.2)),
-                     with: .color(Color(hex: shelfHex)))
+                     with: .color(HexColorCache.shared.color(for: shelfHex)))
             // Shelf edge highlight
             ctx.fill(Path(CGRect(x: x + 1, y: sy, width: w - 2, height: 0.4)),
-                     with: .color(Color(hex: frameHi).opacity(0.4)))
+                     with: .color(HexColorCache.shared.color(for: frameHi).opacity(0.4)))
         }
 
         // Books on upper shelf
@@ -1306,7 +1519,7 @@ struct OfficeSpriteRenderer {
             let by = y + 1.2 + (shelfHeight1 - bh)
             let bColor = bookColors1[i % bookColors1.count]
             ctx.fill(Path(CGRect(x: bx, y: by, width: bookW - 0.5, height: bh)),
-                     with: .color(Color(hex: bColor)))
+                     with: .color(HexColorCache.shared.color(for: bColor)))
             // Spine line
             ctx.fill(Path(CGRect(x: bx + bookW * 0.4, y: by + 1, width: 0.3, height: bh - 2)),
                      with: .color(Color.white.opacity(0.15)))
@@ -1325,7 +1538,7 @@ struct OfficeSpriteRenderer {
             let by = shelfTop2 + (shelfHeight2 - bh)
             let bColor = bookColors2[i % bookColors2.count]
             ctx.fill(Path(CGRect(x: bx, y: by, width: bookW * 1.1 - 0.5, height: bh)),
-                     with: .color(Color(hex: bColor)))
+                     with: .color(HexColorCache.shared.color(for: bColor)))
             // Spine detail
             ctx.fill(Path(CGRect(x: bx + 0.5, y: by + bh * 0.3, width: bookW * 0.6, height: 0.3)),
                      with: .color(Color.white.opacity(0.12)))
@@ -1341,20 +1554,20 @@ struct OfficeSpriteRenderer {
         // Leg
         let legHex = dark ? "2A2010" : "8A7050"
         ctx.fill(Path(CGRect(x: x + w / 2 - 1, y: y + h * 0.6, width: 2, height: h * 0.35)),
-                 with: .color(Color(hex: legHex)))
+                 with: .color(HexColorCache.shared.color(for: legHex)))
 
         // Table top (ellipse with bevel)
         let topHex = dark ? "3A3020" : "C0A878"
         let topHi = dark ? "4A4030" : "D0B888"
         let topLo = dark ? "2A2010" : "A08860"
         ctx.fill(Path(ellipseIn: CGRect(x: x + 1.5, y: y + 1.5, width: w - 3, height: h * 0.55)),
-                 with: .color(Color(hex: topHex)))
+                 with: .color(HexColorCache.shared.color(for: topHex)))
         // Top highlight
         ctx.fill(Path(ellipseIn: CGRect(x: x + 3, y: y + 2, width: w - 6, height: h * 0.3)),
-                 with: .color(Color(hex: topHi).opacity(0.4)))
+                 with: .color(HexColorCache.shared.color(for: topHi).opacity(0.4)))
         // Edge shadow
         ctx.stroke(Path(ellipseIn: CGRect(x: x + 1.5, y: y + 1.5, width: w - 3, height: h * 0.55)),
-                   with: .color(Color(hex: topLo).opacity(0.5)), lineWidth: 0.6)
+                   with: .color(HexColorCache.shared.color(for: topLo).opacity(0.5)), lineWidth: 0.6)
     }
 
     // ── Water Cooler ──
@@ -1366,17 +1579,17 @@ struct OfficeSpriteRenderer {
         // Base stand
         let standHex = dark ? "4A5060" : "8A9098"
         ctx.fill(Path(CGRect(x: x + 3, y: y + h * 0.4, width: w - 6, height: h * 0.55)),
-                 with: .color(Color(hex: standHex)))
+                 with: .color(HexColorCache.shared.color(for: standHex)))
 
         // Body
         let bodyHex = dark ? "5A6470" : "C0C8D0"
         ctx.fill(Path(roundedRect: CGRect(x: x + 3.5, y: y + h * 0.2, width: w - 7, height: h * 0.55), cornerRadius: 1),
-                 with: .color(Color(hex: bodyHex)))
+                 with: .color(HexColorCache.shared.color(for: bodyHex)))
 
         // Water bottle (top)
         let waterHex = "80C0E0"
         ctx.fill(Path(roundedRect: CGRect(x: x + 4, y: y, width: w - 8, height: h * 0.25), cornerRadius: 1),
-                 with: .color(Color(hex: waterHex).opacity(0.6)))
+                 with: .color(HexColorCache.shared.color(for: waterHex).opacity(0.6)))
         // Water shimmer
         let shimmer = 0.2 + sin(Double(frame) * 0.08) * 0.1
         ctx.fill(Path(CGRect(x: x + 5, y: y + 1, width: 2, height: h * 0.1)),
@@ -1386,14 +1599,14 @@ struct OfficeSpriteRenderer {
         let btnRed = "D04040"
         let btnBlue = "4060C0"
         ctx.fill(Path(ellipseIn: CGRect(x: x + 4.5, y: y + h * 0.45, width: 2, height: 2)),
-                 with: .color(Color(hex: btnRed).opacity(0.8)))
+                 with: .color(HexColorCache.shared.color(for: btnRed).opacity(0.8)))
         ctx.fill(Path(ellipseIn: CGRect(x: x + w - 6.5, y: y + h * 0.45, width: 2, height: 2)),
-                 with: .color(Color(hex: btnBlue).opacity(0.8)))
+                 with: .color(HexColorCache.shared.color(for: btnBlue).opacity(0.8)))
 
         // Drip tray
         let trayHex = dark ? "3A4048" : "707880"
         ctx.fill(Path(CGRect(x: x + 3, y: y + h * 0.78, width: w - 6, height: 1.5)),
-                 with: .color(Color(hex: trayHex)))
+                 with: .color(HexColorCache.shared.color(for: trayHex)))
     }
 
     // ── Printer ──
@@ -1406,34 +1619,34 @@ struct OfficeSpriteRenderer {
         let bodyHex = dark ? "3A3E4A" : "C0C4CC"
         let bodyHi = dark ? "4A4E5A" : "D0D4DC"
         ctx.fill(Path(roundedRect: CGRect(x: x + 1, y: y + 2, width: w - 2, height: h - 4), cornerRadius: 1),
-                 with: .color(Color(hex: bodyHex)))
+                 with: .color(HexColorCache.shared.color(for: bodyHex)))
         // Top highlight
         ctx.fill(Path(CGRect(x: x + 1, y: y + 2, width: w - 2, height: 1.5)),
-                 with: .color(Color(hex: bodyHi).opacity(0.5)))
+                 with: .color(HexColorCache.shared.color(for: bodyHi).opacity(0.5)))
 
         // Paper feed slot
         let slotHex = dark ? "1A1E28" : "E0E4EC"
         ctx.fill(Path(CGRect(x: x + 3, y: y + 3.5, width: w - 6, height: 3)),
-                 with: .color(Color(hex: slotHex)))
+                 with: .color(HexColorCache.shared.color(for: slotHex)))
         // Paper sticking out
         ctx.fill(Path(CGRect(x: x + 4, y: y + 1, width: w - 8, height: 3)),
                  with: .color(Color.white.opacity(dark ? 0.6 : 0.8)))
         // Text on paper
         ctx.fill(Path(CGRect(x: x + 5, y: y + 1.5, width: 4, height: 0.4)),
-                 with: .color(Color(hex: "3A3A3A").opacity(0.3)))
+                 with: .color(HexColorCache.shared.color(for: "3A3A3A").opacity(0.3)))
         ctx.fill(Path(CGRect(x: x + 5, y: y + 2.3, width: 3, height: 0.4)),
-                 with: .color(Color(hex: "3A3A3A").opacity(0.2)))
+                 with: .color(HexColorCache.shared.color(for: "3A3A3A").opacity(0.2)))
 
         // Status LEDs
         ctx.fill(Path(ellipseIn: CGRect(x: x + w - 5, y: y + h - 4, width: 1.2, height: 1.2)),
-                 with: .color(Color(hex: "40C040")))
+                 with: .color(HexColorCache.shared.color(for: "40C040")))
         ctx.fill(Path(ellipseIn: CGRect(x: x + w - 3.5, y: y + h - 4, width: 1.2, height: 1.2)),
-                 with: .color(Color(hex: dark ? "303840" : "808890")))
+                 with: .color(HexColorCache.shared.color(for: dark ? "303840" : "808890")))
 
         // Output tray
         let trayHex = dark ? "2A2E38" : "B0B4BC"
         ctx.fill(Path(CGRect(x: x + 2, y: y + h - 3, width: w - 4, height: 1.5)),
-                 with: .color(Color(hex: trayHex)))
+                 with: .color(HexColorCache.shared.color(for: trayHex)))
     }
 
     // ── Trash Bin ──
@@ -1446,14 +1659,14 @@ struct OfficeSpriteRenderer {
         let binHex = dark ? "4A4E5A" : "90949C"
         let binHi = dark ? "5A5E6A" : "A0A4AC"
         ctx.fill(Path(CGRect(x: x + 4, y: y + 3, width: w - 8, height: h - 5)),
-                 with: .color(Color(hex: binHex)))
+                 with: .color(HexColorCache.shared.color(for: binHex)))
         // Highlight stripe
         ctx.fill(Path(CGRect(x: x + 4.5, y: y + 4, width: 1, height: h - 7)),
-                 with: .color(Color(hex: binHi).opacity(0.3)))
+                 with: .color(HexColorCache.shared.color(for: binHi).opacity(0.3)))
 
         // Rim
         ctx.fill(Path(CGRect(x: x + 3, y: y + 2, width: w - 6, height: 2)),
-                 with: .color(Color(hex: binHi)))
+                 with: .color(HexColorCache.shared.color(for: binHi)))
         ctx.fill(Path(CGRect(x: x + 3, y: y + 2, width: w - 6, height: 0.6)),
                  with: .color(Color.white.opacity(0.1)))
 
@@ -1463,7 +1676,7 @@ struct OfficeSpriteRenderer {
             let tx = x + 5 + CGFloat(i) * 2
             if tx < x + w - 5 {
                 ctx.fill(Path(CGRect(x: tx, y: y + 1, width: 1.5, height: 2)),
-                         with: .color(Color(hex: tc).opacity(0.5)))
+                         with: .color(HexColorCache.shared.color(for: tc).opacity(0.5)))
             }
         }
     }
@@ -1475,29 +1688,29 @@ struct OfficeSpriteRenderer {
         // Glow halo
         let glow = 0.06 + sin(Double(frame) * 0.05) * 0.03
         ctx.fill(Path(ellipseIn: CGRect(x: cx - 12, y: y - 4, width: 24, height: 24)),
-                 with: .color(Color(hex: "F0E0A0").opacity(glow)))
+                 with: .color(HexColorCache.shared.color(for: "F0E0A0").opacity(glow)))
 
         // Base
         let baseHex = dark ? "5A5040" : "A09070"
         ctx.fill(Path(ellipseIn: CGRect(x: cx - 3, y: y + h - 3, width: 6, height: 3)),
-                 with: .color(Color(hex: baseHex)))
+                 with: .color(HexColorCache.shared.color(for: baseHex)))
 
         // Pole
         let poleHex = dark ? "6A6050" : "B0A080"
         ctx.fill(Path(CGRect(x: cx - 0.6, y: y + 5, width: 1.2, height: h - 8)),
-                 with: .color(Color(hex: poleHex)))
+                 with: .color(HexColorCache.shared.color(for: poleHex)))
 
         // Shade
         let shadeHex = dark ? "E0C880" : "F0E0A0"
         ctx.fill(Path(ellipseIn: CGRect(x: cx - 5, y: y + 1, width: 10, height: 6)),
-                 with: .color(Color(hex: shadeHex)))
+                 with: .color(HexColorCache.shared.color(for: shadeHex)))
         // Shade highlight
         ctx.fill(Path(ellipseIn: CGRect(x: cx - 3, y: y + 1.5, width: 6, height: 3)),
                  with: .color(Color.white.opacity(0.15)))
 
         // Bulb hint
         ctx.fill(Path(ellipseIn: CGRect(x: cx - 1.5, y: y + 4, width: 3, height: 2)),
-                 with: .color(Color(hex: "FFFDE0").opacity(0.5)))
+                 with: .color(HexColorCache.shared.color(for: "FFFDE0").opacity(0.5)))
     }
 
     // ── Rug ──
@@ -1506,16 +1719,16 @@ struct OfficeSpriteRenderer {
         let borderHex = dark ? "50614A" : "6F845E"
         // Rug body
         ctx.fill(Path(roundedRect: CGRect(x: x + 1, y: y + 1, width: w - 2, height: h - 2), cornerRadius: 1.5),
-                 with: .color(Color(hex: rugHex).opacity(0.72)))
+                 with: .color(HexColorCache.shared.color(for: rugHex).opacity(0.72)))
         // Border pattern
         ctx.stroke(Path(roundedRect: CGRect(x: x + 2, y: y + 2, width: w - 4, height: h - 4), cornerRadius: 1),
-                   with: .color(Color(hex: borderHex).opacity(0.65)), lineWidth: 0.6)
+                   with: .color(HexColorCache.shared.color(for: borderHex).opacity(0.65)), lineWidth: 0.6)
         // Inner pattern
         ctx.stroke(Path(roundedRect: CGRect(x: x + 4, y: y + 4, width: w - 8, height: h - 8), cornerRadius: 0.5),
-                   with: .color(Color(hex: dark ? "C4D8A8" : "E7F1D0").opacity(0.35)), lineWidth: 0.4)
+                   with: .color(HexColorCache.shared.color(for: dark ? "C4D8A8" : "E7F1D0").opacity(0.35)), lineWidth: 0.4)
         if w > 16 && h > 12 {
             ctx.fill(Path(ellipseIn: CGRect(x: x + w / 2 - 4, y: y + h / 2 - 2.5, width: 8, height: 5)),
-                     with: .color(Color(hex: dark ? "99AF7A" : "E7F1D0").opacity(0.32)))
+                     with: .color(HexColorCache.shared.color(for: dark ? "99AF7A" : "E7F1D0").opacity(0.32)))
         }
     }
 
@@ -1525,26 +1738,26 @@ struct OfficeSpriteRenderer {
         let frameHex = dark ? "5A4030" : "A08060"
         let frameHi = dark ? "6A5040" : "B09070"
         ctx.fill(Path(CGRect(x: x, y: y, width: w, height: h)),
-                 with: .color(Color(hex: frameHex)))
+                 with: .color(HexColorCache.shared.color(for: frameHex)))
         // Frame highlight
         ctx.fill(Path(CGRect(x: x, y: y, width: w, height: 0.8)),
-                 with: .color(Color(hex: frameHi).opacity(0.5)))
+                 with: .color(HexColorCache.shared.color(for: frameHi).opacity(0.5)))
         ctx.fill(Path(CGRect(x: x, y: y, width: 0.8, height: h)),
-                 with: .color(Color(hex: frameHi).opacity(0.3)))
+                 with: .color(HexColorCache.shared.color(for: frameHi).opacity(0.3)))
 
         // Picture area
         let picHex = dark ? "203040" : "D5E5F0"
         ctx.fill(Path(CGRect(x: x + 2, y: y + 2, width: w - 4, height: h - 4)),
-                 with: .color(Color(hex: picHex)))
+                 with: .color(HexColorCache.shared.color(for: picHex)))
         // Simple landscape in picture
         let skyHex = dark ? "243B54" : "8CC7EE"
         let hillHex = dark ? "365339" : "6FA86F"
         ctx.fill(Path(CGRect(x: x + 2, y: y + 2, width: w - 4, height: (h - 4) * 0.6)),
-                 with: .color(Color(hex: skyHex).opacity(0.5)))
+                 with: .color(HexColorCache.shared.color(for: skyHex).opacity(0.5)))
         ctx.fill(Path(CGRect(x: x + 2, y: y + 2 + (h - 4) * 0.5, width: w - 4, height: (h - 4) * 0.5)),
-                 with: .color(Color(hex: hillHex).opacity(0.4)))
+                 with: .color(HexColorCache.shared.color(for: hillHex).opacity(0.4)))
         ctx.fill(Path(ellipseIn: CGRect(x: x + 4, y: y + 3, width: 2.5, height: 2.5)),
-                 with: .color(Color(hex: "F7E39C").opacity(0.8)))
+                 with: .color(HexColorCache.shared.color(for: "F7E39C").opacity(0.8)))
     }
 
     // ── Clock ──
@@ -1555,11 +1768,11 @@ struct OfficeSpriteRenderer {
         let hand = dark ? "243040" : "3B4652"
 
         ctx.fill(Path(ellipseIn: CGRect(x: x + 2, y: y + 2.2, width: w - 4, height: h - 4)),
-                 with: .color(Color(hex: shadow).opacity(0.45)))
+                 with: .color(HexColorCache.shared.color(for: shadow).opacity(0.45)))
         ctx.fill(Path(ellipseIn: CGRect(x: x + 1.5, y: y + 1.5, width: w - 3, height: h - 3)),
-                 with: .color(Color(hex: rim)))
+                 with: .color(HexColorCache.shared.color(for: rim)))
         ctx.fill(Path(ellipseIn: CGRect(x: x + 3, y: y + 3, width: w - 6, height: h - 6)),
-                 with: .color(Color(hex: face)))
+                 with: .color(HexColorCache.shared.color(for: face)))
 
         let cx = x + w / 2
         let cy = y + h / 2
@@ -1569,15 +1782,15 @@ struct OfficeSpriteRenderer {
         var hour = Path()
         hour.move(to: CGPoint(x: cx, y: cy))
         hour.addLine(to: CGPoint(x: cx + 1.4, y: cy - 2.2))
-        ctx.stroke(hour, with: .color(Color(hex: hand)), lineWidth: 0.8)
+        ctx.stroke(hour, with: .color(HexColorCache.shared.color(for: hand)), lineWidth: 0.8)
 
         var minute = Path()
         minute.move(to: CGPoint(x: cx, y: cy))
         minute.addLine(to: minuteEnd)
-        ctx.stroke(minute, with: .color(Color(hex: hand).opacity(0.8)), lineWidth: 0.6)
+        ctx.stroke(minute, with: .color(HexColorCache.shared.color(for: hand).opacity(0.8)), lineWidth: 0.6)
 
         ctx.fill(Path(ellipseIn: CGRect(x: cx - 0.7, y: cy - 0.7, width: 1.4, height: 1.4)),
-                 with: .color(Color(hex: hand)))
+                 with: .color(HexColorCache.shared.color(for: hand)))
     }
 
     // ═══════════════════════════════════════════════════
@@ -1689,55 +1902,42 @@ struct OfficeSpriteRenderer {
             with: .color(Color.black.opacity(dark ? 0.18 : 0.10))
         )
 
-        // Pixel render — batch contiguous same-color pixels into single rects per row
-        for y in 0..<sprite.count {
-            let rowShiftX: CGFloat
-            let rowShiftY: CGFloat
-            if isWalking {
-                switch y {
-                case ..<10:
-                    rowShiftX = upperShiftX
-                    rowShiftY = upperShiftY
-                case 10..<16:
-                    rowShiftX = midShiftX
-                    rowShiftY = midShiftY
-                default:
-                    rowShiftX = 0
-                    rowShiftY = lowerShiftY
-                }
+        // ── 최적화: 모든 상태에서 CGImage 프리래스터 ──
+        // 이동/비이동 구분 없이 CGImage 1장 캐시 → ctx.draw 1회
+        // 걷기 바디 시프트는 3-slice (상체/중체/하체) CGImage 그리기로 해결
+        let imageKey = "\(cacheKey)|\(dir.rawValue)|\(state)|\(frame)"
+        if let cgImage = SpriteRasterizer.cachedImage(key: imageKey, sprite: sprite) {
+            if !isWalking || (upperShiftY == 0 && midShiftY == 0 && lowerShiftY == 0) {
+                // 시프트 없음 → 단일 이미지 1번 그리기
+                let imgW = CGFloat(cgImage.width)
+                let imgH = CGFloat(cgImage.height)
+                ctx.draw(
+                    Image(decorative: cgImage, scale: 1),
+                    in: CGRect(x: drawX, y: drawY, width: imgW, height: imgH)
+                )
             } else {
-                rowShiftX = 0
-                rowShiftY = 0
-            }
-
-            let row = sprite[y]
-            let rowY = snappedPixel(drawY + CGFloat(y) + rowShiftY)
-            var runStart = -1
-            var runHex = ""
-
-            for x in 0..<row.count {
-                let hex = row[x]
-                if hex == runHex && !hex.isEmpty {
-                    continue  // extend current run
+                // 걷기 바디 시프트 → 3-slice로 분할 그리기 (fill 320회 → draw 3회)
+                let imgW = cgImage.width
+                let imgH = cgImage.height
+                let scale115 = 1.15
+                // 상체 (row 0-9), 중체 (row 10-15), 하체 (row 16+)
+                let slices: [(startRow: Int, endRow: Int, shiftX: CGFloat, shiftY: CGFloat)] = [
+                    (0, min(Int(Double(10) * scale115), imgH), upperShiftX, upperShiftY),
+                    (Int(Double(10) * scale115), min(Int(Double(16) * scale115), imgH), midShiftX, midShiftY),
+                    (Int(Double(16) * scale115), imgH, 0, lowerShiftY)
+                ]
+                for slice in slices {
+                    let sliceH = slice.endRow - slice.startRow
+                    guard sliceH > 0 else { continue }
+                    if let cropped = cgImage.cropping(to: CGRect(x: 0, y: slice.startRow, width: imgW, height: sliceH)) {
+                        let dstX = drawX + slice.shiftX
+                        let dstY = drawY + CGFloat(slice.startRow) + slice.shiftY
+                        ctx.draw(
+                            Image(decorative: cropped, scale: 1),
+                            in: CGRect(x: dstX, y: dstY, width: CGFloat(imgW), height: CGFloat(sliceH))
+                        )
+                    }
                 }
-                // Flush previous run
-                if !runHex.isEmpty && runStart >= 0 {
-                    let runLen = CGFloat(x - runStart)
-                    ctx.fill(Path(CGRect(
-                        x: snappedPixel(drawX + CGFloat(runStart) + rowShiftX),
-                        y: rowY, width: runLen * 1.15, height: 1.15
-                    )), with: .color(Color(hex: runHex)))
-                }
-                runStart = x
-                runHex = hex
-            }
-            // Flush last run
-            if !runHex.isEmpty && runStart >= 0 {
-                let runLen = CGFloat(row.count - runStart)
-                ctx.fill(Path(CGRect(
-                    x: snappedPixel(drawX + CGFloat(runStart) + rowShiftX),
-                    y: rowY, width: runLen * 1.15, height: 1.15
-                )), with: .color(Color(hex: runHex)))
             }
         }
 
@@ -1767,7 +1967,7 @@ struct OfficeSpriteRenderer {
 
     private static func shadeHex(_ hex: String, by delta: CGFloat) -> String {
         let normalized = normalizedHex(hex)
-        guard let color = NSColor(Color(hex: normalized)).usingColorSpace(.sRGB) else { return normalized }
+        guard let color = NSColor(HexColorCache.shared.color(for: normalized)).usingColorSpace(.sRGB) else { return normalized }
 
         func clamp(_ value: CGFloat) -> CGFloat {
             min(max(value, 0), 1)
@@ -1783,8 +1983,8 @@ struct OfficeSpriteRenderer {
         let a = normalizedHex(hexA)
         let b = normalizedHex(hexB)
         guard
-            let colorA = NSColor(Color(hex: a)).usingColorSpace(.sRGB),
-            let colorB = NSColor(Color(hex: b)).usingColorSpace(.sRGB)
+            let colorA = NSColor(HexColorCache.shared.color(for: a)).usingColorSpace(.sRGB),
+            let colorB = NSColor(HexColorCache.shared.color(for: b)).usingColorSpace(.sRGB)
         else { return a }
 
         let mix = min(max(ratio, 0), 1)
@@ -1827,7 +2027,7 @@ struct OfficeSpriteRenderer {
 
         func pixel(_ px: CGFloat, _ py: CGFloat, _ hex: String, _ w: CGFloat = 1.2, _ h: CGFloat = 1.2, _ opacity: Double = 1) {
             ctx.fill(Path(CGRect(x: drawX + px, y: drawY + py, width: w, height: h)),
-                     with: .color(Color(hex: hex).opacity(opacity)))
+                     with: .color(HexColorCache.shared.color(for: hex).opacity(opacity)))
         }
 
         if backFacing {
@@ -2045,7 +2245,7 @@ struct OfficeSpriteRenderer {
         let bubbleWidth = chipsWidth + gapsWidth + CGFloat(countWidth) + 18
         let bubbleHeight: CGFloat = 28
         let rect = CGRect(x: anchorX - bubbleWidth / 2, y: anchorY, width: bubbleWidth, height: bubbleHeight)
-        let bubbleBG = dark ? Color(hex: "101624") : Color.white
+        let bubbleBG = dark ? HexColorCache.shared.color(for: "101624") : Color.white
 
         var tail = Path()
         tail.move(to: CGPoint(x: anchorX - 3, y: rect.maxY))
@@ -2120,13 +2320,13 @@ struct OfficeSpriteRenderer {
         rect: CGRect
     ) {
         let border = task.state.tint.opacity(0.55)
-        let background = (dark ? Color(hex: "171E2D") : Color(hex: "F8F9FD")).opacity(0.95)
+        let background = (dark ? HexColorCache.shared.color(for: "171E2D") : HexColorCache.shared.color(for: "F8F9FD")).opacity(0.95)
         let chipPath = Path(roundedRect: rect, cornerRadius: 3)
         ctx.fill(chipPath, with: .color(background))
         ctx.stroke(chipPath, with: .color(border), lineWidth: 0.6)
 
         let rosterCharacter = CharacterRegistry.shared.character(with: task.assigneeCharacterId)
-        let workerColor = rosterCharacter.map { Color(hex: Self.normalizedHex($0.shirtColor)) } ?? task.state.tint
+        let workerColor = rosterCharacter.map { HexColorCache.shared.color(for: Self.normalizedHex($0.shirtColor)) } ?? task.state.tint
         let roleLabel = rosterCharacter?.jobRole.shortLabel ?? String(task.label.prefix(2)).uppercased()
         let avatarRect = CGRect(x: rect.minX + 2.2, y: rect.minY + 2.4, width: rect.width - 6, height: 7.2)
         let avatarPath = Path(roundedRect: avatarRect, cornerRadius: 2)
@@ -2198,19 +2398,19 @@ struct OfficeSpriteRenderer {
 
             switch mode {
             case .greeting:
-                color = Color(hex: "5AF078")
+                color = HexColorCache.shared.color(for: "5AF078")
                 texts = role == 0 ? Self.greetTexts0 : Self.greetTexts1
             case .chatting:
-                color = Color(hex: "78C8F0")
+                color = HexColorCache.shared.color(for: "78C8F0")
                 texts = role == 0 ? Self.chatTexts0 : Self.chatTexts1
             case .brainstorming:
-                color = Color(hex: "C88AF0")
+                color = HexColorCache.shared.color(for: "C88AF0")
                 texts = role == 0 ? Self.brainTexts0 : Self.brainTexts1
             case .coffee:
-                color = Color(hex: "E8A850")
+                color = HexColorCache.shared.color(for: "E8A850")
                 texts = role == 0 ? Self.coffeeTexts0 : Self.coffeeTexts1
             case .highFive:
-                color = Color(hex: "F0D850")
+                color = HexColorCache.shared.color(for: "F0D850")
                 texts = role == 0 ? Self.highFiveTexts0 : Self.highFiveTexts1
             }
 
@@ -2228,21 +2428,21 @@ struct OfficeSpriteRenderer {
 
             switch char.state {
             case .typing:
-                return (Self.typingReactions[frame / 18 % Self.typingReactions.count], Color(hex: "5AF078"))
+                return (Self.typingReactions[frame / 18 % Self.typingReactions.count], HexColorCache.shared.color(for: "5AF078"))
             case .reading:
-                return (Self.readingReactions[frame / 18 % Self.readingReactions.count], Color(hex: "78C8F0"))
+                return (Self.readingReactions[frame / 18 % Self.readingReactions.count], HexColorCache.shared.color(for: "78C8F0"))
             case .searching:
-                return (Self.searchingReactions[frame / 18 % Self.searchingReactions.count], Color(hex: "C88AF0"))
+                return (Self.searchingReactions[frame / 18 % Self.searchingReactions.count], HexColorCache.shared.color(for: "C88AF0"))
             case .error:
-                return (Self.errorReactions[frame / 12 % Self.errorReactions.count], Color(hex: "F06868"))
+                return (Self.errorReactions[frame / 12 % Self.errorReactions.count], HexColorCache.shared.color(for: "F06868"))
             case .thinking:
-                return (Self.thinkingReactions[frame / 24 % Self.thinkingReactions.count], Color(hex: "E8A850"))
+                return (Self.thinkingReactions[frame / 24 % Self.thinkingReactions.count], HexColorCache.shared.color(for: "E8A850"))
             case .celebrating:
-                return (Self.celebratingReactions[frame / 12 % Self.celebratingReactions.count], Color(hex: "F0D850"))
+                return (Self.celebratingReactions[frame / 12 % Self.celebratingReactions.count], HexColorCache.shared.color(for: "F0D850"))
             case .sittingIdle:
                 // Only idle characters sometimes show reactions (rarely)
                 guard (frame / 36 + char.tileCol * 7) % 20 == 0 else { return nil }
-                return (Self.idleReactions[(frame / 36 + char.tileCol) % Self.idleReactions.count], Color(hex: "8690a4"))
+                return (Self.idleReactions[(frame / 36 + char.tileCol) % Self.idleReactions.count], HexColorCache.shared.color(for: "8690a4"))
             default:
                 return nil
             }
@@ -2314,7 +2514,7 @@ struct OfficeSpriteRenderer {
             let tint = projectTint(for: tab)
             ctx.fill(
                 Path(roundedRect: badgeRect, cornerRadius: 2.5),
-                with: .color((dark ? Color(hex: "0F1421") : Color.white).opacity(0.82))
+                with: .color((dark ? HexColorCache.shared.color(for: "0F1421") : Color.white).opacity(0.82))
             )
             ctx.stroke(
                 Path(roundedRect: badgeRect, cornerRadius: 2.5),
@@ -2352,7 +2552,7 @@ struct OfficeSpriteRenderer {
             guard let tabId = char.tabId,
                   let tab = tabLookup[tabId] else {
                 if !char.displayName.isEmpty {
-                    let idleColor = Color(hex: Self.normalizedHex(char.accentColorHex))
+                    let idleColor = HexColorCache.shared.color(for: Self.normalizedHex(char.accentColorHex))
                     ctx.draw(
                         Text(char.displayName)
                             .font(.system(size: 5, weight: .semibold, design: .monospaced))
@@ -2364,7 +2564,7 @@ struct OfficeSpriteRenderer {
                     let roleRect = CGRect(x: char.pixelX - roleWidth / 2, y: max(4, overlayBaseY(for: char) - 3), width: roleWidth, height: 8)
                     ctx.fill(
                         Path(roundedRect: roleRect, cornerRadius: 2),
-                        with: .color((dark ? Color(hex: "111625") : Color.white).opacity(0.82))
+                        with: .color((dark ? HexColorCache.shared.color(for: "111625") : Color.white).opacity(0.82))
                     )
                     ctx.stroke(
                         Path(roundedRect: roleRect, cornerRadius: 2),
@@ -2421,7 +2621,7 @@ struct OfficeSpriteRenderer {
             }
 
             if let text = bubbleText {
-                let bg = dark ? Color(hex: "1A2030") : Color.white
+                let bg = dark ? HexColorCache.shared.color(for: "1A2030") : Color.white
                 let bw: CGFloat = max(20, CGFloat(text.count)*6+10)
                 let bbx = bx - bw/2
                 var tail = Path()
@@ -2452,7 +2652,7 @@ struct OfficeSpriteRenderer {
                 let badgeX: CGFloat = (bubbleText != nil || hasTopProjectBadge || !tab.officeParallelTasks.isEmpty) ? bx - badgeWidth / 2 : bx + 9
                 let badgeRect = CGRect(x: badgeX, y: badgeY, width: badgeWidth, height: 9)
                 ctx.fill(Path(roundedRect: badgeRect, cornerRadius: 2.5),
-                         with: .color((dark ? Color(hex: "111625") : Color.white).opacity(0.96)))
+                         with: .color((dark ? HexColorCache.shared.color(for: "111625") : Color.white).opacity(0.96)))
                 ctx.stroke(Path(roundedRect: badgeRect, cornerRadius: 2.5),
                            with: .color(badge.tint.opacity(0.6)),
                            lineWidth: 0.6)
@@ -2470,7 +2670,7 @@ struct OfficeSpriteRenderer {
                 let fileWidth = max(24, CGFloat(fileLabel.count) * 4.1 + 8)
                 let fileRect = CGRect(x: bx - fileWidth / 2, y: char.pixelY + 8, width: fileWidth, height: 8.5)
                 ctx.fill(Path(roundedRect: fileRect, cornerRadius: 2),
-                         with: .color((dark ? Color(hex: "0F1421") : Color.white).opacity(0.86)))
+                         with: .color((dark ? HexColorCache.shared.color(for: "0F1421") : Color.white).opacity(0.86)))
                 ctx.stroke(Path(roundedRect: fileRect, cornerRadius: 2),
                            with: .color(Theme.green.opacity(0.26)),
                            lineWidth: 0.45)

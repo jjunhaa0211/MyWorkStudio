@@ -63,8 +63,8 @@ struct OfficeSceneView: View {
 
         return LinearGradient(
             colors: [
-                Color(hex: scenePalette.backdropTop).opacity(0.92),
-                Color(hex: scenePalette.backdropBottom)
+                HexColorCache.shared.color(for: scenePalette.backdropTop).opacity(0.92),
+                HexColorCache.shared.color(for: scenePalette.backdropBottom)
             ],
             startPoint: .top,
             endPoint: .bottom
