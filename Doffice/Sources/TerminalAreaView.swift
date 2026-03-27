@@ -13,6 +13,14 @@ struct TerminalAreaView: View {
 
     init() {}
 
+    /// 세션 1개일 때 자동 Single 모드, focusSingleTab이면 Single로 전환
+    private var effectiveViewMode: ViewMode {
+        if viewMode == .git || viewMode == .browser { return viewMode }
+        if manager.userVisibleTabs.count <= 1 { return .single }
+        if manager.focusSingleTab { return .single }
+        return viewMode
+    }
+
     /// Pre-computed counts of tabs sharing the same projectPath (avoids O(n²) filter inside ForEach)
     private var projectPathCounts: [String: Int] {
         Dictionary(grouping: manager.userVisibleTabs, by: \.projectPath).mapValues(\.count)
@@ -21,7 +29,7 @@ struct TerminalAreaView: View {
     var body: some View {
         VStack(spacing: 0) {
             topBar
-            switch viewMode {
+            switch effectiveViewMode {
             case .grid:
                 if manager.isPaneSplitActive, let layout = manager._paneLayout {
                     PaneSplitView(
@@ -77,7 +85,7 @@ struct TerminalAreaView: View {
             Rectangle().fill(Theme.border).frame(width: 1, height: 18)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 3) {
-                    if viewMode == .grid {
+                    if effectiveViewMode == .grid {
                         // Grid mode: show tabs for shift-click multi-select
                         ForEach(manager.userVisibleTabs) { t in gridTabBtn(t) }
                         if !manager.pinnedTabIds.isEmpty {
@@ -92,7 +100,7 @@ struct TerminalAreaView: View {
                             }.buttonStyle(.plain)
                         }
                     }
-                    if viewMode == .single || viewMode == .git { ForEach(manager.userVisibleTabs) { t in singleTabBtn(t) } }
+                    if effectiveViewMode == .single || effectiveViewMode == .git { ForEach(manager.userVisibleTabs) { t in singleTabBtn(t) } }
                 }.padding(.horizontal, 6)
             }
             Spacer(minLength: 0)
