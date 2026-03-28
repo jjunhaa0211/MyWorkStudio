@@ -510,6 +510,7 @@ public class GitDataProvider: ObservableObject {
         let pathsToRestore = Array(stagedPaths.subtracting(effectiveSelection)).sorted()
         let path = projectPath
         let safeMessage = trimmedMessage
+            .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
             .replacingOccurrences(of: "$", with: "\\$")
             .replacingOccurrences(of: "`", with: "\\`")
@@ -524,7 +525,7 @@ public class GitDataProvider: ObservableObject {
             }
 
             func failed(_ output: String) -> Bool {
-                output.contains("fatal") || output.contains("error")
+                output.contains("fatal:") || output.contains("error:")
             }
 
             var commandError: String?
