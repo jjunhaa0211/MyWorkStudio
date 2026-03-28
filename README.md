@@ -69,7 +69,7 @@ brew install --cask doffice
 
 ### 수동 설치
 
-[최신 릴리스](https://github.com/jjunhaa0211/Doffice/releases/latest)에서 `Doffice-v0.0.22.zip` 다운로드 → 압축 해제 → `Doffice.app`을 Applications로 이동
+[최신 릴리스](https://github.com/jjunhaa0211/Doffice/releases/latest)에서 `Doffice-v0.0.29.zip` 다운로드 → 압축 해제 → `Doffice.app`을 Applications로 이동
 
 ### 소스에서 빌드
 
@@ -300,7 +300,9 @@ gh pr create --title "Add my-doffice-plugin" --body "새 플러그인 등록 요
 
 | 버전 | 주요 변경 |
 |------|----------|
-| **v0.0.22** | 커스텀 단축키 시스템 (키 레코더, 충돌 감지, 카테고리별 설정) |
+| **v0.0.29** | Git 선택 커밋, 커밋/스태시 미리보기, 시트 충돌 방지, 새 세션 시트 레이아웃 안정화 |
+| v0.0.28 | dofi 워크플로우 추가 |
+| v0.0.22 | 커스텀 단축키 시스템 (키 레코더, 충돌 감지, 카테고리별 설정) |
 | v0.0.21 | 커스텀 테마 엔진 (Hex 색상, 그라데이션, 폰트, JSON Import/Export) |
 | v0.0.20 | 오피스 프리셋, 권한, 아키타입 로컬라이즈 |
 | v0.0.19 | 완전 다국어 — 모든 UI 문자열 ko/en/ja |
