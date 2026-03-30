@@ -4575,15 +4575,21 @@ public struct NewTabSheet: View {
         let normalizedPath = normalizedProjectPath(projectPath)
         let path = normalizedPath.isEmpty ? NSHomeDirectory() : normalizedPath
         let name = projectName.isEmpty ? (path as NSString).lastPathComponent : projectName
-        let capacity = manager.manualLaunchCapacity
+
+        // Capture references before dismiss — @EnvironmentObject becomes
+        // invalid once the sheet is removed from the view hierarchy.
+        let mgr = manager
+        let prefs = preferences
+
+        let capacity = mgr.manualLaunchCapacity
         if capacity <= 0 {
-            manager.notifyManualLaunchCapacity(requested: terminalCount)
+            mgr.notifyManualLaunchCapacity(requested: terminalCount)
             return
         }
 
         let launchCount = min(terminalCount, capacity)
         if launchCount < terminalCount {
-            manager.notifyManualLaunchCapacity(requested: terminalCount)
+            mgr.notifyManualLaunchCapacity(requested: terminalCount)
         }
 
         let prompts = Array(tasks.prefix(launchCount)).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -4602,57 +4608,54 @@ public struct NewTabSheet: View {
         let continueSession = self.continueSession
         let useWorktree = self.useWorktree
 
+        // Remember launch and create tabs BEFORE dismiss so all view
+        // properties are still valid.
+        prefs.rememberLaunch(
+            projectName: name,
+            projectPath: path,
+            draft: draft
+        )
+
+        var tabsToStart: [TerminalTab] = []
+        tabsToStart.reserveCapacity(launchCount)
+
+        for i in 0..<launchCount {
+            let prompt = i < prompts.count ? prompts[i] : ""
+            let tab = mgr.addTab(
+                projectName: name,
+                projectPath: path,
+                provider: chosenProvider,
+                initialPrompt: prompt.isEmpty ? nil : prompt,
+                manualLaunch: true,
+                autoStart: false
+            )
+            tab.selectedModel = selectedModel
+            tab.isClaude = selectedModel.provider == .claude
+            tab.effortLevel = effortLevel
+            tab.permissionMode = permissionMode
+            tab.codexSandboxMode = codexSandboxMode
+            tab.codexApprovalPolicy = codexApprovalPolicy
+            tab.systemPrompt = systemPrompt
+            tab.maxBudgetUSD = Double(maxBudget) ?? 0
+            tab.allowedTools = allowedTools
+            tab.disallowedTools = disallowedTools
+            tab.additionalDirs = additionalDirs
+            tab.continueSession = continueSession
+            tab.useWorktree = useWorktree
+            tabsToStart.append(tab)
+        }
+
         isCreatingSessions = true
         dismiss()
 
-        DispatchQueue.main.async {
-            preferences.rememberLaunch(
-                projectName: name,
-                projectPath: path,
-                draft: draft
-            )
-
-            var tabsToStart: [TerminalTab] = []
-            tabsToStart.reserveCapacity(launchCount)
-
-            for i in 0..<launchCount {
-                let prompt = i < prompts.count ? prompts[i] : ""
-                let tab = manager.addTab(
-                    projectName: name,
-                    projectPath: path,
-                    provider: chosenProvider,
-                    initialPrompt: prompt.isEmpty ? nil : prompt,
-                    manualLaunch: true,
-                    autoStart: false
-                )
-                tab.selectedModel = selectedModel
-                tab.isClaude = selectedModel.provider == .claude
-                tab.effortLevel = effortLevel
-                tab.permissionMode = permissionMode
-                tab.codexSandboxMode = codexSandboxMode
-                tab.codexApprovalPolicy = codexApprovalPolicy
-                tab.systemPrompt = systemPrompt
-                tab.maxBudgetUSD = Double(maxBudget) ?? 0
-                tab.allowedTools = allowedTools
-                tab.disallowedTools = disallowedTools
-                tab.additionalDirs = additionalDirs
-                tab.continueSession = continueSession
-                tab.useWorktree = useWorktree
-                tabsToStart.append(tab)
-            }
-
-            for (index, tab) in tabsToStart.enumerated() {
-                let delay = min(Double(index) * 0.18, 0.72)
-                DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                    autoreleasepool {
-                        tab.start()
-                    }
+        // Start tabs asynchronously — tab objects are already created and
+        // retained by the manager, so they are safe to access after dismiss.
+        for (index, tab) in tabsToStart.enumerated() {
+            let delay = min(Double(index) * 0.18, 0.72)
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                autoreleasepool {
+                    tab.start()
                 }
-            }
-
-            let resetDelay = min(Double(tabsToStart.count) * 0.18, 0.72) + 0.3
-            DispatchQueue.main.asyncAfter(deadline: .now() + resetDelay) {
-                isCreatingSessions = false
             }
         }
     }
