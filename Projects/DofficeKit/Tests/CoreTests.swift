@@ -9,6 +9,41 @@ final class CoreTests: XCTestCase {
         XCTAssertFalse(path.isEmpty, "PATH should not be empty")
         XCTAssertTrue(path.contains("/usr/bin"), "PATH should contain /usr/bin")
         XCTAssertTrue(path.contains("/bin"), "PATH should contain /bin")
+        XCTAssertTrue(
+            path.contains("/Applications/Codex.app/Contents/Resources"),
+            "PATH should include the Codex Desktop CLI bundle directory"
+        )
+    }
+
+    func testCodexMissingRolloutResumeErrorDetection() {
+        XCTAssertTrue(
+            TerminalTab.isCodexMissingRolloutResumeError(
+                "Error: thread/resume: thread/resume failed: no rollout found for thread id 9c8598ab-fa1a-4d59-9cf1-b511f53b8a78"
+            )
+        )
+        XCTAssertFalse(
+            TerminalTab.isCodexMissingRolloutResumeError(
+                "Error: thread/resume: permission denied"
+            )
+        )
+    }
+
+    func testIgnorableCodexStderrDetection() {
+        XCTAssertTrue(
+            TerminalTab.isIgnorableCodexStderr(
+                "2026-03-31T07:17:04.359854Z ERROR codex_core::models_manager::manager: failed to refresh available models: timeout waiting for child process to exit"
+            )
+        )
+        XCTAssertTrue(
+            TerminalTab.isIgnorableCodexStderr(
+                "2026-03-31T07:17:50.127368Z  WARN codex_core::shell_snapshot: Failed to delete shell snapshot at \"/tmp/foo\": Os { code: 2, kind: NotFound, message: \"No such file or directory\" }"
+            )
+        )
+        XCTAssertFalse(
+            TerminalTab.isIgnorableCodexStderr(
+                "Error: thread/resume: thread/resume failed: no rollout found for thread id 9c8598ab-fa1a-4d59-9cf1-b511f53b8a78"
+            )
+        )
     }
 
     func testGitDataParserSanitizePath() {
