@@ -78,93 +78,91 @@ public struct OfficeSceneView: View {
 
     public var body: some View {
         GeometryReader { geometry in
-            ZStack(alignment: .topLeading) {
-                Canvas { context, size in
-                    let metrics = sceneMetrics(for: size)
-                    let palette = store.cachedPalette(theme: sceneTheme, dark: settings.isDarkMode)
-                    var renderer = OfficeSpriteRenderer(
-                        map: map,
-                        characters: controller.characters,
-                        tabs: manager.userVisibleTabs,
-                        frame: store.frame,
-                        dark: settings.isDarkMode,
-                        theme: sceneTheme,
-                        selectedTabId: manager.activeTabId,
-                        selectedFurnitureId: selectedFurnitureId,
-                        cachedPalette: palette
-                    )
-                    renderer.chromeScreenshots = store.chromeScreenshots
-                    if let background = store.backgroundSnapshot {
-                        var bgContext = context
-                        bgContext.translateBy(x: metrics.offsetX, y: metrics.offsetY)
-                        bgContext.scaleBy(x: metrics.scale, y: metrics.scale)
-                        bgContext.draw(
-                            Image(decorative: background, scale: 1),
-                            in: CGRect(
-                                x: 0,
-                                y: 0,
-                                width: CGFloat(map.cols) * OfficeConstants.tileSize,
-                                height: CGFloat(map.rows) * OfficeConstants.tileSize
-                            )
-                        )
-                        renderer.renderDynamicLayers(
-                            context: context,
-                            scale: metrics.scale,
-                            offsetX: metrics.offsetX,
-                            offsetY: metrics.offsetY
-                        )
-                    } else {
-                        renderer.render(
-                            context: context,
-                            scale: metrics.scale,
-                            offsetX: metrics.offsetX,
-                            offsetY: metrics.offsetY
-                        )
-                    }
-                }
-                .drawingGroup()
-                .background(viewportBackground)
-                .contentShape(Rectangle())
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { value in
-                            handleDragChanged(value, size: geometry.size)
-                        }
-                        .onEnded { value in
-                            handleDragEnded(value, size: geometry.size)
-                        }
+            let availableHeight = geometry.size.height
+
+            Canvas { context, size in
+                let metrics = sceneMetrics(for: size)
+                let palette = store.cachedPalette(theme: sceneTheme, dark: settings.isDarkMode)
+                var renderer = OfficeSpriteRenderer(
+                    map: map,
+                    characters: controller.characters,
+                    tabs: manager.userVisibleTabs,
+                    frame: store.frame,
+                    dark: settings.isDarkMode,
+                    theme: sceneTheme,
+                    selectedTabId: manager.activeTabId,
+                    selectedFurnitureId: selectedFurnitureId,
+                    cachedPalette: palette
                 )
-
-                if let activeTab = manager.activeTab {
-                    selectionPanel(tab: activeTab)
-                        .padding(14)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity,
-                               alignment: isFollowing ? .bottomLeading : .topLeading)
+                renderer.chromeScreenshots = store.chromeScreenshots
+                if let background = store.backgroundSnapshot {
+                    var bgContext = context
+                    bgContext.translateBy(x: metrics.offsetX, y: metrics.offsetY)
+                    bgContext.scaleBy(x: metrics.scale, y: metrics.scale)
+                    bgContext.draw(
+                        Image(decorative: background, scale: 1),
+                        in: CGRect(
+                            x: 0,
+                            y: 0,
+                            width: CGFloat(map.cols) * OfficeConstants.tileSize,
+                            height: CGFloat(map.rows) * OfficeConstants.tileSize
+                        )
+                    )
+                    renderer.renderDynamicLayers(
+                        context: context,
+                        scale: metrics.scale,
+                        offsetX: metrics.offsetX,
+                        offsetY: metrics.offsetY
+                    )
+                } else {
+                    renderer.render(
+                        context: context,
+                        scale: metrics.scale,
+                        offsetX: metrics.offsetX,
+                        offsetY: metrics.offsetY
+                    )
                 }
-
+            }
+            .drawingGroup()
+            .background(viewportBackground)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        handleDragChanged(value, size: geometry.size)
+                    }
+                    .onEnded { value in
+                        handleDragEnded(value, size: geometry.size)
+                    }
+            )
+            .overlay(alignment: isFollowing ? .bottomLeading : .topLeading) {
+                if let activeTab = manager.activeTab {
+                    selectionPanel(tab: activeTab, maxHeight: availableHeight - 28)
+                        .padding(14)
+                }
+            }
+            .overlay(alignment: .top) {
                 if let boss = registry.activeBossCharacter {
                     bossTicker(character: boss)
                         .padding(.top, 14)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 }
-
+            }
+            .overlay(alignment: .topTrailing) {
                 if settings.isEditMode {
                     editPanel
                         .padding(14)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                 }
-
+            }
+            .overlay(alignment: .bottomTrailing) {
                 if isFollowing, let followId = store.followingCharacterId,
                    let character = controller.characters[followId] {
                     followIndicator(name: character.displayName)
                         .padding(14)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 }
             }
         }
         .background(viewportBackground)
         .clipped()
-        .clipShape(Rectangle())
         .task(id: "\(sceneTheme.rawValue)-\(settings.isDarkMode)-\(store.currentPreset.rawValue)") {
             await MainActor.run {
                 store.prepareBackgroundSnapshot(theme: sceneTheme, dark: settings.isDarkMode)
@@ -200,7 +198,7 @@ public struct OfficeSceneView: View {
 
     // MARK: - Overlay Panels
 
-    private func selectionPanel(tab: TerminalTab) -> some View {
+    private func selectionPanel(tab: TerminalTab, maxHeight: CGFloat) -> some View {
         let status = tab.statusPresentation
         return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 8) {
@@ -270,7 +268,7 @@ public struct OfficeSceneView: View {
                     Text(NSLocalizedString("office.recent.changes", comment: ""))
                         .font(Theme.mono(8, weight: .bold))
                         .foregroundColor(Theme.textDim)
-                    ForEach(tab.officeRecentFileNames, id: \.self) { name in
+                    ForEach(tab.officeRecentFileNames.prefix(3), id: \.self) { name in
                         Text("• \(name)")
                             .font(Theme.mono(9))
                             .foregroundColor(Theme.textSecondary)
@@ -287,6 +285,8 @@ public struct OfficeSceneView: View {
             }
         }
         .frame(width: 250, alignment: .leading)
+        .frame(maxHeight: max(100, maxHeight), alignment: .top)
+        .clipped()
         .appPanelStyle(padding: Theme.sp3, radius: Theme.cornerXL, fill: Theme.bgCard.opacity(0.92), strokeOpacity: 0.20, shadow: false)
         .overlay(
             RoundedRectangle(cornerRadius: Theme.cornerXL)
