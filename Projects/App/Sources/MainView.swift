@@ -351,7 +351,6 @@ struct MainView: View {
         VStack(spacing: 0) {
             ZStack(alignment: .bottomTrailing) {
                 OfficeSceneView()
-                    .frame(height: officeHeight)
 
                 // 오피스 시점 + 확장/축소 버튼
                 HStack(spacing: 3) {
@@ -389,6 +388,9 @@ struct MainView: View {
                 }
                 .padding(4)
             }
+            .frame(height: officeHeight)
+            .clipped()
+
             Rectangle().fill(Theme.border).frame(height: 1)
             TerminalAreaView()
         }

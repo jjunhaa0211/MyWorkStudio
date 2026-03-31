@@ -78,90 +78,99 @@ public struct OfficeSceneView: View {
 
     public var body: some View {
         GeometryReader { geometry in
-            let availableHeight = geometry.size.height
+            let w = geometry.size.width
+            let h = geometry.size.height
+            let panelW = min(250, w - 28)
+            let panelH = h - 28
 
-            Canvas { context, size in
-                let metrics = sceneMetrics(for: size)
-                let palette = store.cachedPalette(theme: sceneTheme, dark: settings.isDarkMode)
-                var renderer = OfficeSpriteRenderer(
-                    map: map,
-                    characters: controller.characters,
-                    tabs: manager.userVisibleTabs,
-                    frame: store.frame,
-                    dark: settings.isDarkMode,
-                    theme: sceneTheme,
-                    selectedTabId: manager.activeTabId,
-                    selectedFurnitureId: selectedFurnitureId,
-                    cachedPalette: palette
-                )
-                renderer.chromeScreenshots = store.chromeScreenshots
-                if let background = store.backgroundSnapshot {
-                    var bgContext = context
-                    bgContext.translateBy(x: metrics.offsetX, y: metrics.offsetY)
-                    bgContext.scaleBy(x: metrics.scale, y: metrics.scale)
-                    bgContext.draw(
-                        Image(decorative: background, scale: 1),
-                        in: CGRect(
-                            x: 0,
-                            y: 0,
-                            width: CGFloat(map.cols) * OfficeConstants.tileSize,
-                            height: CGFloat(map.rows) * OfficeConstants.tileSize
+            ZStack(alignment: .topLeading) {
+                Canvas { context, size in
+                    let metrics = sceneMetrics(for: size)
+                    let palette = store.cachedPalette(theme: sceneTheme, dark: settings.isDarkMode)
+                    var renderer = OfficeSpriteRenderer(
+                        map: map,
+                        characters: controller.characters,
+                        tabs: manager.userVisibleTabs,
+                        frame: store.frame,
+                        dark: settings.isDarkMode,
+                        theme: sceneTheme,
+                        selectedTabId: manager.activeTabId,
+                        selectedFurnitureId: selectedFurnitureId,
+                        cachedPalette: palette
+                    )
+                    renderer.chromeScreenshots = store.chromeScreenshots
+                    if let background = store.backgroundSnapshot {
+                        var bgContext = context
+                        bgContext.translateBy(x: metrics.offsetX, y: metrics.offsetY)
+                        bgContext.scaleBy(x: metrics.scale, y: metrics.scale)
+                        bgContext.draw(
+                            Image(decorative: background, scale: 1),
+                            in: CGRect(
+                                x: 0,
+                                y: 0,
+                                width: CGFloat(map.cols) * OfficeConstants.tileSize,
+                                height: CGFloat(map.rows) * OfficeConstants.tileSize
+                            )
                         )
-                    )
-                    renderer.renderDynamicLayers(
-                        context: context,
-                        scale: metrics.scale,
-                        offsetX: metrics.offsetX,
-                        offsetY: metrics.offsetY
-                    )
-                } else {
-                    renderer.render(
-                        context: context,
-                        scale: metrics.scale,
-                        offsetX: metrics.offsetX,
-                        offsetY: metrics.offsetY
-                    )
+                        renderer.renderDynamicLayers(
+                            context: context,
+                            scale: metrics.scale,
+                            offsetX: metrics.offsetX,
+                            offsetY: metrics.offsetY
+                        )
+                    } else {
+                        renderer.render(
+                            context: context,
+                            scale: metrics.scale,
+                            offsetX: metrics.offsetX,
+                            offsetY: metrics.offsetY
+                        )
+                    }
                 }
-            }
-            .drawingGroup()
-            .background(viewportBackground)
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        handleDragChanged(value, size: geometry.size)
-                    }
-                    .onEnded { value in
-                        handleDragEnded(value, size: geometry.size)
-                    }
-            )
-            .overlay(alignment: isFollowing ? .bottomLeading : .topLeading) {
-                if let activeTab = manager.activeTab {
-                    selectionPanel(tab: activeTab, maxHeight: availableHeight - 28)
+                .drawingGroup()
+                .background(viewportBackground)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            handleDragChanged(value, size: geometry.size)
+                        }
+                        .onEnded { value in
+                            handleDragEnded(value, size: geometry.size)
+                        }
+                )
+
+                // Overlay panels — all constrained within bounds
+                if let activeTab = manager.activeTab, panelW > 80 {
+                    selectionPanel(tab: activeTab, maxWidth: panelW, maxHeight: panelH)
                         .padding(14)
+                        .frame(maxWidth: w, maxHeight: h,
+                               alignment: isFollowing ? .bottomLeading : .topLeading)
                 }
-            }
-            .overlay(alignment: .top) {
+
                 if let boss = registry.activeBossCharacter {
                     bossTicker(character: boss)
                         .padding(.top, 14)
+                        .frame(maxWidth: w, maxHeight: h, alignment: .top)
                 }
-            }
-            .overlay(alignment: .topTrailing) {
+
                 if settings.isEditMode {
                     editPanel
                         .padding(14)
+                        .frame(maxWidth: w, maxHeight: h, alignment: .topTrailing)
                 }
-            }
-            .overlay(alignment: .bottomTrailing) {
+
                 if isFollowing, let followId = store.followingCharacterId,
                    let character = controller.characters[followId] {
                     followIndicator(name: character.displayName)
                         .padding(14)
+                        .frame(maxWidth: w, maxHeight: h, alignment: .bottomTrailing)
                 }
             }
+            .frame(width: w, height: h)
         }
         .background(viewportBackground)
+        .compositingGroup()
         .clipped()
         .task(id: "\(sceneTheme.rawValue)-\(settings.isDarkMode)-\(store.currentPreset.rawValue)") {
             await MainActor.run {
@@ -198,7 +207,7 @@ public struct OfficeSceneView: View {
 
     // MARK: - Overlay Panels
 
-    private func selectionPanel(tab: TerminalTab, maxHeight: CGFloat) -> some View {
+    private func selectionPanel(tab: TerminalTab, maxWidth: CGFloat, maxHeight: CGFloat) -> some View {
         let status = tab.statusPresentation
         return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 8) {
@@ -284,8 +293,8 @@ public struct OfficeSceneView: View {
                     .lineLimit(2)
             }
         }
-        .frame(width: 250, alignment: .leading)
-        .frame(maxHeight: max(100, maxHeight), alignment: .top)
+        .frame(width: maxWidth, alignment: .leading)
+        .frame(maxHeight: max(80, maxHeight), alignment: .top)
         .clipped()
         .appPanelStyle(padding: Theme.sp3, radius: Theme.cornerXL, fill: Theme.bgCard.opacity(0.92), strokeOpacity: 0.20, shadow: false)
         .overlay(
