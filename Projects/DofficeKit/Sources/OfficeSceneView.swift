@@ -201,63 +201,55 @@ public struct OfficeSceneView: View {
 
     private func selectionPanel(tab: TerminalTab, maxWidth: CGFloat, maxHeight: CGFloat) -> some View {
         let status = tab.statusPresentation
-        return VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top, spacing: 8) {
+        let w = min(200, maxWidth)
+        return VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .top, spacing: 6) {
                 Circle()
                     .fill(tab.workerColor)
-                    .padding(.top, 4)
-                    .frame(width: 10, height: 10)
-                VStack(alignment: .leading, spacing: 2) {
+                    .padding(.top, 3)
+                    .frame(width: 8, height: 8)
+                VStack(alignment: .leading, spacing: 1) {
                     Text(tab.workerName)
-                        .font(Theme.mono(11, weight: .bold))
+                        .font(Theme.mono(10, weight: .bold))
                         .foregroundColor(Theme.textPrimary)
                         .lineLimit(1)
                     Text(tab.projectName)
-                        .font(Theme.mono(9))
+                        .font(Theme.mono(8))
                         .foregroundColor(Theme.textDim)
                         .lineLimit(1)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                Spacer(minLength: 0)
 
-                HStack(spacing: 6) {
+                HStack(spacing: 4) {
                     selectionBadge(tab.workerJob.displayName, tint: roleTint(for: tab.workerJob))
                     AppStatusBadge(title: status.label, symbol: status.symbol, tint: status.tint)
                 }
             }
 
-            HStack(spacing: 6) {
-                if let badge = tab.officeLatestToolBadge {
-                    selectionBadge(badge.label, tint: badge.tint)
-                }
-                if tab.pendingApproval != nil && tab.officeLatestToolBadge == nil {
-                    selectionBadge(NSLocalizedString("office.approval.needed", comment: ""), tint: Theme.yellow)
-                }
-            }
-
             if tab.officeSelectionSubtitle != status.label {
                 Text(tab.officeSelectionSubtitle)
-                    .font(Theme.mono(8))
+                    .font(Theme.mono(7))
                     .foregroundColor(tab.officeActivityTint)
-                    .lineLimit(2)
+                    .lineLimit(1)
             }
 
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 infoStat(title: NSLocalizedString("office.activity", comment: ""), value: status.label, tint: status.tint)
                 infoStat(title: NSLocalizedString("office.tokens", comment: ""), value: tab.officeCompactTokenText, tint: Theme.accent)
                 infoStat(title: NSLocalizedString("office.files", comment: ""), value: "\(tab.fileChanges.count)", tint: Theme.green)
             }
 
             if let parallelSummary = tab.officeParallelSummary {
-                HStack(spacing: 6) {
+                HStack(spacing: 4) {
                     Image(systemName: "point.3.connected.trianglepath.dotted")
-                        .font(.system(size: Theme.iconSize(9), weight: .bold))
+                        .font(.system(size: Theme.iconSize(8), weight: .bold))
                         .foregroundColor(Theme.purple)
                     Text(parallelSummary)
-                        .font(Theme.mono(8, weight: .bold))
+                        .font(Theme.mono(7, weight: .bold))
                         .foregroundColor(Theme.purple)
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 5)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
                 .background(
                     RoundedRectangle(cornerRadius: Theme.cornerMedium)
                         .fill(Theme.purple.opacity(0.1))
@@ -265,30 +257,20 @@ public struct OfficeSceneView: View {
             }
 
             if !tab.officeRecentFileNames.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(NSLocalizedString("office.recent.changes", comment: ""))
-                        .font(Theme.mono(8, weight: .bold))
-                        .foregroundColor(Theme.textDim)
-                    ForEach(tab.officeRecentFileNames.prefix(3), id: \.self) { name in
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(tab.officeRecentFileNames.prefix(2), id: \.self) { name in
                         Text("• \(name)")
-                            .font(Theme.mono(9))
+                            .font(Theme.mono(7))
                             .foregroundColor(Theme.textSecondary)
                             .lineLimit(1)
                     }
                 }
             }
-
-            if let pendingApproval = tab.pendingApproval {
-                Text(String(format: NSLocalizedString("office.approval.pending", comment: ""), pendingApproval.command))
-                    .font(Theme.mono(8))
-                    .foregroundColor(Theme.yellow)
-                    .lineLimit(2)
-            }
         }
-        .frame(width: maxWidth, alignment: .leading)
-        .frame(maxHeight: max(80, maxHeight), alignment: .top)
+        .frame(width: w, alignment: .leading)
+        .frame(maxHeight: max(60, maxHeight), alignment: .top)
         .clipped()
-        .appPanelStyle(padding: Theme.sp3, radius: Theme.cornerXL, fill: Theme.bgCard.opacity(0.92), strokeOpacity: 0.20, shadow: false)
+        .appPanelStyle(padding: 8, radius: Theme.cornerXL, fill: Theme.bgCard.opacity(0.92), strokeOpacity: 0.20, shadow: false)
         .overlay(
             RoundedRectangle(cornerRadius: Theme.cornerXL)
                 .stroke(tab.workerColor.opacity(0.26), lineWidth: 1)
