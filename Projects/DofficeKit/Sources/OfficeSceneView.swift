@@ -80,92 +80,96 @@ public struct OfficeSceneView: View {
         GeometryReader { geometry in
             let w = geometry.size.width
             let h = geometry.size.height
-            let panelW = min(250, w - 28)
+            let panelW = min(200, w - 28)
             let panelH = h - 28
 
-            Canvas { context, size in
-                let metrics = sceneMetrics(for: size)
-                let palette = store.cachedPalette(theme: sceneTheme, dark: settings.isDarkMode)
-                var renderer = OfficeSpriteRenderer(
-                    map: map,
-                    characters: controller.characters,
-                    tabs: manager.userVisibleTabs,
-                    frame: store.frame,
-                    dark: settings.isDarkMode,
-                    theme: sceneTheme,
-                    selectedTabId: manager.activeTabId,
-                    selectedFurnitureId: selectedFurnitureId,
-                    cachedPalette: palette
-                )
-                renderer.chromeScreenshots = store.chromeScreenshots
-                if let background = store.backgroundSnapshot {
-                    var bgContext = context
-                    bgContext.translateBy(x: metrics.offsetX, y: metrics.offsetY)
-                    bgContext.scaleBy(x: metrics.scale, y: metrics.scale)
-                    bgContext.draw(
-                        Image(decorative: background, scale: 1),
-                        in: CGRect(
-                            x: 0,
-                            y: 0,
-                            width: CGFloat(map.cols) * OfficeConstants.tileSize,
-                            height: CGFloat(map.rows) * OfficeConstants.tileSize
+            ZStack(alignment: .topLeading) {
+                Canvas { context, size in
+                    let metrics = sceneMetrics(for: size)
+                    let palette = store.cachedPalette(theme: sceneTheme, dark: settings.isDarkMode)
+                    var renderer = OfficeSpriteRenderer(
+                        map: map,
+                        characters: controller.characters,
+                        tabs: manager.userVisibleTabs,
+                        frame: store.frame,
+                        dark: settings.isDarkMode,
+                        theme: sceneTheme,
+                        selectedTabId: manager.activeTabId,
+                        selectedFurnitureId: selectedFurnitureId,
+                        cachedPalette: palette
+                    )
+                    renderer.chromeScreenshots = store.chromeScreenshots
+                    if let background = store.backgroundSnapshot {
+                        var bgContext = context
+                        bgContext.translateBy(x: metrics.offsetX, y: metrics.offsetY)
+                        bgContext.scaleBy(x: metrics.scale, y: metrics.scale)
+                        bgContext.draw(
+                            Image(decorative: background, scale: 1),
+                            in: CGRect(
+                                x: 0,
+                                y: 0,
+                                width: CGFloat(map.cols) * OfficeConstants.tileSize,
+                                height: CGFloat(map.rows) * OfficeConstants.tileSize
+                            )
                         )
-                    )
-                    renderer.renderDynamicLayers(
-                        context: context,
-                        scale: metrics.scale,
-                        offsetX: metrics.offsetX,
-                        offsetY: metrics.offsetY
-                    )
-                } else {
-                    renderer.render(
-                        context: context,
-                        scale: metrics.scale,
-                        offsetX: metrics.offsetX,
-                        offsetY: metrics.offsetY
-                    )
+                        renderer.renderDynamicLayers(
+                            context: context,
+                            scale: metrics.scale,
+                            offsetX: metrics.offsetX,
+                            offsetY: metrics.offsetY
+                        )
+                    } else {
+                        renderer.render(
+                            context: context,
+                            scale: metrics.scale,
+                            offsetX: metrics.offsetX,
+                            offsetY: metrics.offsetY
+                        )
+                    }
                 }
-            }
-            .drawingGroup()
-            .background(viewportBackground)
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        handleDragChanged(value, size: geometry.size)
-                    }
-                    .onEnded { value in
-                        handleDragEnded(value, size: geometry.size)
-                    }
-            )
-            .overlay(alignment: isFollowing ? .bottomLeading : .topLeading) {
+                .drawingGroup()
+                .background(viewportBackground)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            handleDragChanged(value, size: geometry.size)
+                        }
+                        .onEnded { value in
+                            handleDragEnded(value, size: geometry.size)
+                        }
+                )
+
+                // Selection panel — positioned within ZStack, not as overlay
                 if let activeTab = manager.activeTab, panelW > 80 {
                     selectionPanel(tab: activeTab, maxWidth: panelW)
                         .frame(maxHeight: panelH, alignment: .top)
-                        .clipped()
-                        .padding(14)
+                        .padding(10)
+                        .allowsHitTesting(true)
                 }
-            }
-            .overlay(alignment: .top) {
+
                 if let boss = registry.activeBossCharacter {
                     bossTicker(character: boss)
-                        .padding(.top, 14)
+                        .padding(.top, 10)
+                        .frame(maxWidth: .infinity, alignment: .top)
                 }
-            }
-            .overlay(alignment: .topTrailing) {
+
                 if settings.isEditMode {
-                    editPanel.padding(14)
+                    editPanel
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .topTrailing)
                 }
-            }
-            .overlay(alignment: .bottomTrailing) {
+
                 if isFollowing, let followId = store.followingCharacterId,
                    let character = controller.characters[followId] {
                     followIndicator(name: character.displayName)
-                        .padding(14)
+                        .padding(10)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 }
             }
         }
-        .clipped()
+        .background(viewportBackground)
+        .mask(Rectangle())
         .task(id: "\(sceneTheme.rawValue)-\(settings.isDarkMode)-\(store.currentPreset.rawValue)") {
             await MainActor.run {
                 store.prepareBackgroundSnapshot(theme: sceneTheme, dark: settings.isDarkMode)
