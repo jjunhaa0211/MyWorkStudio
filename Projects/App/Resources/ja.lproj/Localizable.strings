@@ -917,6 +917,10 @@
 "theme.alert.template.reset.msg" = "ユーザーが修正した企画/デザイナー/レビュアー/QA/レポーター/SREテンプレートをすべてデフォルトに戻します。";
 "theme.alert.language.change" = "言語変更";
 "theme.alert.language.msg" = "言語を%@に変更します。\n適用するにはアプリの再起動が必要です。";
+"theme.alert.theme.change" = "テーマ変更";
+"theme.alert.theme.change.msg" = "テーマを変更するとアプリが再起動します。\nセッションは自動保存されます。";
+"theme.alert.font.change" = "フォントサイズ変更";
+"theme.alert.font.change.msg" = "フォントサイズを変更するとアプリが再起動します。\nセッションは自動保存されます。";
 
 /* Theme - Weather/mood names */
 "weather.auto" = "自動";

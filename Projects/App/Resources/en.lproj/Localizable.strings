@@ -917,6 +917,10 @@
 "theme.alert.template.reset.msg" = "Resets all custom planner/designer/reviewer/QA/reporter/SRE templates to default.";
 "theme.alert.language.change" = "Change Language";
 "theme.alert.language.msg" = "Language will be changed to %@.\nRestart required to apply.";
+"theme.alert.theme.change" = "Change Theme";
+"theme.alert.theme.change.msg" = "Changing the theme will restart the app.\nYour sessions will be saved automatically.";
+"theme.alert.font.change" = "Change Font Size";
+"theme.alert.font.change.msg" = "Changing the font size will restart the app.\nYour sessions will be saved automatically.";
 
 /* Theme - Weather/mood names */
 "weather.auto" = "Auto";

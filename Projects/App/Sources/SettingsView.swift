@@ -25,6 +25,10 @@ struct SettingsView: View {
     @State private var showTemplateResetConfirm = false
     @State private var showLanguageRestartAlert = false
     @State private var pendingLanguage: String?
+    @State private var showThemeRestartAlert = false
+    @State private var pendingThemeMode: String?
+    @State private var showFontRestartAlert = false
+    @State private var pendingFontScale: Double?
 
     // Custom Theme
     @State private var customAccentColor: Color = Theme.accent
@@ -223,16 +227,7 @@ struct SettingsView: View {
             Button(NSLocalizedString("settings.restart", comment: ""), role: .destructive) {
                 if let lang = pendingLanguage {
                     settings.appLanguage = lang
-                    SessionManager.shared.saveSessions(immediately: true)
-                    // 셸 스크립트로 재시작: 현재 앱 종료 후 다시 열기
-                    let appPath = Bundle.main.bundlePath
-                    let script = "sleep 0.5; open \"\(appPath)\""
-                    let task = Process()
-                    task.executableURL = URL(fileURLWithPath: "/bin/zsh")
-                    task.arguments = ["-c", script]
-                    try? task.run()
-                    // 강제 종료 (확인 다이얼로그 건너뜀)
-                    exit(0)
+                    restartApp()
                 }
             }
             Button(NSLocalizedString("cancel", comment: ""), role: .cancel) { pendingLanguage = nil }
@@ -251,6 +246,29 @@ struct SettingsView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(NSLocalizedString("settings.customtheme.import.error.msg", comment: ""))
+        }
+        .alert(NSLocalizedString("theme.alert.theme.change", comment: "테마 변경"), isPresented: $showThemeRestartAlert) {
+            Button(NSLocalizedString("settings.restart", comment: ""), role: .destructive) {
+                if let mode = pendingThemeMode {
+                    settings.themeMode = mode
+                    settings.requestRefreshIfNeeded()
+                    restartApp()
+                }
+            }
+            Button(NSLocalizedString("cancel", comment: ""), role: .cancel) { pendingThemeMode = nil }
+        } message: {
+            Text(NSLocalizedString("theme.alert.theme.change.msg", comment: "테마를 변경하면 앱이 재시작됩니다."))
+        }
+        .alert(NSLocalizedString("theme.alert.font.change", comment: "글꼴 크기 변경"), isPresented: $showFontRestartAlert) {
+            Button(NSLocalizedString("settings.restart", comment: ""), role: .destructive) {
+                if let scale = pendingFontScale {
+                    settings.fontSizeScale = scale
+                    restartApp()
+                }
+            }
+            Button(NSLocalizedString("cancel", comment: ""), role: .cancel) { pendingFontScale = nil }
+        } message: {
+            Text(NSLocalizedString("theme.alert.font.change.msg", comment: "글꼴 크기를 변경하면 앱이 재시작됩니다."))
         }
     }
 
@@ -474,7 +492,11 @@ struct SettingsView: View {
                 VStack(spacing: 10) {
                     HStack(spacing: 6) {
                         ForEach(fontSizeOptions, id: \.value) { opt in
-                            Button(action: { withAnimation(.easeInOut(duration: 0.15)) { settings.fontSizeScale = opt.value } }) {
+                            Button(action: {
+                                guard !isSelectedSize(opt.value) else { return }
+                                pendingFontScale = opt.value
+                                showFontRestartAlert = true
+                            }) {
                                 VStack(spacing: 4) {
                                     Text("Aa")
                                         .font(.system(size: CGFloat(10 * opt.value), weight: .medium, design: .monospaced))
@@ -2332,8 +2354,9 @@ struct SettingsView: View {
         let selected = settings.themeMode == mode
         let tint: Color = mode == "dark" ? Theme.yellow : (mode == "custom" ? Theme.purple : Theme.orange)
         return Button(action: {
-            withAnimation(.easeInOut(duration: 0.2)) { settings.themeMode = mode }
-            settings.requestRefreshIfNeeded()
+            guard mode != settings.themeMode else { return }
+            pendingThemeMode = mode
+            showThemeRestartAlert = true
         }) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
@@ -2408,6 +2431,17 @@ struct SettingsView: View {
 
     private var fontSizeLabel: String {
         fontSizeOptions.first(where: { isSelectedSize($0.value) })?.label ?? "\(Int(settings.fontSizeScale * 100))%"
+    }
+
+    private func restartApp() {
+        SessionManager.shared.saveSessions(immediately: true)
+        let appPath = Bundle.main.bundlePath
+        let script = "sleep 0.5; open \"\(appPath)\""
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/bin/zsh")
+        task.arguments = ["-c", script]
+        try? task.run()
+        exit(0)
     }
 
     private var currentTheme: BackgroundTheme {
