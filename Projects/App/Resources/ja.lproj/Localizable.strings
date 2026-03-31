@@ -182,6 +182,10 @@
 "settings.language.restart" = "言語を変更します。\n適用するにはアプリの再起動が必要です。";
 "settings.language.change" = "言語変更";
 "settings.restart" = "再起動";
+"settings.cli.subtitle" = "インストール状態";
+"settings.cli.installed" = "インストール済み";
+"settings.cli.install" = "インストール";
+"settings.cli.login.hint" = "各CLIを使用する前にターミナルでログインが必要です。\nClaude: claude login / Codex: codex login / Gemini: gemini login";
 
 /* New session */
 "session.new" = "新規セッション";

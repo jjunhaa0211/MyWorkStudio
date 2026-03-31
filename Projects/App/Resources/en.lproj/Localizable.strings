@@ -182,6 +182,10 @@
 "settings.language.restart" = "Language will be changed.\nRestart required to apply.";
 "settings.language.change" = "Change Language";
 "settings.restart" = "Restart";
+"settings.cli.subtitle" = "Installation Status";
+"settings.cli.installed" = "Installed";
+"settings.cli.install" = "Install";
+"settings.cli.login.hint" = "You need to log in via terminal before using each CLI.\nClaude: claude login / Codex: codex login / Gemini: gemini login";
 
 /* New session */
 "session.new" = "New Session";

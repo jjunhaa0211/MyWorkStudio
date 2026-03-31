@@ -330,6 +330,19 @@ struct SettingsView: View {
 
     private var generalTab: some View {
         VStack(spacing: 14) {
+            // CLI 설치 상태
+            settingsSection(title: "AI CLI", subtitle: NSLocalizedString("settings.cli.subtitle", comment: "")) {
+                VStack(spacing: 8) {
+                    ForEach(AgentProvider.allCases) { provider in
+                        cliStatusRow(provider: provider)
+                    }
+                    Text(NSLocalizedString("settings.cli.login.hint", comment: ""))
+                        .font(Theme.mono(8))
+                        .foregroundColor(Theme.textDim)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+
             settingsSection(title: NSLocalizedString("theme.section.profile", comment: ""), subtitle: NSLocalizedString("theme.section.profile.subtitle", comment: "")) {
                 VStack(spacing: 10) {
                     securityRow(label: NSLocalizedString("theme.label.app.name", comment: "")) {
@@ -2443,6 +2456,77 @@ struct SettingsView: View {
 
     private var fontSizeLabel: String {
         fontSizeOptions.first(where: { isSelectedSize($0.value) })?.label ?? "\(Int(settings.fontSizeScale * 100))%"
+    }
+
+    private func cliStatusRow(provider: AgentProvider) -> some View {
+        let checker = provider.installChecker
+        let _ = checker.check(force: false)
+        let installed = checker.isInstalled
+        let version = checker.version
+
+        return HStack(spacing: 8) {
+            Image(systemName: installed ? "checkmark.circle.fill" : "xmark.circle.fill")
+                .font(.system(size: Theme.iconSize(12)))
+                .foregroundColor(installed ? Theme.green : Theme.red)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(provider.displayName)
+                    .font(Theme.mono(10, weight: .bold))
+                    .foregroundColor(Theme.textPrimary)
+                if installed {
+                    Text(version.isEmpty ? NSLocalizedString("settings.cli.installed", comment: "") : version)
+                        .font(Theme.mono(8))
+                        .foregroundColor(Theme.textDim)
+                        .lineLimit(1)
+                } else {
+                    Text(cliInstallHint(provider))
+                        .font(Theme.mono(8))
+                        .foregroundColor(Theme.textDim)
+                        .lineLimit(2)
+                }
+            }
+            Spacer()
+            if !installed {
+                Button(action: { installCLI(provider) }) {
+                    Text(NSLocalizedString("settings.cli.install", comment: ""))
+                        .font(Theme.mono(9, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 10).padding(.vertical, 5)
+                        .background(RoundedRectangle(cornerRadius: 6).fill(Theme.accent))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(8)
+        .background(RoundedRectangle(cornerRadius: 8).fill(installed ? Theme.green.opacity(0.05) : Theme.red.opacity(0.05)))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(installed ? Theme.green.opacity(0.2) : Theme.red.opacity(0.2), lineWidth: 1))
+    }
+
+    private func cliInstallHint(_ provider: AgentProvider) -> String {
+        switch provider {
+        case .claude: return "npm install -g @anthropic-ai/claude-code"
+        case .codex: return "npm install -g @openai/codex"
+        case .gemini: return "npm install -g @anthropic-ai/gemini-cli"
+        }
+    }
+
+    private func installCLI(_ provider: AgentProvider) {
+        let command: String
+        switch provider {
+        case .claude: command = "npm install -g @anthropic-ai/claude-code"
+        case .codex: command = "npm install -g @openai/codex"
+        case .gemini: command = "npm install -g @anthropic-ai/gemini-cli"
+        }
+
+        let script = """
+        tell application "Terminal"
+            activate
+            do script "\(command)"
+        end tell
+        """
+        if let appleScript = NSAppleScript(source: script) {
+            var error: NSDictionary?
+            appleScript.executeAndReturnError(&error)
+        }
     }
 
     private func restartApp() {

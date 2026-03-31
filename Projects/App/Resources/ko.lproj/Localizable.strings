@@ -182,6 +182,10 @@
 "settings.language.restart" = "언어를 변경합니다.\n앱을 재시작해야 적용됩니다.";
 "settings.language.change" = "언어 변경";
 "settings.restart" = "재시작";
+"settings.cli.subtitle" = "설치 상태 및 설치";
+"settings.cli.installed" = "설치됨";
+"settings.cli.install" = "설치";
+"settings.cli.login.hint" = "각 CLI를 사용하려면 먼저 터미널에서 로그인이 필요합니다.\nClaude: claude login / Codex: codex login / Gemini: gemini login";
 
 /* New session */
 "session.new" = "새 세션 시작";
