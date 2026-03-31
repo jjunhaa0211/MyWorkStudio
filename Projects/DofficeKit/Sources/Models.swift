@@ -2064,9 +2064,10 @@ public class TerminalTab: ObservableObject, Identifiable {
         }
 
         // Gemini CLI: pipe prompt via stdin, capture plain text stdout
+        // NOTE: Gemini CLI hangs with -m flag for most models,
+        // so we only pass it when not using the default model.
         let geminiCmd = resolvedExecutableCommand(for: .gemini)
         var cmd = "printf '%s\\n' \(shellEscape(prompt)) | \(geminiCmd)"
-        cmd += " -m \(shellEscape(selectedModel.rawValue))"
 
         // Gemini CLI yolo mode
         if permissionMode == .bypassPermissions {
