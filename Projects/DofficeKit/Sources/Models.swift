@@ -2063,8 +2063,9 @@ public class TerminalTab: ObservableObject, Identifiable {
             return
         }
 
-        // Gemini CLI uses plain text output, not stream-json
-        var cmd = "\(resolvedExecutableCommand(for: .gemini))"
+        // Gemini CLI: pipe prompt via stdin, capture plain text stdout
+        let geminiCmd = resolvedExecutableCommand(for: .gemini)
+        var cmd = "printf '%s\\n' \(shellEscape(prompt)) | \(geminiCmd)"
         cmd += " -m \(shellEscape(selectedModel.rawValue))"
 
         // Gemini CLI yolo mode
@@ -2072,8 +2073,8 @@ public class TerminalTab: ObservableObject, Identifiable {
             cmd += " --yolo"
         }
 
-        // 프롬프트
-        cmd += " -p \(shellEscape(prompt))"
+        // Suppress stderr noise
+        cmd += " 2>/dev/null"
 
         let proc = Process()
         let outPipe = Pipe()
@@ -2083,8 +2084,6 @@ public class TerminalTab: ObservableObject, Identifiable {
         proc.currentDirectoryURL = projectDirURL
         var env = ProcessInfo.processInfo.environment
         env["PATH"] = Self.buildFullPATH()
-        env["TERM"] = "dumb"
-        env["NO_COLOR"] = "1"
         proc.environment = env
         proc.standardOutput = outPipe
         proc.standardError = errPipe
@@ -2139,37 +2138,10 @@ public class TerminalTab: ObservableObject, Identifiable {
             }
         }
 
-        errPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
-            let data = handle.availableData
-            guard !data.isEmpty,
-                  let rawText = String(data: data, encoding: .utf8) else { return }
-            DispatchQueue.main.async { [weak self] in
-                guard let self = self,
-                      self.currentProcess.map({ ObjectIdentifier($0) == procId }) ?? false
-                else { return }
-                let text = self.sanitizeTerminalText(rawText)
-                guard !text.isEmpty else { return }
-
-                // Gemini stderr 노이즈 필터링
-                let noisePatterns = [
-                    "YOLO mode", "Keychain", "keytar", "Require stack",
-                    "FileKeychain", "cached credentials", "node_modules",
-                    "Cannot find module", "Using FileKeychain", "Loaded cached",
-                    "WARN", "DeprecationWarning", "ExperimentalWarning"
-                ]
-                let isNoise = noisePatterns.contains(where: { text.contains($0) })
-                guard !isNoise else { return }
-
-                // 재시도 메시지 → 상태 블록으로 표시
-                if text.contains("Attempt") && text.contains("Retrying") {
-                    self.claudeActivity = .thinking
-                    self.appendBlock(.status(message: "⏳ Gemini"), content: text)
-                } else if text.contains("exhausted") || text.contains("capacity") {
-                    self.appendBlock(.status(message: "⏳ Gemini " + NSLocalizedString("gemini.rate.limit", comment: "")), content: text)
-                } else {
-                    self.appendBlock(.error(message: "Gemini"), content: text)
-                }
-            }
+        // stderr is suppressed via 2>/dev/null in the command,
+        // but handle any remaining output silently
+        errPipe.fileHandleForReading.readabilityHandler = { handle in
+            _ = handle.availableData // drain to prevent pipe blocking
         }
 
         do {
@@ -2240,9 +2212,10 @@ public class TerminalTab: ObservableObject, Identifiable {
                 claudeActivity = .writing
                 // delta=true 이면 스트리밍 조각 → 마지막 thought 블록에 연결
                 let isDelta = json["delta"] as? Bool ?? false
-                if isDelta, let lastIdx = blocks.indices.last,
-                   case .thought = blocks[lastIdx].blockType {
-                    blocks[lastIdx].content += content
+                if isDelta,
+                   !blocks.isEmpty,
+                   case .thought = blocks[blocks.count - 1].blockType {
+                    blocks[blocks.count - 1].content += content
                 } else {
                     appendBlock(.thought, content: content)
                 }
@@ -3164,14 +3137,14 @@ public class TerminalTab: ObservableObject, Identifiable {
             return
         }
         let p = projectPath
+        let escapedHash = shellEscape(commitHash)
         for file in entry.fileChanges where file.action == "Write" || file.action == "Edit" {
-            _ = Self.shellSync("git -C \"\(p)\" checkout \(commitHash) -- \"\(file.path)\" 2>/dev/null")
+            _ = Self.shellSync("git -C \"\(p)\" checkout \(escapedHash) -- \(shellEscape(file.path)) 2>/dev/null")
         }
         // 새로 생성된 파일 삭제
         let newFiles = entry.fileChanges.filter { $0.action == "Write" }
         for file in newFiles {
-            // checkout이 복원한 경우엔 이미 처리됨. 커밋에 없던 파일은 clean
-            _ = Self.shellSync("git -C \"\(p)\" clean -f -- \"\(file.path)\" 2>/dev/null")
+            _ = Self.shellSync("git -C \"\(p)\" clean -f -- \(shellEscape(file.path)) 2>/dev/null")
         }
         appendBlock(.status(message: NSLocalizedString("history.reverted", comment: "")))
         refreshGitInfo()
@@ -3184,8 +3157,10 @@ public class TerminalTab: ObservableObject, Identifiable {
             return entry.fileChanges.map { "\($0.action): \($0.path)" }.joined(separator: "\n")
         }
         let p = projectPath
-        // 현재 워킹 트리와 before 커밋 사이의 diff
-        let diff = Self.shellSync("git -C \"\(p)\" diff \(before) -- \(entry.fileChanges.map { "\"\($0.path)\"" }.joined(separator: " ")) 2>/dev/null")
+        // 현재 워킹 트리와 before 커밋 사이의 diff (인젝션 방지)
+        let escapedHash = shellEscape(before)
+        let escapedPaths = entry.fileChanges.map { shellEscape($0.path) }.joined(separator: " ")
+        let diff = Self.shellSync("git -C \"\(p)\" diff \(escapedHash) -- \(escapedPaths) 2>/dev/null")
         if let diff = diff, !diff.isEmpty { return diff }
         // diff가 비어있으면 파일 목록 반환
         if entry.fileChanges.isEmpty { return NSLocalizedString("history.no.git.diff", comment: "") }
