@@ -70,12 +70,28 @@ public class BrowserManager: ObservableObject {
     @Published public var bookmarks: [BrowserBookmark] = []
     @Published public var showBookmarks: Bool = false
 
+    // Navigation command — coordinator observes this
+    public enum NavCommand: Equatable {
+        case navigate(UUID, URL)
+        case goBack(UUID)
+        case goForward(UUID)
+        case reload(UUID)
+    }
+    @Published public var pendingCommand: NavCommand?
+
     private let bookmarksKey = "browser_bookmarks"
 
     public init() {
         loadBookmarks()
         if tabs.isEmpty { createNewTab() }
     }
+
+    public func navigate(tabId: UUID, to url: URL) {
+        pendingCommand = .navigate(tabId, url)
+    }
+    public func goBack(tabId: UUID) { pendingCommand = .goBack(tabId) }
+    public func goForward(tabId: UUID) { pendingCommand = .goForward(tabId) }
+    public func reload(tabId: UUID) { pendingCommand = .reload(tabId) }
 
     public var activeTab: BrowserTab? {
         tabs.first(where: { $0.id == activeTabId })
@@ -162,28 +178,10 @@ public struct WebViewRepresentable: NSViewRepresentable {
     public let url: URL?
     @ObservedObject var manager: BrowserManager
 
-    // Actions piped from parent
-    public var goBackTrigger: PassthroughSubject<Void, Never>
-    public var goForwardTrigger: PassthroughSubject<Void, Never>
-    public var reloadTrigger: PassthroughSubject<Void, Never>
-    public var navigateTrigger: PassthroughSubject<URL, Never>
-
-    public init(
-        tabId: UUID,
-        url: URL?,
-        manager: BrowserManager,
-        goBackTrigger: PassthroughSubject<Void, Never>,
-        goForwardTrigger: PassthroughSubject<Void, Never>,
-        reloadTrigger: PassthroughSubject<Void, Never>,
-        navigateTrigger: PassthroughSubject<URL, Never>
-    ) {
+    public init(tabId: UUID, url: URL?, manager: BrowserManager) {
         self.tabId = tabId
         self.url = url
         self.manager = manager
-        self.goBackTrigger = goBackTrigger
-        self.goForwardTrigger = goForwardTrigger
-        self.reloadTrigger = reloadTrigger
-        self.navigateTrigger = navigateTrigger
     }
 
     public class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
@@ -277,26 +275,28 @@ public struct WebViewRepresentable: NSViewRepresentable {
 
         public func bindActions(_ webView: WKWebView) {
             self.webView = webView
+        }
 
-            parent.goBackTrigger
-                .receive(on: DispatchQueue.main)
-                .sink { [weak webView] in webView?.goBack() }
-                .store(in: &cancellables)
-
-            parent.goForwardTrigger
-                .receive(on: DispatchQueue.main)
-                .sink { [weak webView] in webView?.goForward() }
-                .store(in: &cancellables)
-
-            parent.reloadTrigger
-                .receive(on: DispatchQueue.main)
-                .sink { [weak webView] in webView?.reload() }
-                .store(in: &cancellables)
-
-            parent.navigateTrigger
-                .receive(on: DispatchQueue.main)
-                .sink { [weak webView] url in webView?.load(URLRequest(url: url)) }
-                .store(in: &cancellables)
+        /// Called from updateNSView — checks if there's a pending command for this tab
+        public func processCommand() {
+            guard let webView = webView,
+                  let cmd = parent.manager.pendingCommand else { return }
+            let tabId = parent.tabId
+            switch cmd {
+            case .navigate(let id, let url) where id == tabId:
+                webView.load(URLRequest(url: url))
+                parent.manager.pendingCommand = nil
+            case .goBack(let id) where id == tabId:
+                webView.goBack()
+                parent.manager.pendingCommand = nil
+            case .goForward(let id) where id == tabId:
+                webView.goForward()
+                parent.manager.pendingCommand = nil
+            case .reload(let id) where id == tabId:
+                webView.reload()
+                parent.manager.pendingCommand = nil
+            default: break
+            }
         }
     }
 
@@ -325,7 +325,8 @@ public struct WebViewRepresentable: NSViewRepresentable {
     }
 
     public func updateNSView(_ nsView: WKWebView, context: Context) {
-        // Updates are driven via Combine subjects, not SwiftUI diffing
+        context.coordinator.parent = self
+        context.coordinator.processCommand()
     }
 
     private var blankPageHTML: String {
@@ -348,21 +349,8 @@ private struct BrowserTabContentView: View {
     public let url: URL?
     @ObservedObject var manager: BrowserManager
 
-    public let goBack = PassthroughSubject<Void, Never>()
-    public let goForward = PassthroughSubject<Void, Never>()
-    public let reload = PassthroughSubject<Void, Never>()
-    public let navigate = PassthroughSubject<URL, Never>()
-
     public var body: some View {
-        WebViewRepresentable(
-            tabId: tabId,
-            url: url,
-            manager: manager,
-            goBackTrigger: goBack,
-            goForwardTrigger: goForward,
-            reloadTrigger: reload,
-            navigateTrigger: navigate
-        )
+        WebViewRepresentable(tabId: tabId, url: url, manager: manager)
     }
 }
 
@@ -376,11 +364,7 @@ public struct BrowserPanelView: View {
     @State private var isURLBarFocused: Bool = false
     @FocusState private var urlFieldFocused: Bool
 
-    // Combine subjects per tab for navigation actions
-    @State private var goBackSubjects: [UUID: PassthroughSubject<Void, Never>] = [:]
-    @State private var goForwardSubjects: [UUID: PassthroughSubject<Void, Never>] = [:]
-    @State private var reloadSubjects: [UUID: PassthroughSubject<Void, Never>] = [:]
-    @State private var navigateSubjects: [UUID: PassthroughSubject<URL, Never>] = [:]
+    // (subjects removed — navigation via BrowserManager.pendingCommand)
 
     public init() {}
 
@@ -395,7 +379,14 @@ public struct BrowserPanelView: View {
             }
         }
         .background(Theme.bg)
-        .onAppear { syncURLBar() }
+        .onAppear {
+            syncURLBar()
+            // 브라우저 탭 진입 시 URL 바에 자동 포커스
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                if urlBarText == "about:blank" || urlBarText.isEmpty { urlBarText = "" }
+                urlFieldFocused = true
+            }
+        }
         .onChange(of: manager.activeTabId) { _ in syncURLBar() }
         .overlay(bookmarksSidebar, alignment: .leading)
         // Keyboard shortcuts
@@ -426,8 +417,7 @@ public struct BrowserPanelView: View {
 
                 // New tab button
                 toolbarButton(icon: "plus") {
-                    let id = manager.createNewTab()
-                    ensureSubjects(for: id)
+                    _ = manager.createNewTab()
                     urlFieldFocused = true
                 }
             }
@@ -488,14 +478,14 @@ public struct BrowserPanelView: View {
         HStack(spacing: 4) {
             // Navigation buttons
             navButton(icon: "chevron.left", enabled: manager.activeTab?.canGoBack ?? false) {
-                if let id = manager.activeTabId { goBackSubjects[id]?.send() }
+                if let id = manager.activeTabId { manager.goBack(tabId: id) }
             }
             navButton(icon: "chevron.right", enabled: manager.activeTab?.canGoForward ?? false) {
-                if let id = manager.activeTabId { goForwardSubjects[id]?.send() }
+                if let id = manager.activeTabId { manager.goForward(tabId: id) }
             }
             navButton(icon: manager.activeTab?.isLoading == true ? "xmark" : "arrow.clockwise",
                       enabled: true) {
-                if let id = manager.activeTabId { reloadSubjects[id]?.send() }
+                if let id = manager.activeTabId { manager.reload(tabId: id) }
             }
 
             // URL text field
@@ -513,6 +503,11 @@ public struct BrowserPanelView: View {
                 .font(Theme.mono(10))
                 .foregroundColor(Theme.textPrimary)
                 .textFieldStyle(.plain)
+                .onChange(of: urlFieldFocused) { focused in
+                    if focused && (urlBarText == "about:blank" || urlBarText.isEmpty) {
+                        urlBarText = ""
+                    }
+                }
 
                 if !urlBarText.isEmpty {
                     Button(action: { urlBarText = "" }) {
@@ -569,18 +564,9 @@ public struct BrowserPanelView: View {
     private var browserContent: some View {
         ZStack {
             ForEach(manager.tabs) { tab in
-                let subjects = ensuredSubjects(for: tab.id)
-                WebViewRepresentable(
-                    tabId: tab.id,
-                    url: tab.url,
-                    manager: manager,
-                    goBackTrigger: subjects.goBack,
-                    goForwardTrigger: subjects.goForward,
-                    reloadTrigger: subjects.reload,
-                    navigateTrigger: subjects.navigate
-                )
-                .opacity(manager.activeTabId == tab.id ? 1 : 0)
-                .allowsHitTesting(manager.activeTabId == tab.id)
+                WebViewRepresentable(tabId: tab.id, url: tab.url, manager: manager)
+                    .opacity(manager.activeTabId == tab.id ? 1 : 0)
+                    .allowsHitTesting(manager.activeTabId == tab.id)
             }
         }
     }
@@ -655,7 +641,7 @@ public struct BrowserPanelView: View {
     private func bookmarkRow(_ bookmark: BrowserBookmark) -> some View {
         Button(action: {
             if let url = URL(string: bookmark.urlString), let id = manager.activeTabId {
-                navigateSubjects[id]?.send(url)
+                manager.navigate(tabId: id, to: url)
                 urlBarText = bookmark.urlString
             }
         }) {
@@ -703,7 +689,7 @@ public struct BrowserPanelView: View {
         Button(action: {
             let fullURL = "http://\(urlString)"
             if let url = URL(string: fullURL), let id = manager.activeTabId {
-                navigateSubjects[id]?.send(url)
+                manager.navigate(tabId: id, to: url)
                 urlBarText = fullURL
             }
         }) {
@@ -773,7 +759,7 @@ public struct BrowserPanelView: View {
         }
 
         if let url = url {
-            navigateSubjects[id]?.send(url)
+            manager.navigate(tabId: id, to: url)
             urlBarText = url.absoluteString
         }
     }
@@ -803,50 +789,12 @@ public struct BrowserPanelView: View {
     // ── Tab Cleanup ──
 
     private func closeTabAndCleanup(_ id: UUID) {
-        goBackSubjects.removeValue(forKey: id)
-        goForwardSubjects.removeValue(forKey: id)
-        reloadSubjects.removeValue(forKey: id)
-        navigateSubjects.removeValue(forKey: id)
+        // No per-tab cleanup needed — navigation via BrowserManager.pendingCommand
         manager.closeTab(id)
     }
 
     // ── Subject Management ──
 
-    private func ensureSubjects(for id: UUID) {
-        if goBackSubjects[id] == nil { goBackSubjects[id] = PassthroughSubject() }
-        if goForwardSubjects[id] == nil { goForwardSubjects[id] = PassthroughSubject() }
-        if reloadSubjects[id] == nil { reloadSubjects[id] = PassthroughSubject() }
-        if navigateSubjects[id] == nil { navigateSubjects[id] = PassthroughSubject() }
-    }
-
-    private func ensuredSubjects(for id: UUID) -> (
-        goBack: PassthroughSubject<Void, Never>,
-        goForward: PassthroughSubject<Void, Never>,
-        reload: PassthroughSubject<Void, Never>,
-        navigate: PassthroughSubject<URL, Never>
-    ) {
-        let gb = goBackSubjects[id] ?? {
-            let s = PassthroughSubject<Void, Never>()
-            DispatchQueue.main.async { goBackSubjects[id] = s }
-            return s
-        }()
-        let gf = goForwardSubjects[id] ?? {
-            let s = PassthroughSubject<Void, Never>()
-            DispatchQueue.main.async { goForwardSubjects[id] = s }
-            return s
-        }()
-        let rl = reloadSubjects[id] ?? {
-            let s = PassthroughSubject<Void, Never>()
-            DispatchQueue.main.async { reloadSubjects[id] = s }
-            return s
-        }()
-        let nv = navigateSubjects[id] ?? {
-            let s = PassthroughSubject<URL, Never>()
-            DispatchQueue.main.async { navigateSubjects[id] = s }
-            return s
-        }()
-        return (gb, gf, rl, nv)
-    }
 }
 
 // ═══════════════════════════════════════════════════════

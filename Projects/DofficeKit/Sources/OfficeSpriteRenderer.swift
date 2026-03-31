@@ -2435,7 +2435,13 @@ public struct OfficeSpriteRenderer {
 
             if let text = bubbleText {
                 let bg = dark ? Color(hex: "1A2030") : Color.white
-                let bw: CGFloat = max(20, CGFloat(text.count)*6+10)
+                let charWidths: CGFloat = text.unicodeScalars.reduce(0) { sum, scalar in
+                    let v = scalar.value
+                    if v > 0x2600 { return sum + 10 }
+                    if v > 0x1100 { return sum + 8.5 }
+                    return sum + 6
+                }
+                let bw: CGFloat = max(20, charWidths + 10)
                 let bbx = bx - bw/2
                 var tail = Path()
                 tail.move(to: CGPoint(x: bx-2, y: by+13)); tail.addLine(to: CGPoint(x: bx, y: by+16)); tail.addLine(to: CGPoint(x: bx+2, y: by+13))

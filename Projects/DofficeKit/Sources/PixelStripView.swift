@@ -1297,7 +1297,14 @@ public struct PixelStripView: View {
             default: txt = ""; bubbleColor = .clear; textColor = .clear
             }
             if !txt.isEmpty {
-                let bw: CGFloat = CGFloat(txt.count) * 5.5 + 10
+                // CJK/emoji 문자는 라틴 문자보다 넓으므로 유니코드 스칼라 기반으로 폭 계산
+                let charWidths: CGFloat = txt.unicodeScalars.reduce(0) { sum, scalar in
+                    let v = scalar.value
+                    if v > 0x2600 { return sum + 10 }   // emoji
+                    if v > 0x1100 { return sum + 8.5 }   // CJK / Hangul
+                    return sum + 5.5                      // Latin / ASCII
+                }
+                let bw: CGFloat = charWidths + 10
                 let bx = x + 8 * s - bw / 2
                 let by = y - 20
                 // 말풍선 꼬리
