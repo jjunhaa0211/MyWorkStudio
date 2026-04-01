@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/jjunhaa0211/Doffice/main/docs/doffice_run.gif" width="160" alt="Doffice Character">
+  <img src="https://raw.githubusercontent.com/jjunhaa0211/Doffice/main/docs/hero.gif" width="160" alt="Doffice Character">
 </p>
 
 <h1 align="center">Doffice (도피스)</h1>

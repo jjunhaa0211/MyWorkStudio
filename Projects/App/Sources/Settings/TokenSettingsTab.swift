@@ -3,6 +3,29 @@ import DesignSystem
 import DofficeKit
 
 extension SettingsView {
+    private struct TokenPlanOption: Identifiable {
+        enum LimitMode {
+            case preset(Int)
+            case manual
+            case usageBased
+        }
+
+        let name: String
+        let subtitle: String
+        let limitMode: LimitMode
+
+        var id: String { name }
+
+        var weeklyLimit: Int {
+            switch limitMode {
+            case .preset(let limit):
+                return limit
+            case .manual, .usageBased:
+                return 0
+            }
+        }
+    }
+
     // MARK: - 토큰 탭
 
     var tokenTab: some View {
@@ -228,10 +251,15 @@ extension SettingsView {
                     .font(Theme.mono(10, weight: .bold))
                     .foregroundColor(Theme.textPrimary)
                 Spacer()
-                Text("에이전트별 플랜을 선택하세요")
+                Text("공식 플랜 이름 + 내부 가드레일")
                     .font(Theme.mono(7))
                     .foregroundColor(Theme.textDim)
             }
+
+            Text("Codex는 공식 플랜이 5시간 rate limit, 주간 코드리뷰, 크레딧 기준으로 안내되어 토큰 총량이 직접 공개되지 않습니다. Codex 항목은 공식 플랜 이름을 정리하고, 토큰 한도는 위 Provider별 세션 한도로 직접 맞추도록 유지합니다.")
+                .font(Theme.mono(7))
+                .foregroundColor(Theme.textDim)
+                .fixedSize(horizontal: false, vertical: true)
 
             // 전체 주간 합산 요약
             let totalWeekly = settings.claudeWeeklyLimit + settings.codexWeeklyLimit + settings.geminiWeeklyLimit
@@ -260,18 +288,18 @@ extension SettingsView {
             providerPlanSection(
                 icon: "🔵", provider: "Claude", color: Theme.accent,
                 plans: [
-                    ("Pro", 25_000_000),
-                    ("Max 5x", 125_000_000),
-                    ("Max 20x", 500_000_000),
-                    ("Team", 50_000_000),
-                    ("Enterprise", 100_000_000),
+                    TokenPlanOption(name: "Pro", subtitle: "주 25.0M", limitMode: .preset(25_000_000)),
+                    TokenPlanOption(name: "Max 5x", subtitle: "주 125.0M", limitMode: .preset(125_000_000)),
+                    TokenPlanOption(name: "Max 20x", subtitle: "주 500.0M", limitMode: .preset(500_000_000)),
+                    TokenPlanOption(name: "Team", subtitle: "주 50.0M", limitMode: .preset(50_000_000)),
+                    TokenPlanOption(name: "Enterprise", subtitle: "주 100.0M", limitMode: .preset(100_000_000)),
                 ],
                 selectedPlan: settings.claudePlanName,
                 weeklyLimit: settings.claudeWeeklyLimit,
-                onSelect: { name, weekly in
-                    settings.claudePlanName = name
-                    settings.claudeWeeklyLimit = weekly
-                    settings.claudeSessionTokenLimit = weekly / 7
+                onSelect: { plan in
+                    settings.claudePlanName = plan.name
+                    settings.claudeWeeklyLimit = plan.weeklyLimit
+                    settings.claudeSessionTokenLimit = plan.weeklyLimit / 7
                 },
                 onClear: {
                     settings.claudePlanName = ""
@@ -284,15 +312,24 @@ extension SettingsView {
             providerPlanSection(
                 icon: "◉", provider: "Codex", color: Theme.green,
                 plans: [
-                    ("Pro", 30_000_000),
-                    ("Team", 60_000_000),
+                    TokenPlanOption(name: "Free", subtitle: "한시 포함", limitMode: .manual),
+                    TokenPlanOption(name: "Go", subtitle: "한시 포함", limitMode: .manual),
+                    TokenPlanOption(name: "Plus", subtitle: "CLI 포함", limitMode: .manual),
+                    TokenPlanOption(name: "Pro", subtitle: "CLI 포함", limitMode: .manual),
+                    TokenPlanOption(name: "Business", subtitle: "CLI 포함", limitMode: .manual),
+                    TokenPlanOption(name: "Enterprise/Edu", subtitle: "CLI 포함", limitMode: .manual),
+                    TokenPlanOption(name: "API Key", subtitle: "사용량 기반", limitMode: .usageBased),
                 ],
                 selectedPlan: settings.codexPlanName,
                 weeklyLimit: settings.codexWeeklyLimit,
-                onSelect: { name, weekly in
-                    settings.codexPlanName = name
-                    settings.codexWeeklyLimit = weekly
-                    settings.codexSessionTokenLimit = weekly / 7
+                onSelect: { plan in
+                    settings.codexPlanName = plan.name
+                    if case .preset(let weekly) = plan.limitMode {
+                        settings.codexWeeklyLimit = weekly
+                        settings.codexSessionTokenLimit = weekly / 7
+                    } else {
+                        settings.codexWeeklyLimit = 0
+                    }
                 },
                 onClear: {
                     settings.codexPlanName = ""
@@ -305,15 +342,15 @@ extension SettingsView {
             providerPlanSection(
                 icon: "💎", provider: "Gemini", color: Theme.cyan,
                 plans: [
-                    ("Advanced", 40_000_000),
-                    ("Business", 80_000_000),
+                    TokenPlanOption(name: "Advanced", subtitle: "주 40.0M", limitMode: .preset(40_000_000)),
+                    TokenPlanOption(name: "Business", subtitle: "주 80.0M", limitMode: .preset(80_000_000)),
                 ],
                 selectedPlan: settings.geminiPlanName,
                 weeklyLimit: settings.geminiWeeklyLimit,
-                onSelect: { name, weekly in
-                    settings.geminiPlanName = name
-                    settings.geminiWeeklyLimit = weekly
-                    settings.geminiSessionTokenLimit = weekly / 7
+                onSelect: { plan in
+                    settings.geminiPlanName = plan.name
+                    settings.geminiWeeklyLimit = plan.weeklyLimit
+                    settings.geminiSessionTokenLimit = plan.weeklyLimit / 7
                 },
                 onClear: {
                     settings.geminiPlanName = ""
@@ -328,9 +365,9 @@ extension SettingsView {
 
     private func providerPlanSection(
         icon: String, provider: String, color: Color,
-        plans: [(name: String, weekly: Int)],
+        plans: [TokenPlanOption],
         selectedPlan: String, weeklyLimit: Int,
-        onSelect: @escaping (String, Int) -> Void,
+        onSelect: @escaping (TokenPlanOption) -> Void,
         onClear: @escaping () -> Void
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -339,7 +376,7 @@ extension SettingsView {
                 Text(provider).font(Theme.mono(9, weight: .bold)).foregroundColor(color)
                 if !selectedPlan.isEmpty {
                     Text(selectedPlan).font(Theme.mono(8)).foregroundColor(Theme.textDim)
-                    Text("· 주 \(tokenTracker.formatTokens(weeklyLimit))")
+                    Text(weeklyLimit > 0 ? "· 주 \(tokenTracker.formatTokens(weeklyLimit))" : "· 토큰 한도 직접 설정")
                         .font(Theme.mono(7, weight: .semibold)).foregroundColor(color)
                     Spacer()
                     Button(action: onClear) {
@@ -353,19 +390,20 @@ extension SettingsView {
                 }
             }
 
-            HStack(spacing: 4) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 82), spacing: 4)], spacing: 4) {
                 ForEach(plans, id: \.name) { plan in
                     let isActive = selectedPlan == plan.name
-                    Button(action: { onSelect(plan.name, plan.weekly) }) {
+                    Button(action: { onSelect(plan) }) {
                         VStack(spacing: 2) {
                             Text(plan.name)
                                 .font(Theme.mono(7, weight: .bold))
                                 .foregroundColor(isActive ? .white : Theme.textPrimary)
-                            Text("주 \(tokenTracker.formatTokens(plan.weekly))")
+                            Text(plan.subtitle)
                                 .font(Theme.mono(6))
                                 .foregroundColor(isActive ? .white.opacity(0.8) : Theme.textDim)
+                                .multilineTextAlignment(.center)
                         }
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: .infinity, minHeight: 38)
                         .padding(.vertical, 5)
                         .background(RoundedRectangle(cornerRadius: 6).fill(isActive ? color : Theme.bgSurface))
                         .overlay(RoundedRectangle(cornerRadius: 6).stroke(isActive ? color : Theme.border.opacity(0.3), lineWidth: 1))
