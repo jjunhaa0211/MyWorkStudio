@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="Doffice/Resources/Assets.xcassets/AppIcon.appiconset/icon_256x256@2x.png" width="128" height="128" alt="Doffice">
+  <img src="docs/character_coding.gif" width="160" alt="Doffice Character">
 </p>
 
 <h1 align="center">Doffice (도피스)</h1>
