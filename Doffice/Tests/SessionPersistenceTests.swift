@@ -271,6 +271,8 @@ final class SessionPersistenceTests: XCTestCase {
         settingsFileOrJSON: String? = nil,
         betaHeaders: String? = nil,
         sessionId: String? = nil,
+        isBrowserTab: Bool? = nil,
+        browserURL: String? = nil,
         fileChanges: [SavedFileChange]? = nil,
         chatHistory: [SavedChatBlock]? = nil,
         tabOrder: Int? = nil
@@ -331,6 +333,8 @@ final class SessionPersistenceTests: XCTestCase {
             settingsFileOrJSON: settingsFileOrJSON,
             betaHeaders: betaHeaders,
             sessionId: sessionId,
+            isBrowserTab: isBrowserTab,
+            browserURL: browserURL,
             fileChanges: fileChanges,
             chatHistory: chatHistory,
             tabOrder: tabOrder

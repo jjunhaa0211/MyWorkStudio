@@ -957,6 +957,10 @@ class TerminalTab: ObservableObject, Identifiable {
 
     // ── 세션 연속성 (--resume으로 멀티턴 유지) ──
 
+    // ── 브라우저 탭 모드 ──
+    @Published var isBrowserTab: Bool = false
+    @Published var browserURL: String = ""
+
     // ── 크롬 윈도우 캡처 ──
     var chromeScreenshot: CGImage?
 

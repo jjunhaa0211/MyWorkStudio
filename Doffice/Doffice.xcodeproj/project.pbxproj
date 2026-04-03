@@ -11,6 +11,10 @@
 		A50002 /* PromptFavorites.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50002 /* PromptFavorites.swift */; };
 		A50003 /* PluginEffectEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50003 /* PluginEffectEngine.swift */; };
 		A50004 /* BrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50004 /* BrowserView.swift */; };
+		A50005 /* SSHConnectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50005 /* SSHConnectionManager.swift */; };
+		A50006 /* PaneLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50006 /* PaneLayout.swift */; };
+		A50007 /* AutomationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50007 /* AutomationEngine.swift */; };
+		A50008 /* TmuxSessionBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50008 /* TmuxSessionBridge.swift */; };
 		07A2B801437FFDA42534AA17 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AADE3B5D98B955B0C80A5DE3 /* Cocoa.framework */; };
 		273023032BF912399A803AEC /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F35199C3D3E258D53AF607EA /* XCTest.framework */; };
 		28ABC1238F8EE87369BBC7EF /* AuditLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19D1AE3CB99EAC879DE06BC9 /* AuditLog.swift */; };
@@ -107,6 +111,10 @@
 		B50002 /* PromptFavorites.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptFavorites.swift; sourceTree = "<group>"; };
 		B50003 /* PluginEffectEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginEffectEngine.swift; sourceTree = "<group>"; };
 		B50004 /* BrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserView.swift; sourceTree = "<group>"; };
+		B50005 /* SSHConnectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHConnectionManager.swift; sourceTree = "<group>"; };
+		B50006 /* PaneLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneLayout.swift; sourceTree = "<group>"; };
+		B50007 /* AutomationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutomationEngine.swift; sourceTree = "<group>"; };
+		B50008 /* TmuxSessionBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TmuxSessionBridge.swift; sourceTree = "<group>"; };
 		D10001 /* Doffice.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Doffice.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E10001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		E10002 /* DofficeApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DofficeApp.entitlements; sourceTree = "<group>"; };
@@ -208,6 +216,10 @@
 				B50001 /* PluginManager.swift */,
 				B50003 /* PluginEffectEngine.swift */,
 				B50004 /* BrowserView.swift */,
+				B50006 /* PaneLayout.swift */,
+				B50007 /* AutomationEngine.swift */,
+				B50008 /* TmuxSessionBridge.swift */,
+				B50005 /* SSHConnectionManager.swift */,
 				B50002 /* PromptFavorites.swift */,
 			);
 			path = Sources;
@@ -394,6 +406,10 @@
 				A50001 /* PluginManager.swift in Sources */,
 				A50003 /* PluginEffectEngine.swift in Sources */,
 				A50004 /* BrowserView.swift in Sources */,
+				A50006 /* PaneLayout.swift in Sources */,
+				A50007 /* AutomationEngine.swift in Sources */,
+				A50008 /* TmuxSessionBridge.swift in Sources */,
+				A50005 /* SSHConnectionManager.swift in Sources */,
 				A50002 /* PromptFavorites.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

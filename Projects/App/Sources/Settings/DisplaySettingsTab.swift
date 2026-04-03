@@ -101,7 +101,7 @@ extension SettingsView {
                                     .font(Theme.mono(8)).foregroundColor(Theme.textDim)
                                 Toggle("", isOn: $customUseGradient)
                                     .toggleStyle(.switch).controlSize(.mini)
-                                    .onChange(of: customUseGradient) { newVal in
+                                    .onChange(of: customUseGradient) { _, newVal in
                                         var config = settings.customTheme
                                         config.useGradient = newVal
                                         if newVal {
@@ -129,7 +129,7 @@ extension SettingsView {
                                         .font(Theme.mono(9)).foregroundColor(Theme.textSecondary)
                                     ColorPicker("", selection: $customGradientStart, supportsOpacity: false)
                                         .labelsHidden()
-                                        .onChange(of: customGradientStart) { newColor in
+                                        .onChange(of: customGradientStart) { _, newColor in
                                             var config = settings.customTheme
                                             config.gradientStartHex = newColor.hexString
                                             settings.saveCustomTheme(config)
@@ -140,7 +140,7 @@ extension SettingsView {
                                         .font(Theme.mono(9)).foregroundColor(Theme.textSecondary)
                                     ColorPicker("", selection: $customGradientEnd, supportsOpacity: false)
                                         .labelsHidden()
-                                        .onChange(of: customGradientEnd) { newColor in
+                                        .onChange(of: customGradientEnd) { _, newColor in
                                             var config = settings.customTheme
                                             config.gradientEndHex = newColor.hexString
                                             settings.saveCustomTheme(config)
@@ -159,7 +159,7 @@ extension SettingsView {
                                 Spacer()
                                 ColorPicker("", selection: $customAccentColor, supportsOpacity: false)
                                     .labelsHidden()
-                                    .onChange(of: customAccentColor) { newColor in
+                                    .onChange(of: customAccentColor) { _, newColor in
                                         var config = settings.customTheme
                                         config.accentHex = newColor.hexString
                                         settings.saveCustomTheme(config)
@@ -323,7 +323,7 @@ extension SettingsView {
                         }
                         .labelsHidden()
                         .frame(maxWidth: 200)
-                        .onChange(of: customFontName) { newVal in
+                        .onChange(of: customFontName) { _, newVal in
                             var config = settings.customTheme
                             config.fontName = newVal.isEmpty ? nil : newVal
                             settings.saveCustomTheme(config)
@@ -342,7 +342,7 @@ extension SettingsView {
                                 .foregroundColor(Theme.textSecondary)
                         }
                         Slider(value: $customFontSize, in: 8...24, step: 1)
-                            .onChange(of: customFontSize) { newVal in
+                            .onChange(of: customFontSize) { _, newVal in
                                 var config = settings.customTheme
                                 config.fontSize = newVal
                                 settings.saveCustomTheme(config)

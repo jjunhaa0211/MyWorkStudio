@@ -37,7 +37,7 @@ struct SSHProfile: Codable, Identifiable, Equatable {
         cmd += " \(username)@\(host)"
         if let dir = remoteWorkDir, !dir.isEmpty {
             let escaped = dir.replacingOccurrences(of: "'", with: "'\\''")
-            cmd += " -t 'cd '\\''\\(escaped)'\\'' && exec $SHELL -l'"
+            cmd += " -t 'cd '\\''\(escaped)'\\'' && exec $SHELL -l'"
         }
         return cmd
     }
@@ -70,20 +70,27 @@ class SSHConnectionManager: ObservableObject {
 
     @Published var profiles: [SSHProfile] = []
 
-    private let storageKey = "doffice.sshProfiles"
+    private let userDefaults: UserDefaults
+    private let storageKey: String
 
-    private init() { loadProfiles() }
+    init(userDefaults: UserDefaults = .standard, storageKey: String = "doffice.sshProfiles") {
+        self.userDefaults = userDefaults
+        self.storageKey = storageKey
+        loadProfiles()
+    }
 
     func loadProfiles() {
-        if let data = UserDefaults.standard.data(forKey: storageKey),
+        if let data = userDefaults.data(forKey: storageKey),
            let saved = try? JSONDecoder().decode([SSHProfile].self, from: data) {
             profiles = saved
+        } else {
+            profiles = []
         }
     }
 
     func saveProfiles() {
         if let data = try? JSONEncoder().encode(profiles) {
-            UserDefaults.standard.set(data, forKey: storageKey)
+            userDefaults.set(data, forKey: storageKey)
         }
     }
 

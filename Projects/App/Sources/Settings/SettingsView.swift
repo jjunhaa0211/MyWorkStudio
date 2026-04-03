@@ -82,6 +82,10 @@ struct SettingsView: View {
     @State var secretKeyInput = ""
     @State var secretKeyResult: SecretKeyResult = .none
 
+    // App Icon
+    @State var showIconChangeAlert = false
+    @State var pendingIconStyle = ""
+
     let settingsTabs: [(String, String)] = [
         ("slider.horizontal.3", NSLocalizedString("settings.general", comment: "")), ("paintbrush.fill", NSLocalizedString("settings.display", comment: "")), ("building.2.fill", NSLocalizedString("settings.office", comment: "")),
         ("bolt.fill", NSLocalizedString("settings.token", comment: "")), ("externaldrive.fill", NSLocalizedString("settings.data", comment: "")), ("doc.text.fill", NSLocalizedString("settings.template", comment: "")),
@@ -183,7 +187,7 @@ struct SettingsView: View {
             if let hex = ct.pinkHex, !hex.isEmpty { customPinkColor = Color(hex: hex) }
             else { customPinkColor = settings.isDarkMode ? Color(hex: "e54d9e") : Color(hex: "d23197") }
         }
-        .onChange(of: settings.isDarkMode) { dark in
+        .onChange(of: settings.isDarkMode) { _, dark in
             // 커스텀 hex가 없는 색상만 다크/라이트 모드 기본값으로 자동 업데이트
             let ct = settings.customTheme
             if ct.bgHex == nil || ct.bgHex!.isEmpty { customBgColor = dark ? Color(hex: "000000") : Color(hex: "fafafa") }

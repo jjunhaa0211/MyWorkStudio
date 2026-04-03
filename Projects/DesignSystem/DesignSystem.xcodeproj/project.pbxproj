@@ -18,6 +18,7 @@
 		1BF3657859A77CF30492FAE2 /* DSCommandPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0076434B4F2757BAA342463A /* DSCommandPalette.swift */; };
 		1E2D6F36DD65B4518ED9161C /* DSNotificationDot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A6E699785C248CA53BA170A /* DSNotificationDot.swift */; };
 		1EC31C006BC74EA25442F8E5 /* CustomThemeConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D6A6C1F2EF4BC432AF0A8B4 /* CustomThemeConfig.swift */; };
+		1FA0D5E8FB755FCDDCD07660 /* AppSettings+ThemeIO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 503093860BCDB86765F13B40 /* AppSettings+ThemeIO.swift */; };
 		205B78B2D908025D78FFFEA9 /* DSSegmentedControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10E0D65DBDC465AB5F98D093 /* DSSegmentedControl.swift */; };
 		23235F78D7412BC6C8891D88 /* TooltipCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A9CD1087B4784EF750DA389 /* TooltipCatalog.swift */; };
 		24C7E6A8435FCFE3F9F4E139 /* DSSplitPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF0616C4EE2506B46FE88AEC /* DSSplitPane.swift */; };
@@ -31,6 +32,7 @@
 		3E620AD0A61787150E206879 /* ColorTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C752FB3BFD9183F7EFF135C /* ColorTokens.swift */; };
 		3F6F4505F6F8FD918678E8C5 /* KeyboardCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4377500BAAAD6D7306C9283 /* KeyboardCatalog.swift */; };
 		4024F0CDEF7312A4FB14A75C /* DSCodeBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BA5C7D65595BC4DB618B798 /* DSCodeBlock.swift */; };
+		41253AC31BDC797FF9C42B3C /* AppSettings+CoffeeSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B3F287C1A6149D1A06957EF /* AppSettings+CoffeeSupport.swift */; };
 		44A1593DD31F4AF325EB6956 /* DSLists.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5ED8176DA7D14C54CE5DCB0 /* DSLists.swift */; };
 		4831222C52916B4470D99F75 /* DSCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = A567DB31B6B2DDEF6318344C /* DSCards.swift */; };
 		491918C3531659A946F3506B /* CommandPaletteCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 631E99393B8A1DB9CB81E606 /* CommandPaletteCatalog.swift */; };
@@ -73,6 +75,7 @@
 		CB4044C57DEAAACE55CCC2F3 /* ToggleCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B3697C33D3117E5CD5A87C /* ToggleCatalog.swift */; };
 		CF8E280919EA9954E77AB17F /* DSAvatar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21DF3E2150E5427721816842 /* DSAvatar.swift */; };
 		D00022E2CDA7F934D4A6613E /* DSTooltip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9023C71574C489FDB367DE03 /* DSTooltip.swift */; };
+		D0FB425A5250B3BD79623FA5 /* TokenFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E9FFFEC2A991E4BF850568A /* TokenFormatting.swift */; };
 		D15FB107D7CAE1823CD4509D /* CatalogHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFC0E4FE35A8B85E9B2F3630 /* CatalogHelpers.swift */; };
 		D4044A010B336F1D29C39880 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A08B3763787B3CB6C0CA4D2 /* Theme.swift */; };
 		D60C3C8DB421CF2CBCA05A5E /* CodeBlockCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A7C6473D364EAFE0BEF3745 /* CodeBlockCatalog.swift */; };
@@ -162,6 +165,7 @@
 		21DF3E2150E5427721816842 /* DSAvatar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSAvatar.swift; sourceTree = "<group>"; };
 		2A08B3763787B3CB6C0CA4D2 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		2C8916864043C35B7718C15D /* CardsCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardsCatalog.swift; sourceTree = "<group>"; };
+		2E9FFFEC2A991E4BF850568A /* TokenFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenFormatting.swift; sourceTree = "<group>"; };
 		315A78083970E0238D919518 /* ListsCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListsCatalog.swift; sourceTree = "<group>"; };
 		33588E1FA5D2EBC33B14A10E /* DiffCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiffCatalog.swift; sourceTree = "<group>"; };
 		38EBB7C59A3C02F2FEADDDC2 /* CatalogApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogApp.swift; sourceTree = "<group>"; };
@@ -176,7 +180,9 @@
 		469F4B641DBB710B1B90BAD8 /* DesignSystemTests-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "DesignSystemTests-Info.plist"; sourceTree = "<group>"; };
 		46A19BB57C00AA48DD607FCA /* RingCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RingCatalog.swift; sourceTree = "<group>"; };
 		4A6E699785C248CA53BA170A /* DSNotificationDot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSNotificationDot.swift; sourceTree = "<group>"; };
+		4B3F287C1A6149D1A06957EF /* AppSettings+CoffeeSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppSettings+CoffeeSupport.swift"; sourceTree = "<group>"; };
 		4C05551F4D194B42C5D34791 /* DSKeyboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSKeyboard.swift; sourceTree = "<group>"; };
+		503093860BCDB86765F13B40 /* AppSettings+ThemeIO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppSettings+ThemeIO.swift"; sourceTree = "<group>"; };
 		5160DA67C215E1D4A5C58E26 /* SplitPaneCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitPaneCatalog.swift; sourceTree = "<group>"; };
 		525A18A4940CD5DD652D3959 /* TypographyCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypographyCatalog.swift; sourceTree = "<group>"; };
 		54A320F38C680A11CC345CB8 /* CustomThemeConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomThemeConfigTests.swift; sourceTree = "<group>"; };
@@ -314,6 +320,7 @@
 			isa = PBXGroup;
 			children = (
 				561DA4E351C77B322351A1B8 /* ColorHex.swift */,
+				2E9FFFEC2A991E4BF850568A /* TokenFormatting.swift */,
 			);
 			path = Extensions;
 			sourceTree = "<group>";
@@ -326,6 +333,13 @@
 				B03BBBE9652637A9E77D1F51 /* Typography.swift */,
 			);
 			path = Foundations;
+			sourceTree = "<group>";
+		};
+		7D6BBD2B92079B70AB979221 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		82664F67710540CBDEBE5B11 /* Products */ = {
@@ -350,6 +364,8 @@
 			isa = PBXGroup;
 			children = (
 				408C08B2A6A3D56D188B2053 /* AppSettings.swift */,
+				4B3F287C1A6149D1A06957EF /* AppSettings+CoffeeSupport.swift */,
+				503093860BCDB86765F13B40 /* AppSettings+ThemeIO.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -414,8 +430,9 @@
 		EC9821EEC8CC800276475F6C = {
 			isa = PBXGroup;
 			children = (
-				82664F67710540CBDEBE5B11 /* Products */,
 				2BB59E843B58BD9FFF395FEA /* Project */,
+				7D6BBD2B92079B70AB979221 /* Frameworks */,
+				82664F67710540CBDEBE5B11 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
@@ -479,8 +496,8 @@
 			buildPhases = (
 				EC84A65CF96C8470F2186FA2 /* Sources */,
 				8836997EA64CE056B14C043C /* Resources */,
-				49CB8920B5AE9ECAFBA0D86F /* Frameworks */,
 				F2166D77A31A58D48E2556FF /* Embed Frameworks */,
+				49CB8920B5AE9ECAFBA0D86F /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -488,8 +505,6 @@
 				C3373F47F3B553009386B333 /* PBXTargetDependency */,
 			);
 			name = DesignSystemTests;
-			packageProductDependencies = (
-			);
 			productName = DesignSystemTests;
 			productReference = ECAFBD3892447294C1342932 /* DesignSystemTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -500,16 +515,14 @@
 			buildPhases = (
 				BA6DF36C53063F00B80115EA /* Sources */,
 				510D3A5EADC65A3BE366D353 /* Resources */,
-				21D2E38EFDFDB350406F7982 /* Frameworks */,
 				49C4A8593835DDF36FBC2A05 /* Embed Frameworks */,
+				21D2E38EFDFDB350406F7982 /* Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			name = DesignSystem;
-			packageProductDependencies = (
-			);
 			productName = DesignSystem;
 			productReference = 69B7BBEAD5472C7195924AC8 /* DesignSystem.framework */;
 			productType = "com.apple.product-type.framework";
@@ -520,8 +533,8 @@
 			buildPhases = (
 				01562AF919C9F0DD51D04344 /* Sources */,
 				741C8959ADA9D634AC61975E /* Resources */,
-				4A31751F268220E1690376F0 /* Frameworks */,
 				99124DB1EE27E9D531F37CB1 /* Embed Frameworks */,
+				4A31751F268220E1690376F0 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -529,8 +542,6 @@
 				73845A152052C7927585A89C /* PBXTargetDependency */,
 			);
 			name = DesignSystemCatalog;
-			packageProductDependencies = (
-			);
 			productName = DesignSystemCatalog;
 			productReference = 0C3868DEB5107AC3BC1DB39A /* DesignSystemCatalog.app */;
 			productType = "com.apple.product-type.application";
@@ -546,7 +557,7 @@
 				};
 			};
 			buildConfigurationList = 5C0CBBA2BFE0CEE21375AF0A /* Build configuration list for PBXProject "DesignSystem" */;
-			compatibilityVersion = "Xcode 14.0";
+			compatibilityVersion = "Xcode 13.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -669,11 +680,14 @@
 				7F9396FE65E24398B01B87EF /* DSToggle.swift in Sources */,
 				D00022E2CDA7F934D4A6613E /* DSTooltip.swift in Sources */,
 				09C2C45E1E812E3E24F1CFF5 /* ColorHex.swift in Sources */,
+				D0FB425A5250B3BD79623FA5 /* TokenFormatting.swift in Sources */,
 				3E620AD0A61787150E206879 /* ColorTokens.swift in Sources */,
 				F88F33D1360CDA40EC342C36 /* Spacing.swift in Sources */,
 				B785BDA1117FE1A932B79F0D /* Typography.swift in Sources */,
 				25D6342FE8A0A3D9D336FCE9 /* DSModifiers.swift in Sources */,
 				512309DD9DD8B97419FD00E1 /* Notifications.swift in Sources */,
+				41253AC31BDC797FF9C42B3C /* AppSettings+CoffeeSupport.swift in Sources */,
+				1FA0D5E8FB755FCDDCD07660 /* AppSettings+ThemeIO.swift in Sources */,
 				56E5F40E9E718E755CA3990A /* AppSettings.swift in Sources */,
 				1EC31C006BC74EA25442F8E5 /* CustomThemeConfig.swift in Sources */,
 				D4044A010B336F1D29C39880 /* Theme.swift in Sources */,
@@ -736,10 +750,7 @@
 				PRODUCT_NAME = DesignSystem;
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = (
-					"$(inherited)",
-					DEBUG,
-				);
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_COMPILATION_MODE = singlefile;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -759,17 +770,10 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-L$(DT_TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME)",
-				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.junha.doffice.designsystem.tests;
 				PRODUCT_NAME = DesignSystemTests;
 				SDKROOT = macosx;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = (
-					"$(inherited)",
-					DEBUG,
-				);
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_COMPILATION_MODE = singlefile;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -787,15 +791,11 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-L$(DT_TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME)",
-				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.junha.doffice.designsystem.tests;
 				PRODUCT_NAME = DesignSystemTests;
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
-				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
@@ -804,7 +804,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_PREVIEWS = YES;
@@ -814,15 +813,11 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-L$(DT_TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME)",
-				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.junha.doffice.designsystem.catalog;
 				PRODUCT_NAME = DesignSystemCatalog;
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
-				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
@@ -852,7 +847,7 @@
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
-				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
@@ -978,7 +973,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_PREVIEWS = YES;
@@ -988,17 +982,10 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-L$(DT_TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME)",
-				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.junha.doffice.designsystem.catalog;
 				PRODUCT_NAME = DesignSystemCatalog;
 				SDKROOT = macosx;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = (
-					"$(inherited)",
-					DEBUG,
-				);
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_COMPILATION_MODE = singlefile;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;

@@ -3,6 +3,33 @@ import XCTest
 import DesignSystem
 
 final class CoreTests: XCTestCase {
+    private func waitUntil(
+        timeout: TimeInterval = 3.0,
+        file: StaticString = #filePath,
+        line: UInt = #line,
+        _ condition: @escaping () -> Bool
+    ) {
+        let expectation = expectation(description: "Condition fulfilled")
+
+        func poll() {
+            if condition() {
+                expectation.fulfill()
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.02, execute: poll)
+            }
+        }
+
+        DispatchQueue.main.async(execute: poll)
+        wait(for: [expectation], timeout: timeout)
+        XCTAssertTrue(condition(), file: file, line: line)
+    }
+
+    private func makeSuite(_ name: String = UUID().uuidString) -> UserDefaults {
+        let suiteName = "CoreTests.\(name)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        return defaults
+    }
 
     func testBuildFullPATH() {
         let path = TerminalTab.buildFullPATH()
@@ -75,6 +102,43 @@ final class CoreTests: XCTestCase {
         XCTAssertTrue(safeIndex >= 0 && safeIndex < 8)
     }
 
+    func testTerminalTabBrowserDefaults() {
+        let tab = TerminalTab(
+            id: "browser-defaults",
+            projectName: "Demo",
+            projectPath: "/tmp/demo",
+            workerName: "Tester",
+            workerColor: .blue
+        )
+
+        XCTAssertFalse(tab.isBrowserTab)
+        XCTAssertEqual(tab.browserURL, "")
+    }
+
+    func testPluginValidationRejectsEmptyDirectory() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let validation = PluginManager.validatePluginDir(root.path)
+
+        XCTAssertFalse(validation.isValid)
+        XCTAssertEqual(validation.warnings.first, NSLocalizedString("plugin.warn.empty", comment: ""))
+    }
+
+    func testPluginValidationAcceptsMinimalPluginDirectory() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try "# Demo Plugin".write(to: root.appendingPathComponent("CLAUDE.md"), atomically: true, encoding: .utf8)
+
+        let validation = PluginManager.validatePluginDir(root.path)
+
+        XCTAssertTrue(validation.isValid)
+        XCTAssertTrue(validation.hasClaudeMD)
+        XCTAssertTrue(validation.warnings.isEmpty)
+    }
+
     func testRegistryPayloadDecodesEnvelopeWithLegacyKeys() {
         let json = """
         {
@@ -132,5 +196,110 @@ final class CoreTests: XCTestCase {
             ),
             "내 고스트"
         )
+    }
+
+    func testPluginManagerInstallLocalPersistsIntoInjectedStore() throws {
+        let defaults = makeSuite()
+        let baseDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let pluginDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: baseDir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: pluginDir, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: baseDir)
+            try? FileManager.default.removeItem(at: pluginDir)
+        }
+
+        try "# Demo Plugin".write(to: pluginDir.appendingPathComponent("CLAUDE.md"), atomically: true, encoding: .utf8)
+        try #"{"name":"demo-plugin","version":"0.4.2"}"#.write(
+            to: pluginDir.appendingPathComponent("package.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let manager = PluginManager(
+            pluginBaseDir: baseDir,
+            userDefaults: defaults,
+            installSideEffectHandler: { _ in }
+        )
+
+        manager.install(source: pluginDir.path)
+        waitUntil { !manager.isInstalling }
+
+        XCTAssertNil(manager.lastError)
+        XCTAssertEqual(manager.plugins.count, 1)
+        XCTAssertEqual(manager.plugins.first?.sourceType, .local)
+        XCTAssertEqual(manager.plugins.first?.version, "0.4.2")
+        XCTAssertEqual(manager.plugins.first?.localPath, pluginDir.path)
+
+        let reloaded = PluginManager(
+            pluginBaseDir: baseDir,
+            userDefaults: defaults,
+            installSideEffectHandler: { _ in }
+        )
+        XCTAssertEqual(reloaded.plugins.count, 1)
+        XCTAssertEqual(reloaded.plugins.first?.source, pluginDir.path)
+    }
+
+    func testPluginManagerInstallFromURLUsesInjectedDownloader() throws {
+        let defaults = makeSuite()
+        let baseDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: baseDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: baseDir) }
+
+        let manager = PluginManager(
+            pluginBaseDir: baseDir,
+            userDefaults: defaults,
+            downloadHandler: { _, destinationURL, completion in
+                do {
+                    try "# Downloaded Plugin".write(to: destinationURL, atomically: true, encoding: .utf8)
+                    completion(.success(()))
+                } catch {
+                    completion(.failure(error))
+                }
+            },
+            installSideEffectHandler: { _ in }
+        )
+
+        manager.install(source: "https://example.com/plugins/CLAUDE.md")
+        waitUntil { !manager.isInstalling }
+
+        XCTAssertNil(manager.lastError)
+        XCTAssertEqual(manager.plugins.count, 1)
+        XCTAssertEqual(manager.plugins.first?.sourceType, .rawURL)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: baseDir.appendingPathComponent("CLAUDE/CLAUDE.md").path))
+    }
+
+    func testPluginManagerBrokenArchiveCleansUpManagedDirectory() throws {
+        let defaults = makeSuite()
+        let baseDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: baseDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: baseDir) }
+
+        let manager = PluginManager(
+            pluginBaseDir: baseDir,
+            userDefaults: defaults,
+            shellCommandRunner: { command, _ in
+                if command.contains("unzip -o") {
+                    return (false, "invalid zip payload")
+                }
+                return (true, "")
+            },
+            downloadHandler: { _, destinationURL, completion in
+                do {
+                    try Data("not-a-zip".utf8).write(to: destinationURL)
+                    completion(.success(()))
+                } catch {
+                    completion(.failure(error))
+                }
+            },
+            installSideEffectHandler: { _ in }
+        )
+
+        manager.install(source: "https://example.com/plugins/Broken.zip")
+        waitUntil { !manager.isInstalling }
+
+        XCTAssertNotNil(manager.lastError)
+        XCTAssertTrue(manager.plugins.isEmpty)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: baseDir.appendingPathComponent("Broken").path))
     }
 }

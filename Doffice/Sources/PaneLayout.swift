@@ -106,11 +106,11 @@ struct PaneSplitView: View {
         paneContent(node)
     }
 
-    @ViewBuilder
-    private func paneContent(_ node: PaneNode) -> some View {
+    private func paneContent(_ node: PaneNode) -> AnyView {
         switch node {
         case .leaf(_, let tabId):
-            PaneLeafView(
+            return AnyView(
+                PaneLeafView(
                 tabId: tabId,
                 isFocused: focusedTabId == tabId,
                 onSelect: { onSelectTab(tabId) },
@@ -118,36 +118,41 @@ struct PaneSplitView: View {
                 onSplitH: { onSplitPane(tabId, .horizontal) },
                 onSplitV: { onSplitPane(tabId, .vertical) }
             )
+            )
 
         case .split(_, let axis, let children):
-            GeometryReader { geo in
-                let isHorizontal = axis == .horizontal
-                let totalSize = isHorizontal ? geo.size.width : geo.size.height
+            return AnyView(
+                GeometryReader { geo in
+                    let isHorizontal = axis == .horizontal
+                    let totalSize = isHorizontal ? geo.size.width : geo.size.height
 
-                if isHorizontal {
-                    HStack(spacing: 0) {
-                        ForEach(Array(children.enumerated()), id: \.element.id) { index, child in
-                            paneContent(child.node)
-                                .frame(width: max(0, totalSize * child.proportion - (index > 0 ? 2 : 0)))
+                    Group {
+                        if isHorizontal {
+                            HStack(spacing: 0) {
+                                ForEach(Array(children.enumerated()), id: \.element.id) { index, child in
+                                    paneContent(child.node)
+                                        .frame(width: max(0, totalSize * child.proportion - (index > 0 ? 2 : 0)))
 
-                            if index < children.count - 1 {
-                                PaneDivider(axis: .horizontal)
+                                    if index < children.count - 1 {
+                                        PaneDivider(axis: .horizontal)
+                                    }
+                                }
                             }
-                        }
-                    }
-                } else {
-                    VStack(spacing: 0) {
-                        ForEach(Array(children.enumerated()), id: \.element.id) { index, child in
-                            paneContent(child.node)
-                                .frame(height: max(0, totalSize * child.proportion - (index > 0 ? 2 : 0)))
+                        } else {
+                            VStack(spacing: 0) {
+                                ForEach(Array(children.enumerated()), id: \.element.id) { index, child in
+                                    paneContent(child.node)
+                                        .frame(height: max(0, totalSize * child.proportion - (index > 0 ? 2 : 0)))
 
-                            if index < children.count - 1 {
-                                PaneDivider(axis: .vertical)
+                                    if index < children.count - 1 {
+                                        PaneDivider(axis: .vertical)
+                                    }
+                                }
                             }
                         }
                     }
                 }
-            }
+            )
         }
     }
 }

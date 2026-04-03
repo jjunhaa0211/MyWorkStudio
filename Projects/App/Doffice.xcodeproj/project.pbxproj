@@ -15,21 +15,28 @@
 		1C3B50A563042669CC48F2B2 /* SecuritySettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49E5A7131E9EFD59EBBC972B /* SecuritySettingsTab.swift */; };
 		1E7FB710552F32FAF320923F /* TuistStrings+Doffice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50C5ADAC694F96E029253DC1 /* TuistStrings+Doffice.swift */; };
 		2CDFDE9CF8899D710A351706 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = F3EE15CF2BEDAE07FE486C7C /* Localizable.strings */; };
+		4989A0D5C06B50E65E78A726 /* MainView+TitleBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24FABA6F1F693F994C8679E0 /* MainView+TitleBar.swift */; };
 		4C05F3B9DA4E63CDCAF4F50A /* SettingsHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60E03BDCA1738179AE165C81 /* SettingsHelpers.swift */; };
+		4EB3195A9DD1D0440F25437F /* SidebarView+Filtering.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63CD9B3C0C8A9089114D0A3E /* SidebarView+Filtering.swift */; };
 		5EC75BCF43208F23927A21F2 /* CoffeeSupportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 450FFD0E1291AFBC970D29E6 /* CoffeeSupportView.swift */; };
 		62EE01D2BD80B732EF4DA5A4 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C783C534651EEAB4B39E4C17 /* OnboardingView.swift */; };
 		6883BD0679028A4E790CC43A /* DofficeKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E8B78B50AAB0A1622FA8E88 /* DofficeKit.framework */; };
 		6B2319F0D302177D1743430E /* DofficeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1EFBAE544E4DBB9555C02F4 /* DofficeApp.swift */; };
+		6B4F6C1AE9BD51C367647B6C /* SidebarView+GamePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB273B0126CF502BAF9F0712 /* SidebarView+GamePanel.swift */; };
 		7EF034066C17E59558A51837 /* MenuBarWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90E2C627070BEAED793D282C /* MenuBarWidget.swift */; };
 		834DD2EA400274C7508E431F /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = C86A9CD683F0EC38BC6F029C /* InfoPlist.strings */; };
+		93DFB2CF0764713C0DB14BDB /* SidebarView+BatchOperations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09864843D3FAE1F0BBA17768 /* SidebarView+BatchOperations.swift */; };
 		95AFDBCB70DCC467F8134C24 /* OverlayComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7680414A3025E342C61E9583 /* OverlayComponents.swift */; };
 		9A94CB222433A2CA88AEA984 /* OfficeSettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B9E6082FDD3D62DFC3FFE2 /* OfficeSettingsTab.swift */; };
 		AF36F4979ACA50F4DCC5D474 /* AccessoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3737FFD6DC05F96FDE748BE /* AccessoryView.swift */; };
 		AF8B23F19881FC53BAA6D444 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 35CB4C090BC19FC6E84EE66F /* AppIcon.icns */; };
+		B23E977A04B5E0334D789967 /* MainView+StatusBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53C04EE459602AE4A0E16B11 /* MainView+StatusBar.swift */; };
 		B52342E93527F286B5B769DE /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54A18D8DAFAFAE358FCFE624 /* SettingsView.swift */; };
 		B88D09D5D89BFF9515EF53C6 /* GeneralSettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48069ED1D177305BD7ECF853 /* GeneralSettingsTab.swift */; };
 		C142637BCDC9128DC32491B3 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3F8C892B8F6C6EEEAC76F784 /* Info.plist */; };
+		C517A3E6DDAE9622B9C522E8 /* SidebarView+TokenPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4902C34708030C7054F54CC0 /* SidebarView+TokenPanel.swift */; };
 		C5CA6D264804E7F41E503465 /* TuistBundle+Doffice.swift in Sources */ = {isa = PBXBuildFile; fileRef = D961616270D7EC71DD43566B /* TuistBundle+Doffice.swift */; };
+		DE422F0F834B3652265F2667 /* SmokeTestHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAF40DE345A26B0AC90B7764 /* SmokeTestHarness.swift */; };
 		E3C2A36053F01D04F437CE46 /* DesignSystem.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D0C4F705FA08869EB83C1D7C /* DesignSystem.framework */; };
 		E8052CD839B4AC4BD882ED02 /* DisplaySettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F7B8A740923FCE0B52D7B06 /* DisplaySettingsTab.swift */; };
 		E8448A3377CDE43D69FF5658 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 441D4B980AFB400CE4EDD170 /* SidebarView.swift */; };
@@ -52,22 +59,27 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		09864843D3FAE1F0BBA17768 /* SidebarView+BatchOperations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SidebarView+BatchOperations.swift"; sourceTree = "<group>"; };
 		09D17059D5B64F1A757A739C /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
 		0AB1ABABEEC0FEB8E28DFA38 /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/Localizable.strings; sourceTree = "<group>"; };
 		1F7B8A740923FCE0B52D7B06 /* DisplaySettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplaySettingsTab.swift; sourceTree = "<group>"; };
 		23614CB81180C039970E864E /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		24FABA6F1F693F994C8679E0 /* MainView+TitleBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MainView+TitleBar.swift"; sourceTree = "<group>"; };
 		2A6F69415373F00207A06C17 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		35CB4C090BC19FC6E84EE66F /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
 		3F8C892B8F6C6EEEAC76F784 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		441D4B980AFB400CE4EDD170 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		450FFD0E1291AFBC970D29E6 /* CoffeeSupportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoffeeSupportView.swift; sourceTree = "<group>"; };
 		48069ED1D177305BD7ECF853 /* GeneralSettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralSettingsTab.swift; sourceTree = "<group>"; };
+		4902C34708030C7054F54CC0 /* SidebarView+TokenPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SidebarView+TokenPanel.swift"; sourceTree = "<group>"; };
 		49E5A7131E9EFD59EBBC972B /* SecuritySettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecuritySettingsTab.swift; sourceTree = "<group>"; };
 		4AB81FCBCE8BC1543DFDB8D5 /* TuistAssets+Doffice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TuistAssets+Doffice.swift"; sourceTree = "<group>"; };
 		50C5ADAC694F96E029253DC1 /* TuistStrings+Doffice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TuistStrings+Doffice.swift"; sourceTree = "<group>"; };
+		53C04EE459602AE4A0E16B11 /* MainView+StatusBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MainView+StatusBar.swift"; sourceTree = "<group>"; };
 		54A18D8DAFAFAE358FCFE624 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		5E8B78B50AAB0A1622FA8E88 /* DofficeKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = DofficeKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		60E03BDCA1738179AE165C81 /* SettingsHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsHelpers.swift; sourceTree = "<group>"; };
+		63CD9B3C0C8A9089114D0A3E /* SidebarView+Filtering.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SidebarView+Filtering.swift"; sourceTree = "<group>"; };
 		6FA5D991B3B6FCDDC77D8029 /* TokenSettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenSettingsTab.swift; sourceTree = "<group>"; };
 		7680414A3025E342C61E9583 /* OverlayComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayComponents.swift; sourceTree = "<group>"; };
 		796D8D2E6FBBCD15AFB0E59D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -76,10 +88,12 @@
 		9627D8D519FD4876AF17E2BA /* TuistPlists+Doffice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TuistPlists+Doffice.swift"; sourceTree = "<group>"; };
 		A78605D31186D6D3CFFDA563 /* ko */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ko; path = ko.lproj/Localizable.strings; sourceTree = "<group>"; };
 		B2BA1DB24BD58F6911778ABD /* ko */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ko; path = ko.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		BAF40DE345A26B0AC90B7764 /* SmokeTestHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmokeTestHarness.swift; sourceTree = "<group>"; };
 		C1EFBAE544E4DBB9555C02F4 /* DofficeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DofficeApp.swift; sourceTree = "<group>"; };
 		C3B9E6082FDD3D62DFC3FFE2 /* OfficeSettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficeSettingsTab.swift; sourceTree = "<group>"; };
 		C783C534651EEAB4B39E4C17 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		C8FBBD86F05309B058F055DE /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		CB273B0126CF502BAF9F0712 /* SidebarView+GamePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SidebarView+GamePanel.swift"; sourceTree = "<group>"; };
 		CCEF769F7471A83D59B61A2F /* PluginSettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginSettingsTab.swift; sourceTree = "<group>"; };
 		D0C4F705FA08869EB83C1D7C /* DesignSystem.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = DesignSystem.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		D961616270D7EC71DD43566B /* TuistBundle+Doffice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TuistBundle+Doffice.swift"; sourceTree = "<group>"; };
@@ -114,11 +128,19 @@
 			path = Sources;
 			sourceTree = "<group>";
 		};
+		296620D93D093ADCCC21E122 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		57F99D6DC3758BE3BDAB3C5A = {
 			isa = PBXGroup;
 			children = (
-				A13639B21E976A053DBD123B /* Products */,
 				5BFAC059775DC4C25C8225A2 /* Project */,
+				296620D93D093ADCCC21E122 /* Frameworks */,
+				A13639B21E976A053DBD123B /* Products */,
 			);
 			sourceTree = "<group>";
 		};
@@ -138,11 +160,18 @@
 				F0A9228D7075B08CBA1A2E1F /* Settings */,
 				C1EFBAE544E4DBB9555C02F4 /* DofficeApp.swift */,
 				09D17059D5B64F1A757A739C /* MainView.swift */,
+				53C04EE459602AE4A0E16B11 /* MainView+StatusBar.swift */,
+				24FABA6F1F693F994C8679E0 /* MainView+TitleBar.swift */,
 				90E2C627070BEAED793D282C /* MenuBarWidget.swift */,
 				F41FF945832B7B78EB6D5600 /* OfficeWindowView.swift */,
 				C783C534651EEAB4B39E4C17 /* OnboardingView.swift */,
 				7680414A3025E342C61E9583 /* OverlayComponents.swift */,
 				441D4B980AFB400CE4EDD170 /* SidebarView.swift */,
+				09864843D3FAE1F0BBA17768 /* SidebarView+BatchOperations.swift */,
+				63CD9B3C0C8A9089114D0A3E /* SidebarView+Filtering.swift */,
+				CB273B0126CF502BAF9F0712 /* SidebarView+GamePanel.swift */,
+				4902C34708030C7054F54CC0 /* SidebarView+TokenPanel.swift */,
+				BAF40DE345A26B0AC90B7764 /* SmokeTestHarness.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -214,16 +243,14 @@
 			buildPhases = (
 				73B9547B91C479987B3C4A4A /* Sources */,
 				93526325D41D9EA97570BD01 /* Resources */,
-				4360B21D07489716A62C4F37 /* Frameworks */,
 				B387706E13BE869EE19B9D95 /* Embed Frameworks */,
+				4360B21D07489716A62C4F37 /* Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			name = Doffice;
-			packageProductDependencies = (
-			);
 			productName = Doffice;
 			productReference = DD37ECCA815FD7306ADFF63C /* Doffice.app */;
 			productType = "com.apple.product-type.application";
@@ -239,7 +266,7 @@
 				};
 			};
 			buildConfigurationList = 4E460475C604AC652B6FEAA5 /* Build configuration list for PBXProject "Doffice" */;
-			compatibilityVersion = "Xcode 14.0";
+			compatibilityVersion = "Xcode 13.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -283,6 +310,8 @@
 				0CBB4DC856E2BB40D2504CA8 /* TuistPlists+Doffice.swift in Sources */,
 				1E7FB710552F32FAF320923F /* TuistStrings+Doffice.swift in Sources */,
 				6B2319F0D302177D1743430E /* DofficeApp.swift in Sources */,
+				B23E977A04B5E0334D789967 /* MainView+StatusBar.swift in Sources */,
+				4989A0D5C06B50E65E78A726 /* MainView+TitleBar.swift in Sources */,
 				F37142BAD30DEB1ECC07B91B /* MainView.swift in Sources */,
 				7EF034066C17E59558A51837 /* MenuBarWidget.swift in Sources */,
 				04CC2E846937DA1CB3C649FB /* OfficeWindowView.swift in Sources */,
@@ -299,7 +328,12 @@
 				4C05F3B9DA4E63CDCAF4F50A /* SettingsHelpers.swift in Sources */,
 				B52342E93527F286B5B769DE /* SettingsView.swift in Sources */,
 				F47BB3CA1365B307053791C1 /* TokenSettingsTab.swift in Sources */,
+				93DFB2CF0764713C0DB14BDB /* SidebarView+BatchOperations.swift in Sources */,
+				4EB3195A9DD1D0440F25437F /* SidebarView+Filtering.swift in Sources */,
+				6B4F6C1AE9BD51C367647B6C /* SidebarView+GamePanel.swift in Sources */,
+				C517A3E6DDAE9622B9C522E8 /* SidebarView+TokenPanel.swift in Sources */,
 				E8448A3377CDE43D69FF5658 /* SidebarView.swift in Sources */,
+				DE422F0F834B3652265F2667 /* SmokeTestHarness.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -333,8 +367,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = Resources/DofficeApp.entitlements;
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Resources/DofficeApp.entitlements";
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_PREVIEWS = YES;
@@ -344,15 +377,11 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-L$(DT_TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME)",
-				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.junha.doffice;
 				PRODUCT_NAME = Doffice;
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
-				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
@@ -422,8 +451,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = Resources/DofficeApp.entitlements;
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Resources/DofficeApp.entitlements";
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_PREVIEWS = YES;
@@ -433,17 +461,10 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-L$(DT_TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME)",
-				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.junha.doffice;
 				PRODUCT_NAME = Doffice;
 				SDKROOT = macosx;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = (
-					"$(inherited)",
-					DEBUG,
-				);
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_COMPILATION_MODE = singlefile;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;

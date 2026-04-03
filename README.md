@@ -92,9 +92,20 @@ brew install --cask doffice
 ```bash
 git clone https://github.com/jjunhaa0211/Doffice.git
 cd Doffice
-open Doffice/Doffice.xcodeproj
+open Doffice.xcworkspace
 # Xcode에서 Cmd+R
 ```
+
+### 스모크 테스트
+
+```bash
+chmod +x ./Scripts/smoke-test.sh
+./Scripts/smoke-test.sh
+```
+
+로컬에 Tuist 3가 설치되어 있으면 스크립트가 시작 전에 워크스페이스를 자동 재생성해 소스 드리프트도 같이 점검합니다.
+
+릴리스 전 수동 회귀 체크는 [`docs/qa/REGRESSION_CHECKLIST.md`](docs/qa/REGRESSION_CHECKLIST.md)를 기준으로 진행합니다.
 
 ---
 

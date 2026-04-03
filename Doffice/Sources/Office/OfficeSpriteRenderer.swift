@@ -21,8 +21,14 @@ final class HexColorCache {
             return cached
         }
         os_unfair_lock_unlock(&lock)
-        let c = HexColorCache.shared.color(for: hex)
+
+        let c = Color(hex: hex)
+
         os_unfair_lock_lock(&lock)
+        if let cached = cache[hex] {
+            os_unfair_lock_unlock(&lock)
+            return cached
+        }
         cache[hex] = c
         os_unfair_lock_unlock(&lock)
         return c
@@ -157,7 +163,7 @@ enum SpriteRasterizer {
         imageCache.removeAll()
         imageCacheInsertOrder.removeAll()
         os_unfair_lock_unlock(&lock)
-        pluginFurnitureImageCache.removeAll()
+        OfficeSpriteRenderer.pluginFurnitureImageCache.removeAll()
     }
 }
 
@@ -988,7 +994,7 @@ struct OfficeSpriteRenderer {
     // ═══════════════════════════════════════════════════
 
     /// 플러그인 가구 CGImage 캐시 — 매 프레임 Color(hex:) 생성 방지
-    private static var pluginFurnitureImageCache: [String: CGImage] = [:]
+    fileprivate static var pluginFurnitureImageCache: [String: CGImage] = [:]
 
     /// 플러그인 가구의 sprite 데이터를 CGImage로 사전 래스터화하여 렌더링
     private static func drawPluginFurniture(_ ctx: GraphicsContext, pluginId: String,

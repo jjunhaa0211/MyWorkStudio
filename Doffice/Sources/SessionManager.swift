@@ -287,6 +287,10 @@ class SessionManager: ObservableObject {
     /// Scans for running terminal sessions and Claude Code processes,
     /// auto-creates tabs for each unique project found.
     func autoDetectAndConnect() {
+        scanTimer?.invalidate()
+        scanTimer = nil
+        scanTickCount = 0
+
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let detected = self?.scanRunningTerminals() ?? []
 
@@ -2118,9 +2122,16 @@ class SessionManager: ObservableObject {
 
         do {
             try process.run()
+            var outputData = Data()
+            let outputGroup = DispatchGroup()
+            outputGroup.enter()
+            DispatchQueue.global(qos: .utility).async {
+                outputData = pipe.fileHandleForReading.readDataToEndOfFile()
+                outputGroup.leave()
+            }
             process.waitUntilExit()
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            let output = String(data: data, encoding: .utf8)
+            outputGroup.wait()
+            let output = String(data: outputData, encoding: .utf8)
             return output?.isEmpty == true ? nil : output
         } catch {
             return nil

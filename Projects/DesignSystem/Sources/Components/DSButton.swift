@@ -30,14 +30,16 @@ public struct DSButton: View {
 
     public var body: some View {
         Button(action: action) {
-            HStack(spacing: 4) {
+            HStack(spacing: compact ? 5 : 7) {
                 if let icon {
                     Image(systemName: icon)
-                        .font(.system(size: Theme.iconSize(compact ? 8 : 9), weight: .medium))
+                        .font(.system(size: Theme.iconSize(compact ? 9 : 10), weight: .semibold))
                 }
                 Text(title)
-                    .font(Theme.mono(compact ? 9 : 10, weight: .bold))
+                    .font(Theme.mono(compact ? 9 : 10.5, weight: .bold))
+                    .tracking(compact ? 0.1 : 0.2)
             }
+            .frame(minHeight: compact ? 28 : 34)
             .appButtonSurface(tone: tone, prominent: prominent, compact: compact)
         }
         .buttonStyle(.plain)
@@ -68,7 +70,16 @@ public struct DSIconButton: View {
             Image(systemName: icon)
                 .font(.system(size: Theme.iconSize(size), weight: .medium))
                 .foregroundColor(tint)
-                .frame(width: size * 2.4, height: size * 2.4)
+                .frame(width: size * 2.7, height: size * 2.7)
+                .background(
+                    RoundedRectangle(cornerRadius: Theme.cornerMedium)
+                        .fill(Theme.controlBackground)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.cornerMedium)
+                        .stroke(Theme.border, lineWidth: 1)
+                )
+                .shadow(color: Theme.panelShadow.opacity(0.16), radius: 6, x: 0, y: 3)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

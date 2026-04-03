@@ -1,6 +1,6 @@
 import ProjectDescription
 
-let infoPlist: [String: Plist.Value] = [
+let infoPlist: [String: InfoPlist.Value] = [
     "CFBundleDevelopmentRegion": "$(DEVELOPMENT_LANGUAGE)",
     "CFBundleExecutable": "$(EXECUTABLE_NAME)",
     "CFBundleIdentifier": "$(PRODUCT_BUNDLE_IDENTIFIER)",
@@ -11,6 +11,7 @@ let infoPlist: [String: Plist.Value] = [
     "CFBundleShortVersionString": "$(MARKETING_VERSION)",
     "CFBundleVersion": "$(CURRENT_PROJECT_VERSION)",
     "LSMinimumSystemVersion": "$(MACOSX_DEPLOYMENT_TARGET)",
+    "LSApplicationCategoryType": "public.app-category.developer-tools",
     "CFBundleIconFile": "AppIcon",
     "NSPrincipalClass": "NSApplication",
     "NSScreenCaptureUsageDescription": "도피스는 실행 중인 Claude Code 세션을 감지하기 위해 프로세스 정보를 조회합니다. 화면 녹화 기능은 사용하지 않습니다.",
@@ -34,12 +35,12 @@ let project = Project(
         ]
     ),
     targets: [
-        .target(
+        Target(
             name: "Doffice",
-            destinations: .macOS,
+            platform: .macOS,
             product: .app,
             bundleId: "com.junha.doffice",
-            deploymentTargets: .macOS("14.0"),
+            deploymentTarget: .macOS(targetVersion: "14.0"),
             infoPlist: .extendingDefault(with: infoPlist),
             sources: ["Sources/**"],
             resources: [

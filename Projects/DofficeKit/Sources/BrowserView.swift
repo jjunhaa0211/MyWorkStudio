@@ -401,7 +401,7 @@ public struct BrowserPanelView: View {
                 urlFieldFocused = true
             }
         }
-        .onChange(of: manager.activeTabId) { _ in syncURLBar() }
+        .onChange(of: manager.activeTabId) { _, _ in syncURLBar() }
         .overlay(bookmarksSidebar, alignment: .leading)
         // Keyboard shortcuts
         .keyboardShortcut(for: .focusURLBar) { urlFieldFocused = true }
@@ -517,7 +517,7 @@ public struct BrowserPanelView: View {
                 .font(Theme.mono(10))
                 .foregroundColor(Theme.textPrimary)
                 .textFieldStyle(.plain)
-                .onChange(of: urlFieldFocused) { focused in
+                .onChange(of: urlFieldFocused) { _, focused in
                     if focused && (urlBarText == "about:blank" || urlBarText.isEmpty) {
                         urlBarText = ""
                     }

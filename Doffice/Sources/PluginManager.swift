@@ -945,6 +945,12 @@ class PluginManager: ObservableObject {
                 return
             }
 
+            if let validationMessage = self.pluginValidationError(at: pluginDir.path) {
+                self.cleanupManagedPluginDirectory(pluginDir)
+                self.finishWithError(validationMessage)
+                return
+            }
+
             let entry = PluginEntry(
                 id: UUID().uuidString,
                 name: item.name,
@@ -982,6 +988,11 @@ class PluginManager: ObservableObject {
 
         guard !prefix.isEmpty && FileManager.default.fileExists(atPath: prefix) else {
             finishWithError(NSLocalizedString("plugin.error.path.not.found", comment: ""))
+            return
+        }
+
+        if let validationMessage = pluginValidationError(at: prefix) {
+            finishWithError(validationMessage)
             return
         }
 
@@ -1045,6 +1056,11 @@ class PluginManager: ObservableObject {
             return
         }
 
+        if let validationMessage = pluginValidationError(at: prefix) {
+            finishWithError(validationMessage)
+            return
+        }
+
         let (_, versionOut) = runShell("\(brew) list --versions \(shellEscape(tapFormula))")
         let version = versionOut.trimmingCharacters(in: .whitespacesAndNewlines)
             .components(separatedBy: " ").last ?? "unknown"
@@ -1073,9 +1089,18 @@ class PluginManager: ObservableObject {
         let fileName = url.lastPathComponent.isEmpty ? "plugin" : url.lastPathComponent
         let pluginName = (fileName as NSString).deletingPathExtension
         let pluginDir = pluginBaseDir.appendingPathComponent(pluginName)
+        let fm = FileManager.default
 
         updateProgress(String(format: NSLocalizedString("plugin.progress.downloading", comment: ""), fileName))
-        try? FileManager.default.createDirectory(at: pluginDir, withIntermediateDirectories: true)
+        do {
+            if fm.fileExists(atPath: pluginDir.path) {
+                try fm.removeItem(at: pluginDir)
+            }
+            try fm.createDirectory(at: pluginDir, withIntermediateDirectories: true)
+        } catch {
+            finishWithError(String(format: NSLocalizedString("plugin.error.download.failed", comment: ""), error.localizedDescription))
+            return
+        }
 
         // URLSession으로 다운로드 (macOS + iOS 모두 동작)
         let destURL = pluginDir.appendingPathComponent(fileName)
@@ -1097,7 +1122,17 @@ class PluginManager: ObservableObject {
             }
 
             // 압축 해제
-            self.extractIfNeeded(destURL, to: pluginDir, fileName: fileName)
+            if let message = self.extractIfNeeded(destURL, to: pluginDir, fileName: fileName) {
+                self.cleanupManagedPluginDirectory(pluginDir)
+                self.finishWithError(message)
+                return
+            }
+
+            if let validationMessage = self.pluginValidationError(at: pluginDir.path) {
+                self.cleanupManagedPluginDirectory(pluginDir)
+                self.finishWithError(validationMessage)
+                return
+            }
 
             let entry = PluginEntry(
                 id: UUID().uuidString,
@@ -1113,18 +1148,24 @@ class PluginManager: ObservableObject {
         }.resume()
     }
 
-    private func extractIfNeeded(_ fileURL: URL, to dir: URL, fileName: String) {
+    private func extractIfNeeded(_ fileURL: URL, to dir: URL, fileName: String) -> String? {
         #if os(macOS)
         if fileName.hasSuffix(".tar.gz") || fileName.hasSuffix(".tgz") {
             updateProgress(NSLocalizedString("plugin.progress.extracting", comment: ""))
             let (ok, out) = runShell("tar -xzf \(shellEscape(fileURL.path)) -C \(shellEscape(dir.path))")
-            if ok { try? FileManager.default.removeItem(at: fileURL) }
-            else { finishWithError(String(format: NSLocalizedString("plugin.error.extract.failed", comment: ""), out)); return }
+            if ok {
+                try? FileManager.default.removeItem(at: fileURL)
+                return nil
+            }
+            return String(format: NSLocalizedString("plugin.error.extract.failed", comment: ""), out)
         } else if fileName.hasSuffix(".zip") {
             updateProgress(NSLocalizedString("plugin.progress.extracting", comment: ""))
             let (ok, out) = runShell("unzip -o \(shellEscape(fileURL.path)) -d \(shellEscape(dir.path))")
-            if ok { try? FileManager.default.removeItem(at: fileURL) }
-            else { finishWithError(String(format: NSLocalizedString("plugin.error.extract.failed", comment: ""), out)); return }
+            if ok {
+                try? FileManager.default.removeItem(at: fileURL)
+                return nil
+            }
+            return String(format: NSLocalizedString("plugin.error.extract.failed", comment: ""), out)
         }
         #else
         // iOS: zip만 Foundation으로 지원 (tar.gz는 미지원)
@@ -1133,6 +1174,7 @@ class PluginManager: ObservableObject {
             // FileManager에서 직접 압축해제는 미지원 → 파일 그대로 유지
         }
         #endif
+        return nil
     }
 
     // MARK: - 로컬 디렉토리 등록
@@ -1146,6 +1188,10 @@ class PluginManager: ObservableObject {
 
         let name = URL(fileURLWithPath: expanded).lastPathComponent
         let validation = Self.validatePluginDir(expanded)
+        guard validation.isValid else {
+            finishWithError(validation.warnings.first ?? NSLocalizedString("plugin.warn.empty", comment: ""))
+            return
+        }
 
         let entry = PluginEntry(
             id: UUID().uuidString,
@@ -1561,13 +1607,26 @@ class PluginManager: ObservableObject {
 
         do {
             try process.run()
-            process.waitUntilExit()
         } catch {
             return (false, error.localizedDescription)
         }
 
-        let outData = pipe.fileHandleForReading.readDataToEndOfFile()
-        let errData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+        var outData = Data()
+        var errData = Data()
+        let group = DispatchGroup()
+        group.enter()
+        DispatchQueue.global(qos: .utility).async {
+            outData = pipe.fileHandleForReading.readDataToEndOfFile()
+            group.leave()
+        }
+        group.enter()
+        DispatchQueue.global(qos: .utility).async {
+            errData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+            group.leave()
+        }
+
+        process.waitUntilExit()
+        group.wait()
         let output = String(data: outData, encoding: .utf8) ?? ""
         let errOutput = String(data: errData, encoding: .utf8) ?? ""
 
@@ -1592,6 +1651,16 @@ class PluginManager: ObservableObject {
             self.isInstalling = false
             self.installProgress = ""
         }
+    }
+
+    private func pluginValidationError(at path: String) -> String? {
+        let validation = Self.validatePluginDir(path)
+        guard !validation.isValid else { return nil }
+        return validation.warnings.first ?? NSLocalizedString("plugin.warn.empty", comment: "")
+    }
+
+    private func cleanupManagedPluginDirectory(_ directory: URL) {
+        try? FileManager.default.removeItem(at: directory)
     }
 
     /// 설치 완료 후 앱 재시작 필요 여부

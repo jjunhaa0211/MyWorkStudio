@@ -24,18 +24,48 @@ struct DofficeApp: App {
         return CGSize(width: screen.width * 0.5, height: screen.height * 0.55)
     }
 
-    var body: some Scene {
+    @ViewBuilder
+    private var rootView: some View {
+        MainView()
+            .environmentObject(manager)
+            .environmentObject(settings)
+            .frame(minWidth: Self.screenBasedMinSize.0, minHeight: Self.screenBasedMinSize.1)
+            .preferredColorScheme(settings.colorScheme)
+    }
+
+    @SceneBuilder
+    private var mainWindowScene: some Scene {
         WindowGroup {
-            MainView()
-                .environmentObject(manager)
-                .environmentObject(settings)
-                .frame(minWidth: Self.screenBasedMinSize.0, minHeight: Self.screenBasedMinSize.1)
-                .preferredColorScheme(settings.colorScheme)
+            rootView
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: Self.screenBasedMainSize.width, height: Self.screenBasedMainSize.height)
+    }
 
-        // 오피스 전용 창 (듀얼 모니터용)
+    @CommandsBuilder
+    private var officeCommands: some Commands {
+        // 단축키는 ShortcutManager의 NSEvent 모니터가 동적으로 처리
+        // 메뉴 항목은 표시용으로 유지하되 단축키 힌트를 동적으로 표시
+        CommandGroup(after: .newItem) {
+            ForEach(ShortcutAction.allCases) { action in
+                Button(action.localizedName) {
+                    NotificationCenter.default.post(name: action.notificationName, object: nil)
+                }
+            }
+
+            Divider()
+
+            ForEach(1...9, id: \.self) { index in
+                Button("Session \(index)") {
+                    NotificationCenter.default.post(name: .dofficeSelectTab, object: index)
+                }
+                .keyboardShortcut(KeyEquivalent(Character("\(index)")), modifiers: .command)
+            }
+        }
+    }
+
+    @SceneBuilder
+    private var officeWindowScene: some Scene {
         WindowGroup("도피스 오피스", id: "office-window") {
             OfficeWindowView()
                 .environmentObject(manager)
@@ -45,25 +75,14 @@ struct DofficeApp: App {
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: Self.screenBasedOfficeSize.width, height: Self.screenBasedOfficeSize.height)
         .commands {
-            // 단축키는 ShortcutManager의 NSEvent 모니터가 동적으로 처리
-            // 메뉴 항목은 표시용으로 유지하되 단축키 힌트를 동적으로 표시
-            CommandGroup(after: .newItem) {
-                ForEach(ShortcutAction.allCases) { action in
-                    Button(action.localizedName) {
-                        NotificationCenter.default.post(name: action.notificationName, object: nil)
-                    }
-                }
-
-                Divider()
-
-                ForEach(1...9, id: \.self) { index in
-                    Button("Session \(index)") {
-                        NotificationCenter.default.post(name: .dofficeSelectTab, object: index)
-                    }
-                    .keyboardShortcut(KeyEquivalent(Character("\(index)")), modifiers: .command)
-                }
-            }
+            officeCommands
         }
+    }
+
+    @SceneBuilder
+    var body: some Scene {
+        mainWindowScene
+        officeWindowScene
     }
 }
 
@@ -74,11 +93,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var recoveryWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if SmokeTestHarness.isEnabled {
+            SmokeTestHarness.beginLaunchMonitoring()
+            return
+        }
+
         // 번들 ID 변경 시 이전 데이터 마이그레이션
         migrateFromOldBundleIfNeeded()
 
         // 사용자 언어 설정 적용
         AppSettings.shared.applyLanguage()
+
+        // 앱 아이콘 적용
+        let iconStyle = AppSettings.shared.appIconStyle
+        if iconStyle != "classic", let iconImage = NSImage(named: "AppIcon\(iconStyle.capitalized)Preview") {
+            NSApplication.shared.applicationIconImage = iconImage
+        }
 
         // 동적 단축키 이벤트 모니터 설치
         ShortcutManager.shared.installEventMonitor()
@@ -118,6 +148,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// 보이는 창이 하나도 없으면 메인 창을 강제로 생성/표시
     private func ensureMainWindowVisible() {
+        // 시트가 열려있으면 메인 윈도우를 건드리지 않음
+        if NSApp.windows.contains(where: { $0.isSheet || $0.sheetParent != nil }) {
+            return
+        }
+
         NSApp.activate(ignoringOtherApps: true)
 
         if revealExistingWindows() {
@@ -150,11 +185,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private var mainWindowRecovered = false
+
     private func scheduleMainWindowRecovery() {
         let recoveryDelays: [TimeInterval] = [1.0, 2.0, 4.0]
         for delay in recoveryDelays {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-                self?.ensureMainWindowVisible()
+                guard let self, !self.mainWindowRecovered else { return }
+                self.ensureMainWindowVisible()
             }
         }
     }
@@ -162,7 +200,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @discardableResult
     private func revealExistingWindows() -> Bool {
         var restoredWindow = false
-        for window in NSApp.windows where window.contentView != nil || window.contentViewController != nil {
+        for window in NSApp.windows {
+            // 시트, 패널, 팝업 등 시스템 관리 윈도우는 건드리지 않음
+            guard window.contentView != nil || window.contentViewController != nil,
+                  !window.isSheet,
+                  window.sheetParent == nil,
+                  !(window is NSPanel),
+                  window.level == .normal else { continue }
+
             if window.isMiniaturized {
                 window.deminiaturize(nil)
             }
@@ -172,6 +217,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             restoredWindow = restoredWindow || isUsableWindow(window)
         }
         if restoredWindow {
+            mainWindowRecovered = true
             dismissFallbackWindowIfNeeded()
         }
         return restoredWindow
@@ -237,10 +283,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = true
         window.isReleasedWhenClosed = false
+        window.backgroundColor = NSColor(red: 0, green: 0, blue: 0, alpha: 1)
         window.contentViewController = hostingController
         window.center()
         window.makeKeyAndOrderFront(nil)
 
+        mainWindowRecovered = true
         recoveryWindow = window
     }
 
@@ -377,6 +425,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
+        // 이미 보이는 일반 윈도우가 있으면 불필요한 윈도우 재정렬을 하지 않음
+        let hasVisibleMainWindow = NSApp.windows.contains { window in
+            isUsableWindow(window) &&
+            !window.isSheet &&
+            window.sheetParent == nil &&
+            !(window is NSPanel) &&
+            window.level == .normal
+        }
+        guard !hasVisibleMainWindow else { return }
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
             self?.ensureMainWindowVisible()
         }

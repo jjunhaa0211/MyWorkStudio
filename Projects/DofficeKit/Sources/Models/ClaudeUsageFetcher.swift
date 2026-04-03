@@ -20,7 +20,7 @@ public enum ClaudeUsageFetcher {
 
         // 터미널 크기 설정 (충분히 넓게)
         var winSize = winsize(ws_row: 50, ws_col: 120, ws_xpixel: 0, ws_ypixel: 0)
-        ioctl(masterFD, TIOCSWINSZ, &winSize)
+        _ = ioctl(masterFD, TIOCSWINSZ, &winSize)
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: claudePath)
@@ -35,10 +35,7 @@ public enum ClaudeUsageFetcher {
         process.standardOutput = slaveHandle
         process.standardError = slaveHandle
 
-        do { try process.launch() } catch {
-            close(masterFD); close(slaveFD)
-            return "❌ Claude 실행 실패: \(error.localizedDescription)"
-        }
+        process.launch()
         close(slaveFD)
 
         defer {
@@ -62,13 +59,13 @@ public enum ClaudeUsageFetcher {
             Thread.sleep(forTimeInterval: 0.5)
             var buf = [UInt8](repeating: 0, count: 8192)
             let flags = fcntl(masterFD, F_GETFL)
-            fcntl(masterFD, F_SETFL, flags | O_NONBLOCK)
+            _ = fcntl(masterFD, F_SETFL, flags | O_NONBLOCK)
             while true {
                 let n = Darwin.read(masterFD, &buf, buf.count)
                 if n <= 0 { break }
                 allData.append(buf, count: n)
             }
-            fcntl(masterFD, F_SETFL, flags)
+            _ = fcntl(masterFD, F_SETFL, flags)
 
             let partial = String(data: allData, encoding: .utf8) ?? ""
             if partial.contains("Esc") && partial.contains("cancel") { break }
@@ -105,10 +102,10 @@ public enum ClaudeUsageFetcher {
 
     private static func drainFD(_ fd: Int32) {
         let flags = fcntl(fd, F_GETFL)
-        fcntl(fd, F_SETFL, flags | O_NONBLOCK)
+        _ = fcntl(fd, F_SETFL, flags | O_NONBLOCK)
         var buf = [UInt8](repeating: 0, count: 4096)
         while Darwin.read(fd, &buf, buf.count) > 0 {}
-        fcntl(fd, F_SETFL, flags)
+        _ = fcntl(fd, F_SETFL, flags)
     }
 
     private static func stripANSI(_ raw: String) -> String {

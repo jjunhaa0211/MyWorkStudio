@@ -90,6 +90,31 @@ extension SettingsView {
                 }
             }
 
+            settingsSection(title: "앱 아이콘", subtitle: appIconLabel(settings.appIconStyle)) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 72), spacing: 10)], spacing: 10) {
+                    appIconButton(style: "classic", label: "클래식", iconName: "AppIcon", color: Color(red: 0.8, green: 0.65, blue: 0.25))
+                    appIconButton(style: "pixel", label: "픽셀", iconName: "AppIconPixelPreview", color: Color(red: 0.35, green: 0.55, blue: 0.82))
+                    appIconButton(style: "ocean", label: "오션", iconName: "AppIconOceanPreview", color: Color(red: 0.12, green: 0.62, blue: 0.82))
+                    appIconButton(style: "sunset", label: "선셋", iconName: "AppIconSunsetPreview", color: Color(red: 0.88, green: 0.48, blue: 0.18))
+                    appIconButton(style: "mint", label: "민트", iconName: "AppIconMintPreview", color: Color(red: 0.18, green: 0.78, blue: 0.55))
+                    appIconButton(style: "slate", label: "슬레이트", iconName: "AppIconSlatePreview", color: Color(red: 0.38, green: 0.45, blue: 0.65))
+                }
+            }
+            .alert("앱 아이콘 변경", isPresented: Binding(
+                get: { showIconChangeAlert },
+                set: { showIconChangeAlert = $0 }
+            )) {
+                Button("재시작", role: .destructive) {
+                    restartApp()
+                }
+                Button("취소", role: .cancel) {
+                    // revert
+                    settings.appIconStyle = pendingIconStyle == "terminal" ? "classic" : "terminal"
+                }
+            } message: {
+                Text("앱 아이콘을 변경하려면 앱을 재시작해야 합니다.")
+            }
+
             settingsSection(title: NSLocalizedString("theme.section.terminal", comment: ""), subtitle: settings.rawTerminalMode ? NSLocalizedString("theme.terminal.raw", comment: "") : NSLocalizedString("theme.terminal.doffice", comment: "")) {
                 VStack(spacing: 10) {
                     securityRow(label: NSLocalizedString("theme.label.raw.terminal", comment: "")) {
@@ -144,6 +169,18 @@ extension SettingsView {
                     }
                 }
             }
+        }
+    }
+
+    private func appIconLabel(_ style: String) -> String {
+        switch style {
+        case "classic": return "클래식"
+        case "pixel": return "픽셀"
+        case "ocean": return "오션"
+        case "sunset": return "선셋"
+        case "mint": return "민트"
+        case "slate": return "슬레이트"
+        default: return style
         }
     }
 

@@ -1304,8 +1304,19 @@ enum Theme {
 
     private static func cachedFont(key: String, create: () -> Font) -> Font {
         _lock.lock()
-        if let cached = _fontCache[key] { _lock.unlock(); return cached }
+        if let cached = _fontCache[key] {
+            _lock.unlock()
+            return cached
+        }
+        _lock.unlock()
+
         let font = create()
+
+        _lock.lock()
+        if let cached = _fontCache[key] {
+            _lock.unlock()
+            return cached
+        }
         _fontCache[key] = font
         _lock.unlock()
         return font

@@ -7,10 +7,27 @@ import Foundation
 // tmux를 이용한 세션 영속성 지원
 // 앱이 종료되어도 세션이 살아있고, 재시작 시 reattach 가능
 
-class TmuxSessionBridge {
+final class TmuxSessionBridge: @unchecked Sendable {
     static let shared = TmuxSessionBridge()
 
-    private let sessionPrefix = "doffice-"
+    typealias ShellRunner = (_ command: String, _ cwd: String?) -> String
+
+    private let sessionPrefix: String
+    private let tmuxPathOverride: String?
+    private let fileExists: (String) -> Bool
+    private let shellRunner: ShellRunner
+
+    init(
+        sessionPrefix: String = "doffice-",
+        tmuxPathOverride: String? = nil,
+        fileExists: @escaping (String) -> Bool = { FileManager.default.fileExists(atPath: $0) },
+        shellRunner: @escaping ShellRunner = TmuxSessionBridge.defaultShellSync
+    ) {
+        self.sessionPrefix = sessionPrefix
+        self.tmuxPathOverride = tmuxPathOverride
+        self.fileExists = fileExists
+        self.shellRunner = shellRunner
+    }
 
     // MARK: - tmux 설치 확인
 
@@ -21,9 +38,13 @@ class TmuxSessionBridge {
     private var _tmuxPath: String??
     var tmuxPath: String? {
         if let cached = _tmuxPath { return cached }
+        if let tmuxPathOverride {
+            _tmuxPath = .some(tmuxPathOverride)
+            return tmuxPathOverride
+        }
         let paths = ["/opt/homebrew/bin/tmux", "/usr/local/bin/tmux", "/usr/bin/tmux"]
         for path in paths {
-            if FileManager.default.fileExists(atPath: path) {
+            if fileExists(path) {
                 _tmuxPath = .some(path)
                 return path
             }
@@ -31,7 +52,7 @@ class TmuxSessionBridge {
         // PATH에서 찾기
         let result = shellSync("which tmux 2>/dev/null")
         let found = result.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !found.isEmpty && FileManager.default.fileExists(atPath: found) {
+        if !found.isEmpty && fileExists(found) {
             _tmuxPath = .some(found)
             return found
         }
@@ -151,15 +172,14 @@ class TmuxSessionBridge {
 
     // MARK: - Helpers
 
-    /// 동기 셸 실행 — 가능하면 백그라운드 스레드에서 호출할 것.
-    private func shellSync(_ cmd: String, cwd: String? = nil) -> String {
+    private static func defaultShellSync(_ cmd: String, _ cwd: String?) -> String {
         let process = Process()
         let pipe = Pipe()
         process.executableURL = URL(fileURLWithPath: "/bin/zsh")
         process.arguments = ["-c", cmd]
         process.standardOutput = pipe
         process.standardError = pipe
-        if let cwd = cwd {
+        if let cwd {
             process.currentDirectoryURL = URL(fileURLWithPath: cwd)
         }
 
@@ -171,6 +191,11 @@ class TmuxSessionBridge {
         } catch {
             return ""
         }
+    }
+
+    /// 동기 셸 실행 — 가능하면 백그라운드 스레드에서 호출할 것.
+    private func shellSync(_ cmd: String, cwd: String? = nil) -> String {
+        shellRunner(cmd, cwd)
     }
 
     /// 셸 이스케이프 — 단일 따옴표로 감싸기
