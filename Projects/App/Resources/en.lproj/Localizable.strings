@@ -15,6 +15,7 @@
 "status.processing" = "Processing";
 "status.completed" = "Completed";
 "status.idle" = "Idle";
+"status.waiting" = "Waiting";
 "status.active" = "Active";
 "status.attention" = "Needs Attention";
 "status.thinking" = "Thinking";

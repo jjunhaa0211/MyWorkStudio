@@ -207,7 +207,7 @@ public struct OfficeSceneView: View {
 
     private func selectionPanel(tab: TerminalTab, maxWidth: CGFloat) -> some View {
         let status = tab.statusPresentation
-        let w = min(200, maxWidth)
+        let w = min(260, maxWidth)
         return VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .top, spacing: 6) {
                 Circle()
@@ -227,9 +227,10 @@ public struct OfficeSceneView: View {
                 Spacer(minLength: 0)
 
                 HStack(spacing: 4) {
-                    selectionBadge(tab.workerJob.displayName, tint: roleTint(for: tab.workerJob))
+                    selectionBadge(tab.workerJob.shortLabel, tint: roleTint(for: tab.workerJob))
                     AppStatusBadge(title: status.label, symbol: status.symbol, tint: status.tint)
                 }
+                .layoutPriority(-1)
             }
 
             if tab.officeSelectionSubtitle != status.label {
@@ -289,6 +290,8 @@ public struct OfficeSceneView: View {
         Text(label)
             .font(Theme.mono(8, weight: .bold))
             .foregroundColor(tint)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, 6)
             .padding(.vertical, 3)
             .background(

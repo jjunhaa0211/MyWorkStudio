@@ -15,6 +15,7 @@
 "status.processing" = "処理中";
 "status.completed" = "完了";
 "status.idle" = "待機中";
+"status.waiting" = "待機";
 "status.active" = "アクティブ";
 "status.attention" = "確認必要";
 "status.thinking" = "思考中";

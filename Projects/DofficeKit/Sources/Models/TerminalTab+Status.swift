@@ -66,7 +66,7 @@ extension TerminalTab {
             }
         }
         if isRunning {
-            return TabStatusPresentation(category: .active, label: "대기", symbol: "pause.circle.fill", tint: Theme.green.opacity(0.75), sortPriority: 2)
+            return TabStatusPresentation(category: .active, label: NSLocalizedString("status.waiting", tableName: nil, bundle: .main, comment: ""), symbol: "pause.circle.fill", tint: Theme.green.opacity(0.75), sortPriority: 2)
         }
         return TabStatusPresentation(category: .idle, label: NSLocalizedString("status.idle", comment: ""), symbol: "moon.zzz.fill", tint: Theme.textDim, sortPriority: 4)
     }
