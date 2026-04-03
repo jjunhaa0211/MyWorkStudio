@@ -131,7 +131,7 @@ extension SettingsView {
             Spacer()
             ColorPicker("", selection: color, supportsOpacity: false)
                 .labelsHidden()
-                .onChange(of: color.wrappedValue) { newColor in
+                .onChange(of: color.wrappedValue) { _, newColor in
                     onChange(newColor.hexString)
                 }
             if isCustomized {
@@ -173,38 +173,6 @@ extension SettingsView {
             .background(RoundedRectangle(cornerRadius: Theme.cornerMedium).fill(selected ? tint.opacity(0.1) : Theme.bgSurface.opacity(0.5)))
             .overlay(RoundedRectangle(cornerRadius: Theme.cornerMedium).stroke(selected ? tint.opacity(Theme.borderActiveOpacity) : Theme.border.opacity(Theme.borderLight), lineWidth: 1))
         }.buttonStyle(.plain)
-    }
-
-    func themeButton(title: String, icon: String, isDark: Bool) -> some View {
-        let selected = settings.isDarkMode == isDark
-        let tint = isDark ? Theme.yellow : Theme.orange
-        return Button(action: { withAnimation(.easeInOut(duration: 0.2)) { settings.isDarkMode = isDark }; settings.requestRefreshIfNeeded() }) {
-            HStack(spacing: 8) {
-                Image(systemName: icon)
-                    .font(.system(size: Theme.iconSize(14)))
-                    .foregroundColor(selected ? tint : Theme.textDim)
-                Text(title)
-                    .font(Theme.mono(11, weight: selected ? .bold : .regular))
-                    .foregroundColor(selected ? Theme.textPrimary : Theme.textSecondary)
-                Spacer()
-                if selected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: Theme.iconSize(12)))
-                        .foregroundColor(tint)
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: Theme.cornerMedium)
-                    .fill(selected ? tint.opacity(0.1) : Theme.bgSurface.opacity(0.5))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.cornerMedium)
-                    .stroke(selected ? tint.opacity(Theme.borderActiveOpacity) : Theme.border.opacity(Theme.borderLight), lineWidth: 1)
-            )
-        }
-        .buttonStyle(.plain)
     }
 
     struct FontSizeOption {
@@ -625,6 +593,41 @@ extension SettingsView {
         .frame(maxWidth: .infinity)
     }
 
+    func appIconButton(style: String, label: String, iconName: String, color: Color) -> some View {
+        let isSelected = settings.appIconStyle == style
+        return Button(action: {
+            guard settings.appIconStyle != style else { return }
+            settings.appIconStyle = style
+            pendingIconStyle = style
+            showIconChangeAlert = true
+        }) {
+            VStack(spacing: 6) {
+                if let icon = NSImage(named: iconName) {
+                    Image(nsImage: icon)
+                        .resizable()
+                        .frame(width: 48, height: 48)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                } else {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(color.opacity(0.3))
+                        .frame(width: 48, height: 48)
+                        .overlay(
+                            Image(systemName: style == "classic" ? "figure.run" : "terminal")
+                                .font(.system(size: 20))
+                                .foregroundColor(color)
+                        )
+                }
+                Text(label)
+                    .font(Theme.mono(8, weight: isSelected ? .bold : .regular))
+                    .foregroundColor(isSelected ? color : Theme.textDim)
+            }
+            .padding(8)
+            .background(RoundedRectangle(cornerRadius: 12).fill(isSelected ? color.opacity(0.12) : Theme.bgSurface))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(isSelected ? color : Theme.border.opacity(0.3), lineWidth: isSelected ? 2 : 1))
+        }
+        .buttonStyle(.plain)
+    }
+
     func statusHint(icon: String, text: String, tint: Color) -> some View {
         HStack(spacing: 5) {
             Image(systemName: icon)
@@ -666,4 +669,3 @@ extension SettingsView {
         }
     }
 }
-

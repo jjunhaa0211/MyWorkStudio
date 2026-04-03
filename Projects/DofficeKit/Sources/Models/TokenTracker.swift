@@ -166,7 +166,6 @@ public class TokenTracker: ObservableObject {
         let df = DateFormatter()
         df.dateFormat = "M/d"
         let start = df.string(from: billingPeriodStart)
-        let billingDay = max(1, AppSettings.shared.billingDay)
         let cal = Calendar.current
         let nextBilling = cal.date(byAdding: .month, value: 1, to: billingPeriodStart)
             ?? cal.date(byAdding: .day, value: 30, to: billingPeriodStart)
@@ -386,8 +385,6 @@ public class TokenTracker: ObservableObject {
     }
 
     public func formatTokens(_ c: Int) -> String {
-        if c >= 1_000_000 { return String(format: "%.1fM", Double(c) / 1_000_000) }
-        if c >= 1000 { return String(format: "%.1fk", Double(c) / 1000) }
-        return "\(c)"
+        c.tokenFormatted
     }
 }

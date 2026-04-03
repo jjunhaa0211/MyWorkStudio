@@ -10,6 +10,10 @@ class MenuBarManager: ObservableObject {
     private var popover: NSPopover?
     private var updateTimer: Timer?
 
+    deinit {
+        updateTimer?.invalidate()
+    }
+
     func setup() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
@@ -194,7 +198,7 @@ struct MenuBarPopoverView: View {
                 statItem(
                     icon: "bolt.fill",
                     label: NSLocalizedString("menubar.today", comment: ""),
-                    value: fmtTokens(tracker.todayTokens),
+                    value: tracker.todayTokens.tokenFormatted,
                     color: tracker.todayTokens > 0 ? Theme.yellow : Theme.textDim
                 )
                 Rectangle().fill(Theme.border).frame(width: 1, height: 22)
@@ -218,10 +222,10 @@ struct MenuBarPopoverView: View {
                         }
                     }.frame(height: 3).padding(.horizontal, 12)
                     HStack {
-                        Text(String(format: NSLocalizedString("menubar.remaining", comment: ""), fmtTokens(tracker.dailyRemaining)))
+                        Text(String(format: NSLocalizedString("menubar.remaining", comment: ""), tracker.dailyRemaining.tokenFormatted))
                             .font(Theme.mono(7)).foregroundColor(Theme.textDim)
                         Spacer()
-                        Text(String(format: NSLocalizedString("menubar.weekly", comment: ""), fmtTokens(tracker.weekTokens), fmtTokens(tracker.weeklyTokenLimit)))
+                        Text(String(format: NSLocalizedString("menubar.weekly", comment: ""), tracker.weekTokens.tokenFormatted, tracker.weeklyTokenLimit.tokenFormatted))
                             .font(Theme.mono(7)).foregroundColor(Theme.textDim)
                     }.padding(.horizontal, 12)
                 }.padding(.top, 2)
@@ -289,11 +293,6 @@ struct MenuBarPopoverView: View {
         .background(Theme.bgCard)
     }
 
-    private func fmtTokens(_ c: Int) -> String {
-        if c >= 1_000_000 { return String(format: "%.1fM", Double(c) / 1_000_000) }
-        if c >= 1000 { return String(format: "%.1fk", Double(c) / 1000) }
-        return "\(c)"
-    }
 }
 
 // MARK: - Session Row
@@ -379,7 +378,7 @@ struct MenuBarSessionRow: View {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(elapsed).font(Theme.mono(8)).foregroundColor(Theme.textDim)
                     if tab.tokensUsed > 0 {
-                        Text(fmtTokens(tab.tokensUsed)).font(Theme.mono(7)).foregroundColor(Theme.textDim)
+                        Text(tab.tokensUsed.tokenFormatted).font(Theme.mono(7)).foregroundColor(Theme.textDim)
                     }
                 }
             }
@@ -445,8 +444,4 @@ struct MenuBarSessionRow: View {
         )
     }
 
-    private func fmtTokens(_ c: Int) -> String {
-        if c >= 1000 { return String(format: "%.1fk", Double(c) / 1000) }
-        return "\(c)"
-    }
 }
