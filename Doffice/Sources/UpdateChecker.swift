@@ -40,7 +40,7 @@ class UpdateChecker: ObservableObject {
 
     // GitHub repo 정보
     private let owner = "jjunhaa0211"
-    private let repo = "MyWorkStudio"
+    private let repo = "Doffice"
 
     private var downloadTask: URLSessionDownloadTask?
     private var downloadDelegate: DownloadDelegate?
@@ -269,10 +269,14 @@ class UpdateChecker: ObservableObject {
 
         // 설치 스크립트: 현재 앱 종료 → 교체 → 재시작
         // 앱이 종료된 후 실행되어야 하므로 별도 프로세스로 작성
+        let pid = ProcessInfo.processInfo.processIdentifier
         let script = """
         #!/bin/zsh
-        # 앱 종료 대기
-        sleep 1
+        # PID 기반 종료 대기 (최대 10초)
+        for i in {1..20}; do
+            kill -0 \(pid) 2>/dev/null || break
+            sleep 0.5
+        done
         # 기존 앱 백업 후 교체
         BACKUP="\(currentAppURL.path).backup"
         rm -rf "$BACKUP"
@@ -300,9 +304,9 @@ class UpdateChecker: ObservableObject {
             proc.standardError = nil
             try proc.run()
 
-            // 앱 종료
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                NSApp.terminate(nil)
+            // 강제 종료 — NSApp.terminate는 AppKit 종료 흐름에서 차단될 수 있음
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                exit(0)
             }
         } catch {
             state = .failed(message: String(format: NSLocalizedString("update.install.script.failed", comment: ""), error.localizedDescription))
