@@ -141,6 +141,58 @@ final class CoreTests: XCTestCase {
         )
     }
 
+    // MARK: - Cancel/ForceStop Safety Regression
+
+    func testCancelProcessingDoesNotCrashWithoutProcess() {
+        let tab = TerminalTab(
+            id: "cancel-test",
+            projectName: "Test",
+            projectPath: "/tmp",
+            workerName: "Tester",
+            workerColor: .blue
+        )
+        tab.isProcessing = true
+        tab.claudeActivity = .thinking
+
+        tab.cancelProcessing()
+
+        XCTAssertFalse(tab.isProcessing)
+        XCTAssertEqual(tab.claudeActivity, .idle)
+    }
+
+    func testForceStopDoesNotCrashWithoutProcess() {
+        let tab = TerminalTab(
+            id: "force-stop-test",
+            projectName: "Test",
+            projectPath: "/tmp",
+            workerName: "Tester",
+            workerColor: .blue
+        )
+        tab.isProcessing = true
+        tab.isRunning = true
+
+        tab.forceStop()
+
+        XCTAssertFalse(tab.isProcessing)
+        XCTAssertFalse(tab.isRunning)
+    }
+
+    // MARK: - SessionStore Corruption Safety
+
+    func testSessionStoreHandlesCorruptedFile() {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("DofficeTest-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let fileURL = tempDir.appendingPathComponent("sessions.json")
+        try? "{{invalid json content!!!".write(to: fileURL, atomically: true, encoding: .utf8)
+
+        let store = SessionStore(fileURL: fileURL)
+        let sessions = store.load()
+        XCTAssertTrue(sessions.isEmpty, "Corrupted file should result in empty sessions, not crash")
+    }
+
     func testSSHProfileCommandEscapesRemoteDirectory() {
         let profile = SSHProfile(
             name: "Prod",

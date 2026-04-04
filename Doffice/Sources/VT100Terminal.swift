@@ -321,8 +321,10 @@ class VT100Terminal: ObservableObject {
 
         case "P": // 문자 삭제
             guard cursorRow >= 0 && cursorRow < buffer.count else { break }
-            guard cursorCol >= 0 && cursorCol < buffer[cursorRow].count else { break }
-            let n = min(max(1, p1), buffer[cursorRow].count - cursorCol)
+            let rowCount = buffer[cursorRow].count
+            guard cursorCol >= 0 && cursorCol < rowCount else { break }
+            let available = rowCount - cursorCol
+            let n = min(max(1, p1), available)
             guard n > 0 else { break }
             buffer[cursorRow].removeSubrange(cursorCol..<(cursorCol + n))
             buffer[cursorRow].append(contentsOf: Array(repeating: Cell(), count: n))

@@ -1019,9 +1019,10 @@ public class OfficeCharacterController: ObservableObject {
 
     private func idleRosterFallbackTile(for index: Int) -> TileCoord {
         let preferredTiles = mergedTiles(socialHubTiles, livelyBreakTiles, refreshmentTiles, pantryAndMeetingTiles, walkableTiles)
-        guard !preferredTiles.isEmpty else { return fallbackSpawnTile(for: index) }
-        let stride = max(3, preferredTiles.count / 4)
-        return preferredTiles[(index * stride) % preferredTiles.count]
+        let count = preferredTiles.count
+        guard count > 0 else { return fallbackSpawnTile(for: index) }
+        let stride = max(3, count / 4)
+        return preferredTiles[abs(index * stride) % count]
     }
 
     private func orderedHiredRoster() -> [WorkerCharacter] {

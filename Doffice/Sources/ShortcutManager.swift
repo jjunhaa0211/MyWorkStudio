@@ -96,6 +96,8 @@ enum ShortcutAction: String, CaseIterable, Codable, Identifiable {
 
     // ── 액션 ──
     case exportSessionLog   = "exportSessionLog"
+    case diagnosticReport   = "diagnosticReport"
+    case copyConversation   = "copyConversation"
     case openSSH            = "openSSH"
 
     var id: String { rawValue }
@@ -111,7 +113,7 @@ enum ShortcutAction: String, CaseIterable, Codable, Identifiable {
             return .view
         case .splitHorizontal, .splitVertical, .closePane:
             return .terminal
-        case .exportSessionLog, .openSSH:
+        case .exportSessionLog, .diagnosticReport, .copyConversation, .openSSH:
             return .action
         }
     }
@@ -137,6 +139,8 @@ enum ShortcutAction: String, CaseIterable, Codable, Identifiable {
         case .toggleOfficeView:   return .dofficeToggleOffice
         case .toggleTerminalView: return .dofficeToggleTerminal
         case .exportSessionLog:   return .dofficeExportLog
+        case .diagnosticReport:   return .dofficeDiagnosticReport
+        case .copyConversation:   return .dofficeCopyConversation
         case .splitHorizontal:    return .dofficeSplitHorizontal
         case .splitVertical:      return .dofficeSplitVertical
         case .closePane:          return .dofficeClosePane

@@ -155,6 +155,7 @@ public class SessionStore {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         } catch {
             print("[도피스] Application Support/Doffice 디렉토리 생성 실패: \(error.localizedDescription). 임시 디렉토리를 사용합니다.")
+            CrashLogger.shared.error("SessionStore: Cannot create AppSupport dir — \(error.localizedDescription)")
             return FileManager.default.temporaryDirectory.appendingPathComponent("doffice_sessions.json")
         }
         return dir.appendingPathComponent("sessions.json")
@@ -170,10 +171,14 @@ public class SessionStore {
 
     public init(fileURL: URL? = nil, writeDelay: TimeInterval = 0.75) {
         let resolved = fileURL ?? Self.defaultFileURL()
-        try? FileManager.default.createDirectory(
-            at: resolved.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
+        do {
+            try FileManager.default.createDirectory(
+                at: resolved.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+        } catch {
+            CrashLogger.shared.error("SessionStore: Failed to create session directory \(resolved.deletingLastPathComponent().path) — \(error.localizedDescription)")
+        }
         self.fileURL = resolved
         self.writeDelay = writeDelay
     }
@@ -298,8 +303,8 @@ public class SessionStore {
             stateLock.unlock()
             return history
         }
-        stateLock.unlock()
-
+        // Hold lock during load to prevent concurrent double-loads (TOCTOU fix).
+        // File I/O under lock is acceptable here: this only runs once on first access.
         let loadedHistory: SessionHistory
         do {
             let data = try Data(contentsOf: fileURL)
@@ -309,10 +314,10 @@ public class SessionStore {
             loadedHistory = SessionHistory()
         } catch {
             print("[도피스] 세션 파일 로드 실패: \(error.localizedDescription). 빈 세션으로 시작합니다.")
+            CrashLogger.shared.error("SessionStore: Load failed — \(error.localizedDescription)")
             loadedHistory = SessionHistory()
         }
 
-        stateLock.lock()
         cachedHistory = loadedHistory
         hasLoadedCache = true
         let history = cachedHistory
@@ -345,7 +350,12 @@ public class SessionStore {
     private func writeImmediately(_ history: SessionHistory) {
         saveWorkItem?.cancel()
         saveWorkItem = nil
-        persist(history)
+        // ioQueue를 통해 persist를 실행하여 scheduleWrite의 pending persist와
+        // 동시에 실행되는 것을 방지합니다. sync로 호출하되, 메인 스레드 교착을
+        // 피하기 위해 ioQueue는 .utility QoS 직렬 큐임을 활용합니다.
+        ioQueue.sync {
+            self.persist(history)
+        }
     }
 
     private func persist(_ history: SessionHistory) {
@@ -354,14 +364,17 @@ public class SessionStore {
             try data.write(to: fileURL, options: .atomicWrite)
         } catch {
             print("[도피스] 세션 저장 실패 (\(fileURL.path)): \(error.localizedDescription)")
+            CrashLogger.shared.error("SessionStore: Save failed — \(error.localizedDescription)")
             // 기본 경로에 쓰기 실패 시 임시 디렉토리에 백업 시도
             let fallbackURL = FileManager.default.temporaryDirectory.appendingPathComponent("doffice_sessions_backup.json")
             do {
                 let data = try JSONEncoder().encode(history)
                 try data.write(to: fallbackURL, options: .atomicWrite)
                 print("[도피스] 임시 디렉토리에 세션 백업 저장 완료: \(fallbackURL.path)")
+                CrashLogger.shared.info("SessionStore: Fallback save succeeded at \(fallbackURL.path)")
             } catch {
                 print("[도피스] 임시 디렉토리 백업도 실패: \(error.localizedDescription)")
+                CrashLogger.shared.fatal("SessionStore: Both primary and fallback save failed — \(error.localizedDescription). Sessions may be lost.")
             }
         }
     }
@@ -552,12 +565,20 @@ public class SessionStore {
         let projectURL = URL(fileURLWithPath: projectPath, isDirectory: true)
         if FileManager.default.fileExists(atPath: projectURL.path) {
             let localRoot = projectURL.appendingPathComponent(".doffice/recovery", isDirectory: true)
-            try? FileManager.default.createDirectory(at: localRoot, withIntermediateDirectories: true)
+            do {
+                try FileManager.default.createDirectory(at: localRoot, withIntermediateDirectories: true)
+            } catch {
+                CrashLogger.shared.error("SessionStore: Failed to create recovery dir at \(localRoot.path) — \(error.localizedDescription)")
+            }
             return localRoot
         }
 
         let fallback = fileURL.deletingLastPathComponent().appendingPathComponent("recovery", isDirectory: true)
-        try? FileManager.default.createDirectory(at: fallback, withIntermediateDirectories: true)
+        do {
+            try FileManager.default.createDirectory(at: fallback, withIntermediateDirectories: true)
+        } catch {
+            CrashLogger.shared.error("SessionStore: Failed to create fallback recovery dir at \(fallback.path) — \(error.localizedDescription)")
+        }
         return fallback
     }
 
@@ -578,14 +599,26 @@ public class SessionStore {
 
             let destinationURL = destinationRoot.appendingPathComponent(relativePath)
             let parent = destinationURL.deletingLastPathComponent()
-            try? FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
-            try? FileManager.default.removeItem(at: destinationURL)
+            do {
+                try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
+            } catch {
+                CrashLogger.shared.warning("SessionStore: Failed to create recovery parent dir \(parent.path) — \(error.localizedDescription)")
+            }
+            do {
+                try FileManager.default.removeItem(at: destinationURL)
+            } catch let error as NSError where error.domain != NSCocoaErrorDomain || error.code != NSFileNoSuchFileError {
+                // Only log if it's not a "file doesn't exist" error (which is expected)
+                CrashLogger.shared.warning("SessionStore: Failed to remove existing recovery file \(destinationURL.path) — \(error.localizedDescription)")
+            } catch {
+                // File doesn't exist — expected, no action needed
+            }
 
             do {
                 try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
                 copiedPaths.append(relativePath)
             } catch {
                 print("[도피스] Failed to copy recovery file \(sourceURL.path): \(error)")
+                CrashLogger.shared.warning("SessionStore: Failed to copy recovery file \(sourceURL.path) → \(destinationURL.path) — \(error.localizedDescription)")
             }
         }
 

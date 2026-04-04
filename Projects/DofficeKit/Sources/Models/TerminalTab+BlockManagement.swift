@@ -51,12 +51,10 @@ extension TerminalTab {
             return
         }
 
-        // 파이프 핸들러 즉시 정리 (메인 스레드 블로킹 방지)
-        currentOutPipe?.fileHandleForReading.readabilityHandler = nil
-        currentErrPipe?.fileHandleForReading.readabilityHandler = nil
-        currentOutPipe = nil
-        currentErrPipe = nil
-
+        // 1) 먼저 프로세스를 취소 목록에 등록하고 종료 시그널을 보낸 후
+        // 2) 파이프 핸들러를 정리합니다.
+        // 순서가 중요: 핸들러를 먼저 nil로 만들면 핸들러 콜백이 아직 실행 중일 때
+        // procId 검증 없이 접근하게 될 수 있습니다.
         if let proc = currentProcess {
             let pid = proc.processIdentifier
             let procId = ObjectIdentifier(proc)
@@ -73,6 +71,13 @@ extension TerminalTab {
                 }
             }
         }
+
+        // 프로세스 취소 등록 후 파이프 핸들러 정리
+        currentOutPipe?.fileHandleForReading.readabilityHandler = nil
+        currentErrPipe?.fileHandleForReading.readabilityHandler = nil
+        currentOutPipe = nil
+        currentErrPipe = nil
+
         currentProcess = nil
         isProcessing = false; claudeActivity = .idle
         finalizeParallelTasks(as: .failed)
@@ -244,10 +249,11 @@ extension TerminalTab {
             timestamp: Date()
         )
 
-        if let last = fileChanges.last,
-           last.path == record.path,
-           last.action == record.action {
-            fileChanges[fileChanges.count - 1] = record
+        let lastIndex = fileChanges.count - 1
+        if lastIndex >= 0,
+           fileChanges[lastIndex].path == record.path,
+           fileChanges[lastIndex].action == record.action {
+            fileChanges[lastIndex] = record
         } else {
             fileChanges.append(record)
         }

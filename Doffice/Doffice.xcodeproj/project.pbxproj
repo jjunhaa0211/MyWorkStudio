@@ -15,6 +15,8 @@
 		A50006 /* PaneLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50006 /* PaneLayout.swift */; };
 		A50007 /* AutomationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50007 /* AutomationEngine.swift */; };
 		A50008 /* TmuxSessionBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50008 /* TmuxSessionBridge.swift */; };
+		A60001 /* CrashLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60001 /* CrashLogger.swift */; };
+		A60002 /* DiagnosticReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60002 /* DiagnosticReport.swift */; };
 		07A2B801437FFDA42534AA17 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AADE3B5D98B955B0C80A5DE3 /* Cocoa.framework */; };
 		273023032BF912399A803AEC /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F35199C3D3E258D53AF607EA /* XCTest.framework */; };
 		28ABC1238F8EE87369BBC7EF /* AuditLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19D1AE3CB99EAC879DE06BC9 /* AuditLog.swift */; };
@@ -115,6 +117,8 @@
 		B50006 /* PaneLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneLayout.swift; sourceTree = "<group>"; };
 		B50007 /* AutomationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutomationEngine.swift; sourceTree = "<group>"; };
 		B50008 /* TmuxSessionBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TmuxSessionBridge.swift; sourceTree = "<group>"; };
+		B60001 /* CrashLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrashLogger.swift; sourceTree = "<group>"; };
+		B60002 /* DiagnosticReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticReport.swift; sourceTree = "<group>"; };
 		D10001 /* Doffice.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Doffice.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E10001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		E10002 /* DofficeApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DofficeApp.entitlements; sourceTree = "<group>"; };
@@ -212,6 +216,8 @@
 				9C60E443524B7F6AE927F898 /* DangerousCommandDetector.swift */,
 				BCDF8262B8C09E5CB418BA0D /* SensitiveFileShield.swift */,
 				19D1AE3CB99EAC879DE06BC9 /* AuditLog.swift */,
+				B60001 /* CrashLogger.swift */,
+				B60002 /* DiagnosticReport.swift */,
 				B40001 /* ShortcutManager.swift */,
 				B50001 /* PluginManager.swift */,
 				B50003 /* PluginEffectEngine.swift */,
@@ -402,6 +408,8 @@
 				FC234AD686A13A3048D439D8 /* DangerousCommandDetector.swift in Sources */,
 				DABD99DB56A43993BD71CB63 /* SensitiveFileShield.swift in Sources */,
 				28ABC1238F8EE87369BBC7EF /* AuditLog.swift in Sources */,
+				A60001 /* CrashLogger.swift in Sources */,
+				A60002 /* DiagnosticReport.swift in Sources */,
 				A40001 /* ShortcutManager.swift in Sources */,
 				A50001 /* PluginManager.swift in Sources */,
 				A50003 /* PluginEffectEngine.swift in Sources */,
@@ -490,7 +498,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.0.22;
+				MARKETING_VERSION = 0.0.45;
 				PRODUCT_BUNDLE_IDENTIFIER = com.junha.doffice;
 				PRODUCT_NAME = Doffice;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -518,7 +526,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.0.22;
+				MARKETING_VERSION = 0.0.45;
 				PRODUCT_BUNDLE_IDENTIFIER = com.junha.doffice;
 				PRODUCT_NAME = Doffice;
 				SWIFT_EMIT_LOC_STRINGS = YES;

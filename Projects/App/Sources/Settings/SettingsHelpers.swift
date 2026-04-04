@@ -111,7 +111,7 @@ extension SettingsView {
         defaultColor: Color,
         onChange: @escaping (String?) -> Void
     ) -> some View {
-        let isCustomized = savedHex != nil && !savedHex!.isEmpty
+        let isCustomized = savedHex.map({ !$0.isEmpty }) ?? false
         HStack(spacing: 6) {
             Circle()
                 .fill(isCustomized ? color.wrappedValue : Color.clear)
@@ -244,20 +244,11 @@ extension SettingsView {
     }
 
     func cliInstallHint(_ provider: AgentProvider) -> String {
-        switch provider {
-        case .claude: return "npm install -g @anthropic-ai/claude-code"
-        case .codex: return "npm install -g @openai/codex"
-        case .gemini: return "npm install -g @anthropic-ai/gemini-cli"
-        }
+        provider.installCommand
     }
 
     func installCLI(_ provider: AgentProvider) {
-        let command: String
-        switch provider {
-        case .claude: command = "npm install -g @anthropic-ai/claude-code"
-        case .codex: command = "npm install -g @openai/codex"
-        case .gemini: command = "npm install -g @anthropic-ai/gemini-cli"
-        }
+        let command = provider.installCommand
 
         let script = """
         tell application "Terminal"

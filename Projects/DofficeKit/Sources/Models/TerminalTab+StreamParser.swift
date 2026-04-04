@@ -87,9 +87,10 @@ extension TerminalTab {
         appendBlock(.status(message: NSLocalizedString("tab.token.protection.stopped", comment: "")), content: reason)
     }
 
-    /// Cached login shell PATH (resolved once at first call)
-    private static var cachedLoginPath: String?
-    private static var loginPathChecked = false
+    /// Thread-safe cached login shell PATH (resolved once at first call)
+    private static let loginPathQueue = DispatchQueue(label: "doffice.login-path")
+    private static var _cachedLoginPath: String?
+    private static var _loginPathChecked = false
 
     /// GUI 앱에서도 claude CLI를 찾을 수 있도록 PATH를 완전히 구성
     public static func buildFullPATH() -> String {
@@ -155,16 +156,22 @@ extension TerminalTab {
 
         // Merge paths from login shell (async, non-blocking)
         // 로그인 셸 PATH는 백그라운드에서 비동기로 가져옴 — 메인 스레드 블로킹 방지
-        if !loginPathChecked {
-            loginPathChecked = true
+        // Thread-safe: loginPathQueue로 static 변수 접근 보호
+        let shouldFetch = loginPathQueue.sync { () -> Bool in
+            if _loginPathChecked { return false }
+            _loginPathChecked = true
+            return true
+        }
+        if shouldFetch {
             DispatchQueue.global(qos: .utility).async {
                 let result = shellSyncLoginWithTimeout("echo $PATH", timeout: 3)?.trimmingCharacters(in: .whitespacesAndNewlines)
                 if let r = result, !r.isEmpty {
-                    cachedLoginPath = r
+                    loginPathQueue.sync { _cachedLoginPath = r }
                 }
             }
         }
-        if let loginPath = cachedLoginPath, !loginPath.isEmpty {
+        let loginPath = loginPathQueue.sync { _cachedLoginPath }
+        if let loginPath, !loginPath.isEmpty {
             paths.append(loginPath)
         }
 
@@ -287,6 +294,30 @@ extension TerminalTab {
         }
         try? s.write(to: url, atomically: true, encoding: .utf8)
         return url
+    }
+
+    /// 대화 내용 전체를 마크다운 형식으로 클립보드에 복사
+    @discardableResult
+    public func copyConversation() -> Bool {
+        var s = "# \(projectName) Session\n\n"
+        for b in blocks {
+            switch b.blockType {
+            case .userPrompt: s += "\n## > \(b.content)\n\n"
+            case .thought: s += "_\(b.content)_\n\n"
+            case .toolUse(let name, _): s += "**\(name)**\n```\n\(b.content)\n```\n"
+            case .toolOutput: s += "```\n\(b.content)\n```\n"
+            case .toolError: s += "```\n\(b.content)\n```\n"
+            case .completion: s += "\n---\n\(b.content)\n"
+            case .text: s += "\(b.content)\n\n"
+            case .error(let msg):
+                let display = msg.isEmpty ? b.content : msg
+                s += "> Error: \(display)\n\n"
+            default: if !b.content.isEmpty { s += "\(b.content)\n" }
+            }
+        }
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        return pb.setString(s, forType: .string)
     }
 
     // MARK: - Stream Event Handler (핵심 파서)

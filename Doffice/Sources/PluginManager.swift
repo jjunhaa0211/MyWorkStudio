@@ -427,7 +427,8 @@ class PluginHost: ObservableObject {
             }
         }
 
-        DispatchQueue.main.async {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
             self.panels = newPanels
             self.commands = newCommands
             self.statusBarItems = newStatusBars
@@ -770,21 +771,32 @@ class PluginManager: ObservableObject {
             return
         }
         pluginBaseDir = appSupport.appendingPathComponent("Doffice").appendingPathComponent("Plugins")
-        try? FileManager.default.createDirectory(at: pluginBaseDir, withIntermediateDirectories: true)
+        do {
+            try FileManager.default.createDirectory(at: pluginBaseDir, withIntermediateDirectories: true)
+        } catch {
+            CrashLogger.shared.error("PluginManager: Failed to create plugin directory \(pluginBaseDir.path) — \(error.localizedDescription)")
+        }
         loadPlugins()
     }
 
     // MARK: - Persistence
 
     private func loadPlugins() {
-        guard let data = UserDefaults.standard.data(forKey: storageKey),
-              let decoded = try? JSONDecoder().decode([PluginEntry].self, from: data) else { return }
-        plugins = decoded
+        guard let data = UserDefaults.standard.data(forKey: storageKey) else { return }
+        do {
+            plugins = try JSONDecoder().decode([PluginEntry].self, from: data)
+        } catch {
+            CrashLogger.shared.error("PluginManager: Failed to decode saved plugins — \(error.localizedDescription). Starting with empty list.")
+            plugins = []
+        }
     }
 
     private func savePlugins() {
-        if let data = try? JSONEncoder().encode(plugins) {
+        do {
+            let data = try JSONEncoder().encode(plugins)
             UserDefaults.standard.set(data, forKey: storageKey)
+        } catch {
+            CrashLogger.shared.error("PluginManager: Failed to encode plugins for save — \(error.localizedDescription). Plugin state may be lost.")
         }
         manifestCacheClear()
     }
@@ -1519,9 +1531,9 @@ class PluginManager: ObservableObject {
             break
         }
 
-        DispatchQueue.main.async {
-            self.plugins.removeAll { $0.id == plugin.id }
-            self.savePlugins()
+        DispatchQueue.main.async { [weak self] in
+            self?.plugins.removeAll { $0.id == plugin.id }
+            self?.savePlugins()
             // 제거된 플러그인 정리
             CharacterRegistry.shared.removeInactivePluginCharacters()
             PluginHost.shared.reload()
@@ -1642,14 +1654,14 @@ class PluginManager: ObservableObject {
     // MARK: - Progress Helpers
 
     private func updateProgress(_ msg: String) {
-        DispatchQueue.main.async { self.installProgress = msg }
+        DispatchQueue.main.async { [weak self] in self?.installProgress = msg }
     }
 
     private func finishWithError(_ msg: String) {
-        DispatchQueue.main.async {
-            self.lastError = msg
-            self.isInstalling = false
-            self.installProgress = ""
+        DispatchQueue.main.async { [weak self] in
+            self?.lastError = msg
+            self?.isInstalling = false
+            self?.installProgress = ""
         }
     }
 
@@ -1667,7 +1679,8 @@ class PluginManager: ObservableObject {
     @Published var needsRestart: Bool = false
 
     private func finishInstall(_ entry: PluginEntry) {
-        DispatchQueue.main.async {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
             if let idx = self.plugins.firstIndex(where: { $0.source == entry.source }) {
                 self.plugins[idx].name = entry.name
                 self.plugins[idx].localPath = entry.localPath

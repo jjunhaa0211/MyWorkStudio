@@ -20,7 +20,7 @@ public enum ClaudeUsageFetcher {
 
         // 터미널 크기 설정 (충분히 넓게)
         var winSize = winsize(ws_row: 50, ws_col: 120, ws_xpixel: 0, ws_ypixel: 0)
-        _ = ioctl(masterFD, TIOCSWINSZ, &winSize)
+        let _ = ioctl(masterFD, TIOCSWINSZ, &winSize)
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: claudePath)
@@ -35,17 +35,28 @@ public enum ClaudeUsageFetcher {
         process.standardOutput = slaveHandle
         process.standardError = slaveHandle
 
-        process.launch()
+        do {
+            try process.run()
+        } catch {
+            close(masterFD)
+            close(slaveFD)
+            return "❌ Claude 실행 실패: \(error.localizedDescription)"
+        }
         close(slaveFD)
 
         defer {
-            process.terminate()
+            if process.isRunning {
+                process.terminate()
+                process.waitUntilExit()
+            }
             close(masterFD)
         }
 
         // 시작 대기
         Thread.sleep(forTimeInterval: 5.0)
-        drainFD(masterFD)
+        guard drainFD(masterFD) else {
+            return "❌ Claude 출력 읽기 설정 실패"
+        }
 
         // /usage 입력 (Tab으로 자동완성 확정)
         writeSlow(masterFD, "/usage")
@@ -58,14 +69,15 @@ public enum ClaudeUsageFetcher {
         while Date().timeIntervalSince(startTime) < 15.0 {
             Thread.sleep(forTimeInterval: 0.5)
             var buf = [UInt8](repeating: 0, count: 8192)
-            let flags = fcntl(masterFD, F_GETFL)
-            _ = fcntl(masterFD, F_SETFL, flags | O_NONBLOCK)
-            while true {
-                let n = Darwin.read(masterFD, &buf, buf.count)
-                if n <= 0 { break }
-                allData.append(buf, count: n)
+            guard withTemporarilyNonBlocking(masterFD, work: {
+                while true {
+                    let n = Darwin.read(masterFD, &buf, buf.count)
+                    if n <= 0 { break }
+                    allData.append(buf, count: n)
+                }
+            }) else {
+                return "❌ Claude 출력 읽기 설정 실패"
             }
-            _ = fcntl(masterFD, F_SETFL, flags)
 
             let partial = String(data: allData, encoding: .utf8) ?? ""
             if partial.contains("Esc") && partial.contains("cancel") { break }
@@ -100,12 +112,20 @@ public enum ClaudeUsageFetcher {
         }
     }
 
-    private static func drainFD(_ fd: Int32) {
-        let flags = fcntl(fd, F_GETFL)
-        _ = fcntl(fd, F_SETFL, flags | O_NONBLOCK)
+    private static func drainFD(_ fd: Int32) -> Bool {
         var buf = [UInt8](repeating: 0, count: 4096)
-        while Darwin.read(fd, &buf, buf.count) > 0 {}
-        _ = fcntl(fd, F_SETFL, flags)
+        return withTemporarilyNonBlocking(fd, work: {
+            while Darwin.read(fd, &buf, buf.count) > 0 {}
+        })
+    }
+
+    private static func withTemporarilyNonBlocking(_ fd: Int32, work: () -> Void) -> Bool {
+        let flags = fcntl(fd, F_GETFL)
+        guard flags >= 0 else { return false }
+        guard fcntl(fd, F_SETFL, flags | O_NONBLOCK) == 0 else { return false }
+        defer { _ = fcntl(fd, F_SETFL, flags) }
+        work()
+        return true
     }
 
     private static func stripANSI(_ raw: String) -> String {

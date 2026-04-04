@@ -768,6 +768,10 @@ class TokenTracker: ObservableObject {
 class TerminalTab: ObservableObject, Identifiable {
     private static let maxRetainedBlocks = 420
     private static let maxRetainedFileChanges = 240
+    /// Pre-compiled ANSI escape regex for sanitizeTerminalText (avoid per-call recompilation).
+    private static let ansiRegex: NSRegularExpression? = try? NSRegularExpression(
+        pattern: "\u{001B}\\[[0-9;?]*[ -/]*[@-~]"
+    )
 
     /// Decoupled character lookup (set by App layer to bridge CharacterRegistry)
     static var characterLookup: ((String) -> WorkerCharacter?) = { _ in nil }
@@ -989,6 +993,12 @@ class TerminalTab: ObservableObject, Identifiable {
         let normalized = text
             .replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n")
+        if let regex = Self.ansiRegex {
+            let range = NSRange(normalized.startIndex..., in: normalized)
+            let cleaned = regex.stringByReplacingMatches(in: normalized, range: range, withTemplate: "")
+            return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        // Fallback: original behavior if regex compilation failed
         let ansiPattern = "\u{001B}\\[[0-9;?]*[ -/]*[@-~]"
         return normalized
             .replacingOccurrences(of: ansiPattern, with: "", options: .regularExpression)
@@ -1403,10 +1413,17 @@ class TerminalTab: ObservableObject, Identifiable {
                 try proc.run()
 
                 // Watchdog: 30분 타임아웃 — CLI가 무한 hang 방지
-                let watchdog = DispatchWorkItem { [weak proc] in
+                // procId를 캡처하여 워치독 발동 시 현재 프로세스인지 검증.
+                let watchdog = DispatchWorkItem { [weak self, weak proc] in
                     guard let p = proc, p.isRunning else { return }
-                    print("[Doffice] ⚠️ Process watchdog: 30분 타임아웃 도달, 강제 종료")
+                    let isStillCurrent = self?.currentProcess.map { ObjectIdentifier($0) == procId } ?? false
+                    guard isStillCurrent else { return }
+                    CrashLogger.shared.warning("Process watchdog: 30min timeout reached, terminating pid=\(p.processIdentifier)")
                     p.terminate()
+                    let pid = p.processIdentifier
+                    DispatchQueue.global().asyncAfter(deadline: .now() + 5.0) {
+                        if p.isRunning { kill(pid, SIGKILL) }
+                    }
                 }
                 DispatchQueue.global().asyncAfter(deadline: .now() + 1800, execute: watchdog)
 
@@ -1414,9 +1431,17 @@ class TerminalTab: ObservableObject, Identifiable {
                 watchdog.cancel()
             } catch {
                 print("[도피스] 프로세스 실행 실패: \(error)")
+                CrashLogger.shared.error("Process launch failed: \(error.localizedDescription)")
+                // 실패 시 파이프 핸들러 즉시 정리
+                outPipe.fileHandleForReading.readabilityHandler = nil
+                errPipe.fileHandleForReading.readabilityHandler = nil
                 DispatchQueue.main.async { [weak self] in
                     self?.appendBlock(.error(message: NSLocalizedString("tab.process.launch.failed", comment: "")), content: String(format: NSLocalizedString("tab.process.launch.failed.detail", comment: ""), error.localizedDescription))
+                    self?.isProcessing = false
+                    self?.claudeActivity = .error
+                    self?.currentProcess = nil
                 }
+                return
             }
 
             outPipe.fileHandleForReading.readabilityHandler = nil
@@ -2123,10 +2148,11 @@ class TerminalTab: ObservableObject, Identifiable {
             timestamp: Date()
         )
 
-        if let last = fileChanges.last,
-           last.path == record.path,
-           last.action == record.action {
-            fileChanges[fileChanges.count - 1] = record
+        let lastIndex = fileChanges.count - 1
+        if lastIndex >= 0,
+           fileChanges[lastIndex].path == record.path,
+           fileChanges[lastIndex].action == record.action {
+            fileChanges[lastIndex] = record
         } else {
             fileChanges.append(record)
         }
@@ -2223,6 +2249,30 @@ class TerminalTab: ObservableObject, Identifiable {
         return url
     }
 
+    /// 대화 내용 전체를 마크다운 형식으로 클립보드에 복사
+    @discardableResult
+    func copyConversation() -> Bool {
+        var s = "# \(projectName) Session\n\n"
+        for b in blocks {
+            switch b.blockType {
+            case .userPrompt: s += "\n## > \(b.content)\n\n"
+            case .thought: s += "_\(b.content)_\n\n"
+            case .toolUse(let name, _): s += "**\(name)**\n```\n\(b.content)\n```\n"
+            case .toolOutput: s += "```\n\(b.content)\n```\n"
+            case .toolError: s += "```\n\(b.content)\n```\n"
+            case .completion: s += "\n---\n\(b.content)\n"
+            case .text: s += "\(b.content)\n\n"
+            case .error(let msg):
+                let display = msg.isEmpty ? b.content : msg
+                s += "> Error: \(display)\n\n"
+            default: if !b.content.isEmpty { s += "\(b.content)\n" }
+            }
+        }
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        return pb.setString(s, forType: .string)
+    }
+
     private func shellEscape(_ str: String) -> String { "'" + str.replacingOccurrences(of: "'", with: "'\\''") + "'" }
 
     private func effectiveAllowedTools() -> String {
@@ -2297,9 +2347,10 @@ class TerminalTab: ObservableObject, Identifiable {
         appendBlock(.status(message: NSLocalizedString("tab.token.protection.stopped", comment: "")), content: reason)
     }
 
-    /// Cached login shell PATH (resolved once at first call)
-    private static var cachedLoginPath: String?
-    private static var loginPathChecked = false
+    /// Thread-safe cached login shell PATH (resolved once at first call)
+    private static let loginPathQueue = DispatchQueue(label: "doffice.login-path")
+    private static var _cachedLoginPath: String?
+    private static var _loginPathChecked = false
 
     /// GUI 앱에서도 claude CLI를 찾을 수 있도록 PATH를 완전히 구성
     static func buildFullPATH() -> String {
@@ -2362,16 +2413,22 @@ class TerminalTab: ObservableObject, Identifiable {
 
         // Merge paths from login shell (async, non-blocking)
         // 로그인 셸 PATH는 백그라운드에서 비동기로 가져옴 — 메인 스레드 블로킹 방지
-        if !loginPathChecked {
-            loginPathChecked = true
+        // Thread-safe: loginPathQueue로 static 변수 접근 보호
+        let shouldFetch = loginPathQueue.sync { () -> Bool in
+            if _loginPathChecked { return false }
+            _loginPathChecked = true
+            return true
+        }
+        if shouldFetch {
             DispatchQueue.global(qos: .utility).async {
                 let result = shellSyncLoginWithTimeout("echo $PATH", timeout: 3)?.trimmingCharacters(in: .whitespacesAndNewlines)
                 if let r = result, !r.isEmpty {
-                    cachedLoginPath = r
+                    loginPathQueue.sync { _cachedLoginPath = r }
                 }
             }
         }
-        if let loginPath = cachedLoginPath, !loginPath.isEmpty {
+        let loginPath = loginPathQueue.sync { _cachedLoginPath }
+        if let loginPath, !loginPath.isEmpty {
             paths.append(loginPath)
         }
 
@@ -2717,7 +2774,7 @@ enum ClaudeUsageFetcher {
 
         // 터미널 크기 설정 (충분히 넓게)
         var winSize = winsize(ws_row: 50, ws_col: 120, ws_xpixel: 0, ws_ypixel: 0)
-        ioctl(masterFD, TIOCSWINSZ, &winSize)
+        let _ = ioctl(masterFD, TIOCSWINSZ, &winSize)
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: claudePath)
@@ -2732,20 +2789,28 @@ enum ClaudeUsageFetcher {
         process.standardOutput = slaveHandle
         process.standardError = slaveHandle
 
-        do { try process.launch() } catch {
-            close(masterFD); close(slaveFD)
+        do {
+            try process.run()
+        } catch {
+            close(masterFD)
+            close(slaveFD)
             return "❌ Claude 실행 실패: \(error.localizedDescription)"
         }
         close(slaveFD)
 
         defer {
-            process.terminate()
+            if process.isRunning {
+                process.terminate()
+                process.waitUntilExit()
+            }
             close(masterFD)
         }
 
         // 시작 대기
         Thread.sleep(forTimeInterval: 5.0)
-        drainFD(masterFD)
+        guard drainFD(masterFD) else {
+            return "❌ Claude 출력 읽기 설정 실패"
+        }
 
         // /usage 입력 (Tab으로 자동완성 확정)
         writeSlow(masterFD, "/usage")
@@ -2758,14 +2823,15 @@ enum ClaudeUsageFetcher {
         while Date().timeIntervalSince(startTime) < 15.0 {
             Thread.sleep(forTimeInterval: 0.5)
             var buf = [UInt8](repeating: 0, count: 8192)
-            let flags = fcntl(masterFD, F_GETFL)
-            fcntl(masterFD, F_SETFL, flags | O_NONBLOCK)
-            while true {
-                let n = Darwin.read(masterFD, &buf, buf.count)
-                if n <= 0 { break }
-                allData.append(buf, count: n)
+            guard withTemporarilyNonBlocking(masterFD, work: {
+                while true {
+                    let n = Darwin.read(masterFD, &buf, buf.count)
+                    if n <= 0 { break }
+                    allData.append(buf, count: n)
+                }
+            }) else {
+                return "❌ Claude 출력 읽기 설정 실패"
             }
-            fcntl(masterFD, F_SETFL, flags)
 
             let partial = String(data: allData, encoding: .utf8) ?? ""
             if partial.contains("Esc") && partial.contains("cancel") { break }
@@ -2800,12 +2866,20 @@ enum ClaudeUsageFetcher {
         }
     }
 
-    private static func drainFD(_ fd: Int32) {
-        let flags = fcntl(fd, F_GETFL)
-        fcntl(fd, F_SETFL, flags | O_NONBLOCK)
+    private static func drainFD(_ fd: Int32) -> Bool {
         var buf = [UInt8](repeating: 0, count: 4096)
-        while Darwin.read(fd, &buf, buf.count) > 0 {}
-        fcntl(fd, F_SETFL, flags)
+        return withTemporarilyNonBlocking(fd, work: {
+            while Darwin.read(fd, &buf, buf.count) > 0 {}
+        })
+    }
+
+    private static func withTemporarilyNonBlocking(_ fd: Int32, work: () -> Void) -> Bool {
+        let flags = fcntl(fd, F_GETFL)
+        guard flags >= 0 else { return false }
+        guard fcntl(fd, F_SETFL, flags | O_NONBLOCK) == 0 else { return false }
+        defer { _ = fcntl(fd, F_SETFL, flags) }
+        work()
+        return true
     }
 
     private static func stripANSI(_ raw: String) -> String {

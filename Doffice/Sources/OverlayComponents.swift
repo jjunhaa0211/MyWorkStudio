@@ -232,6 +232,7 @@ struct CommandPaletteView: View {
     var onSettings: () -> Void
     var onBugReport: () -> Void
     var onExportLog: () -> Void
+    var onCopyConversation: () -> Void
     var onSetViewMode: (Int) -> Void
 
     private var allActions: [CommandPaletteAction] {
@@ -250,6 +251,9 @@ struct CommandPaletteView: View {
             },
             CommandPaletteAction(title: NSLocalizedString("overlay.export.log", comment: ""), subtitle: "Cmd+Shift+E", symbol: "square.and.arrow.up", tint: Theme.cyan) {
                 isPresented = false; onExportLog()
+            },
+            CommandPaletteAction(title: NSLocalizedString("overlay.copy.conversation", comment: ""), subtitle: "Cmd+Shift+C", symbol: "doc.on.doc", tint: Theme.cyan) {
+                isPresented = false; onCopyConversation()
             },
             CommandPaletteAction(title: NSLocalizedString("overlay.split.view", comment: ""), subtitle: "", symbol: "rectangle.split.1x2", tint: Theme.accent) {
                 isPresented = false; onSetViewMode(0)

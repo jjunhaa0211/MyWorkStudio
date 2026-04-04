@@ -103,10 +103,15 @@ public class PluginHost: ObservableObject {
             if let cached = PluginManager.shared.manifestCacheGet(pluginPath) {
                 manifest = cached
             } else {
-                guard let data = try? Data(contentsOf: manifestURL),
-                      let decoded = try? JSONDecoder().decode(PluginManifest.self, from: data) else { continue }
-                manifest = decoded
-                PluginManager.shared.manifestCacheSet(pluginPath, manifest)
+                do {
+                    let data = try Data(contentsOf: manifestURL)
+                    let decoded = try JSONDecoder().decode(PluginManifest.self, from: data)
+                    manifest = decoded
+                    PluginManager.shared.manifestCacheSet(pluginPath, manifest)
+                } catch {
+                    CrashLogger.shared.warning("PluginHost: Failed to load manifest at \(manifestURL.path) — \(error.localizedDescription)")
+                    continue
+                }
             }
             guard let contributes = manifest.contributes else { continue }
 
@@ -202,7 +207,8 @@ public class PluginHost: ObservableObject {
         // 개별 비활성화된 확장 포인트 필터링
         let disabled = PluginManager.shared.disabledExtensions
 
-        DispatchQueue.main.async {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
             self.panels = newPanels.filter { !disabled.contains($0.id) }
             self.commands = newCommands.filter { !disabled.contains($0.id) }
             self.statusBarItems = newStatusBars.filter { !disabled.contains($0.id) }
@@ -249,8 +255,12 @@ public class PluginHost: ObservableObject {
                     process.currentDirectoryURL = URL(fileURLWithPath: path)
                 }
                 process.environment = ProcessInfo.processInfo.environment
-                try? process.run()
-                process.waitUntilExit()
+                do {
+                    try process.run()
+                    process.waitUntilExit()
+                } catch {
+                    CrashLogger.shared.warning("PluginHost: Shortcut command failed — \(error.localizedDescription)")
+                }
             }
         }
         #endif
@@ -287,11 +297,21 @@ public class PluginHost: ObservableObject {
             process.arguments = ["-c", item.scriptPath]
             process.standardOutput = pipe
             process.environment = ProcessInfo.processInfo.environment
-            try? process.run()
+            do {
+                try process.run()
+            } catch {
+                CrashLogger.shared.warning("PluginHost: Status bar script failed for '\(id)' — \(error.localizedDescription)")
+                return
+            }
             process.waitUntilExit()
 
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                if !data.isEmpty {
+                    CrashLogger.shared.debug("PluginHost: Status bar script '\(id)' returned invalid JSON")
+                }
+                return
+            }
 
             DispatchQueue.main.async {
                 guard let self = self,
@@ -427,16 +447,24 @@ public class PluginManager: ObservableObject {
         self.shellCommandRunner = shellCommandRunner
         self.downloadHandler = downloadHandler
         self.installSideEffectHandler = installSideEffectHandler
-        try? FileManager.default.createDirectory(at: pluginBaseDir, withIntermediateDirectories: true)
+        do {
+            try FileManager.default.createDirectory(at: pluginBaseDir, withIntermediateDirectories: true)
+        } catch {
+            CrashLogger.shared.error("PluginManager: Failed to create plugin directory \(pluginBaseDir.path) — \(error.localizedDescription)")
+        }
         loadPlugins()
     }
 
     // MARK: - Persistence
 
     private func loadPlugins() {
-        if let data = userDefaults.data(forKey: storageKey),
-           let decoded = try? JSONDecoder().decode([PluginEntry].self, from: data) {
-            plugins = decoded
+        if let data = userDefaults.data(forKey: storageKey) {
+            do {
+                plugins = try JSONDecoder().decode([PluginEntry].self, from: data)
+            } catch {
+                CrashLogger.shared.error("PluginManager: Failed to decode saved plugins — \(error.localizedDescription). Starting with empty list.")
+                plugins = []
+            }
         } else {
             plugins = []
         }
@@ -514,8 +542,8 @@ public class PluginManager: ObservableObject {
             return
         }
 
-        DispatchQueue.main.async {
-            self.pendingPermission = PermissionRequest(
+        DispatchQueue.main.async { [weak self] in
+            self?.pendingPermission = PermissionRequest(
                 pluginName: pluginName,
                 scriptPath: scriptPath,
                 onAllow: onAllow,
@@ -541,8 +569,11 @@ public class PluginManager: ObservableObject {
     }
 
     private func savePlugins() {
-        if let data = try? JSONEncoder().encode(plugins) {
+        do {
+            let data = try JSONEncoder().encode(plugins)
             userDefaults.set(data, forKey: storageKey)
+        } catch {
+            CrashLogger.shared.error("PluginManager: Failed to encode plugins for save — \(error.localizedDescription). Plugin state may be lost.")
         }
         manifestCacheClear()
     }
@@ -1642,9 +1673,9 @@ public class PluginManager: ObservableObject {
             break
         }
 
-        DispatchQueue.main.async {
-            self.plugins.removeAll { $0.id == plugin.id }
-            self.savePlugins()
+        DispatchQueue.main.async { [weak self] in
+            self?.plugins.removeAll { $0.id == plugin.id }
+            self?.savePlugins()
             // 제거된 플러그인 정리
             NotificationCenter.default.post(name: .init("dofficePluginCharactersChanged"), object: nil)
             PluginHost.shared.reload()
@@ -1818,14 +1849,14 @@ public class PluginManager: ObservableObject {
     // MARK: - Progress Helpers
 
     private func updateProgress(_ msg: String) {
-        DispatchQueue.main.async { self.installProgress = msg }
+        DispatchQueue.main.async { [weak self] in self?.installProgress = msg }
     }
 
     private func finishWithError(_ msg: String) {
-        DispatchQueue.main.async {
-            self.lastError = msg
-            self.isInstalling = false
-            self.installProgress = ""
+        DispatchQueue.main.async { [weak self] in
+            self?.lastError = msg
+            self?.isInstalling = false
+            self?.installProgress = ""
         }
     }
 
@@ -1836,11 +1867,16 @@ public class PluginManager: ObservableObject {
     }
 
     private func cleanupManagedPluginDirectory(_ directory: URL) {
-        try? FileManager.default.removeItem(at: directory)
+        do {
+            try FileManager.default.removeItem(at: directory)
+        } catch {
+            CrashLogger.shared.warning("PluginManager: Failed to cleanup directory \(directory.path) — \(error.localizedDescription)")
+        }
     }
 
     private func finishInstall(_ entry: PluginEntry) {
-        DispatchQueue.main.async {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
             if let idx = self.plugins.firstIndex(where: { $0.source == entry.source }) {
                 self.plugins[idx].name = entry.name
                 self.plugins[idx].localPath = entry.localPath
@@ -1862,7 +1898,13 @@ public class PluginManager: ObservableObject {
     // MARK: - Registry Helpers
 
     public static func decodeRegistryPayload(_ data: Data) -> [RegistryPlugin]? {
-        guard let json = try? JSONSerialization.jsonObject(with: data) else { return nil }
+        let json: Any
+        do {
+            json = try JSONSerialization.jsonObject(with: data)
+        } catch {
+            CrashLogger.shared.warning("PluginManager: Failed to decode registry payload — \(error.localizedDescription)")
+            return nil
+        }
 
         let rawItems: [[String: Any]]
         if let array = json as? [[String: Any]] {

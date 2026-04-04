@@ -114,7 +114,7 @@ public class AuditLog: ObservableObject {
         DispatchQueue.main.async {
             self.entries.insert(entry, at: 0)
             if self.entries.count > self.maxEntries {
-                self.entries = Array(self.entries.prefix(self.maxEntries))
+                self.entries.removeSubrange(self.maxEntries...)
             }
             self.scheduleSave()
         }

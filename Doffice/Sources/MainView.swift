@@ -134,6 +134,7 @@ struct MainView: View {
                     onSettings: { showSettings = true },
                     onBugReport: { showBugReport = true },
                     onExportLog: { exportActiveLog() },
+                    onCopyConversation: { copyActiveConversation() },
                     onSetViewMode: { viewModeRaw = $0 }
                 )
                 .transition(.opacity)
@@ -251,7 +252,8 @@ struct MainView: View {
                                        roleNoticeMessage: $roleNoticeMessage,
                                        showCommandPalette: $showCommandPalette,
                                        showActionCenter: $showActionCenter,
-                                       exportActiveLog: exportActiveLog)
+                                       exportActiveLog: exportActiveLog,
+                                       copyActiveConversation: copyActiveConversation)
     }
 
     private var bodyWithLifecycle: some View {
@@ -443,6 +445,11 @@ struct MainView: View {
         withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
             showBillingAlert = true
         }
+    }
+
+    private func copyActiveConversation() {
+        guard let tab = manager.activeTab else { return }
+        tab.copyConversation()
     }
 
     private func exportActiveLog() {
@@ -1354,6 +1361,7 @@ private struct NotificationHandlersModifier: ViewModifier {
     @Binding var showCommandPalette: Bool
     @Binding var showActionCenter: Bool
     let exportActiveLog: () -> Void
+    let copyActiveConversation: () -> Void
 
     func body(content: Content) -> some View {
         applyHandlers(content)
@@ -1371,6 +1379,12 @@ private struct NotificationHandlersModifier: ViewModifier {
                 if let i = notif.object as? Int, i >= 1, i <= tabs.count { manager.selectTab(tabs[i-1].id) }
             }
             .onReceive(NotificationCenter.default.publisher(for: .dofficeExportLog)) { _ in exportActiveLog() }
+            .onReceive(NotificationCenter.default.publisher(for: .dofficeDiagnosticReport)) { _ in
+                DiagnosticReport.shared.exportInteractively()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .dofficeCopyConversation)) { _ in
+                copyActiveConversation()
+            }
             .onReceive(NotificationCenter.default.publisher(for: .dofficeRestartSession)) { _ in
                 if let tab = manager.activeTab { tab.stop(); tab.start() }
             }
@@ -1440,7 +1454,8 @@ extension View {
         roleNoticeMessage: Binding<String>,
         showCommandPalette: Binding<Bool>,
         showActionCenter: Binding<Bool>,
-        exportActiveLog: @escaping () -> Void
+        exportActiveLog: @escaping () -> Void,
+        copyActiveConversation: @escaping () -> Void
     ) -> some View {
         modifier(NotificationHandlersModifier(
             manager: manager, chromeAnimation: chromeAnimation,
@@ -1451,7 +1466,8 @@ extension View {
             roleNoticeMessage: roleNoticeMessage,
             showCommandPalette: showCommandPalette,
             showActionCenter: showActionCenter,
-            exportActiveLog: exportActiveLog
+            exportActiveLog: exportActiveLog,
+            copyActiveConversation: copyActiveConversation
         ))
     }
 }

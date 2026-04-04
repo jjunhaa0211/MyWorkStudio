@@ -365,7 +365,7 @@ public class GitDataProvider: ObservableObject {
 
             if let hash = hash {
                 guard hash.allSatisfy({ $0.isHexDigit }) else {
-                    DispatchQueue.main.async { self.diffResult = nil }
+                    DispatchQueue.main.async { [weak self] in self?.diffResult = nil }
                     return
                 }
                 rawDiff = TerminalTab.shellSync("git -C \"\(root)\" diff \(hash)^..\(hash) -- \"\(safePath)\" 2>/dev/null") ?? ""
@@ -387,14 +387,14 @@ public class GitDataProvider: ObservableObject {
                         isBinary: false,
                         stats: (additions: lines.count, deletions: 0)
                     )
-                    DispatchQueue.main.async { self.diffResult = result }
+                    DispatchQueue.main.async { [weak self] in self?.diffResult = result }
                     return
                 }
                 rawDiff = TerminalTab.shellSync("git -C \"\(root)\" diff -- \"\(safePath)\" 2>/dev/null") ?? ""
             }
 
             let result = GitDataParser.parseDiff(filePath: filePath, rawDiff: rawDiff)
-            DispatchQueue.main.async { self.diffResult = result }
+            DispatchQueue.main.async { [weak self] in self?.diffResult = result }
         }
     }
 
@@ -1078,8 +1078,7 @@ public enum GitDataParser {
         return raw.components(separatedBy: "\n").compactMap { line in
             let trimmed = line.trimmingCharacters(in: .init(charactersIn: "'"))
             let parts = trimmed.components(separatedBy: "|")
-            guard !parts[0].isEmpty else { return nil }
-            let name = parts[0]
+            guard let name = parts.first, !name.isEmpty else { return nil }
             let upstream = parts.count > 1 && !parts[1].isEmpty ? parts[1] : nil
             let isRemote = name.hasPrefix("origin/") || name.contains("/")
 

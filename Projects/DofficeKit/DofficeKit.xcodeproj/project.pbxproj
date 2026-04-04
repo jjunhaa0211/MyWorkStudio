@@ -76,6 +76,7 @@
 		AAD1C302B4EEF79608A19844 /* VT100Terminal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E83BDCB785E0164FB219A47 /* VT100Terminal.swift */; };
 		AB43FA64E9C9873617A9D73B /* AgentEnumTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E54030129056009C5D5CD2E8 /* AgentEnumTests.swift */; };
 		B02151DBDBC8335977763DD0 /* SessionManager+Search.swift in Sources */ = {isa = PBXBuildFile; fileRef = A04847A3A51A160574EEF379 /* SessionManager+Search.swift */; };
+		B056FA03587A27AFD95893E1 /* CrashLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 288050A3D47D9AC57DEF7E17 /* CrashLogger.swift */; };
 		B24916D128F7D1EC7E816B99 /* PixelStripView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CF58704DA3B4545F702BAFE /* PixelStripView.swift */; };
 		B383A82E0DE766205DD55B58 /* SessionManager+Persistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF5CB2F4D56270AAF5642109 /* SessionManager+Persistence.swift */; };
 		B83B423D48A4997A7916B3CB /* MarkdownTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 383CE44E06A2D8FB89FBA761 /* MarkdownTextView.swift */; };
@@ -95,6 +96,7 @@
 		D9C7C5042BF4DBFB3806ECF7 /* TokenTrackerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71CEF881DFECF02A0AF191EC /* TokenTrackerTests.swift */; };
 		DDCFC77CFA2600D2C1058B36 /* DofficeServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEBF1FE72E666ECEFDF7C01F /* DofficeServer.swift */; };
 		E0053395DCBDCF99E826AD80 /* NewTabSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 113C67A9C2E4D6BCE96C357C /* NewTabSheet.swift */; };
+		E02AEE7421D4A805766AC60E /* DiagnosticReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC816861F9BD3048C571B59 /* DiagnosticReport.swift */; };
 		E304973E31AFB44D274D0789 /* PluginPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A3E22757E463B51379BD014 /* PluginPanelView.swift */; };
 		E5BADDC9A295FD0B2979DD1B /* ToolOutputBlockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 387511A5DD71BF247DCDCE58 /* ToolOutputBlockView.swift */; };
 		E74EA8FE5411A7122E1D1F06 /* BrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0460D0B357A0C9E135657A4 /* BrowserView.swift */; };
@@ -158,6 +160,7 @@
 		23FB4AFB84C6A169FAF0C732 /* AccessoryPixelFurniture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessoryPixelFurniture.swift; sourceTree = "<group>"; };
 		25826EE7379F37D60AF8DB13 /* TerminalAreaView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalAreaView.swift; sourceTree = "<group>"; };
 		275956D2515C2FE7EBD2CA10 /* EventStreamInputBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventStreamInputBar.swift; sourceTree = "<group>"; };
+		288050A3D47D9AC57DEF7E17 /* CrashLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrashLogger.swift; sourceTree = "<group>"; };
 		2C2905D010FE232CFC2DF380 /* GridPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridPanelView.swift; sourceTree = "<group>"; };
 		30E6E557538644E5244CE85A /* DesignSystem.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = DesignSystem.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		31316FF4E6F8703FFB8FFE55 /* TerminalTab+StreamParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TerminalTab+StreamParser.swift"; sourceTree = "<group>"; };
@@ -204,6 +207,7 @@
 		92F82F2ADF8BB95A472D83BB /* DofficeKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = DofficeKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		93502233D4AADB61D1DB7D98 /* DofficeKitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DofficeKitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		93A90C0EF99D11A72257F956 /* CoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreTests.swift; sourceTree = "<group>"; };
+		9BC816861F9BD3048C571B59 /* DiagnosticReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticReport.swift; sourceTree = "<group>"; };
 		9CE10EC41325C77C54B0E02C /* PluginManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginManager.swift; sourceTree = "<group>"; };
 		A04847A3A51A160574EEF379 /* SessionManager+Search.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionManager+Search.swift"; sourceTree = "<group>"; };
 		A1371D4FB216D9ECEAD571FD /* WorkerTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkerTypes.swift; sourceTree = "<group>"; };
@@ -340,8 +344,10 @@
 				F0460D0B357A0C9E135657A4 /* BrowserView.swift */,
 				36C014C26EF8B6FA44A4933F /* CharacterRegistry.swift */,
 				E88D65235612F3350B6F7C6F /* CharacterSystem.swift */,
+				288050A3D47D9AC57DEF7E17 /* CrashLogger.swift */,
 				452E78F7F8CDA83344259046 /* CustomSessionPreset.swift */,
 				CB94DEA580B511D31BA90467 /* DangerousCommandDetector.swift */,
+				9BC816861F9BD3048C571B59 /* DiagnosticReport.swift */,
 				BEBF1FE72E666ECEFDF7C01F /* DofficeServer.swift */,
 				AA243BC958FDC88CBBEE126F /* GameSystem.swift */,
 				CCB95988DC3F0D3A1D13B0A3 /* GameTypes.swift */,
@@ -579,8 +585,10 @@
 				E74EA8FE5411A7122E1D1F06 /* BrowserView.swift in Sources */,
 				29B12DB6C76A7ABED13FFB49 /* CharacterRegistry.swift in Sources */,
 				3339C9769F77E08EFF7333CF /* CharacterSystem.swift in Sources */,
+				B056FA03587A27AFD95893E1 /* CrashLogger.swift in Sources */,
 				79D654152006C1BD2E85CD72 /* CustomSessionPreset.swift in Sources */,
 				1D9E40EE8D7DE6BE2BD0DE82 /* DangerousCommandDetector.swift in Sources */,
+				E02AEE7421D4A805766AC60E /* DiagnosticReport.swift in Sources */,
 				DDCFC77CFA2600D2C1058B36 /* DofficeServer.swift in Sources */,
 				7E3301BE9B40315CB08E9F93 /* GameSystem.swift in Sources */,
 				A33F549B1B26C352AFB395A3 /* GameTypes.swift in Sources */,

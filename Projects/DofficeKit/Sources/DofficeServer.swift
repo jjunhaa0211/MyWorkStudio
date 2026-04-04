@@ -24,6 +24,7 @@ public final class DofficeServer {
     }()
     private let maxConnections: Int32 = 8
     private let bufferSize = 65_536
+    private let maxPendingRequestBytes = 1_048_576
 
     // MARK: - State
 
@@ -32,6 +33,7 @@ public final class DofficeServer {
     private var isRunning = false
     private var acceptSource: DispatchSourceRead?
     private var clientSources: [Int32: DispatchSourceRead] = [:]
+    private var clientBuffers: [Int32: Data] = [:]
     private let clientLock = NSLock()
 
     // MARK: - Notification Names (posted on main thread)
@@ -72,8 +74,12 @@ public final class DofficeServer {
         }
 
         // Set non-blocking
-        let flags = fcntl(serverFD, F_GETFL)
-        _ = fcntl(serverFD, F_SETFL, flags | O_NONBLOCK)
+        guard setNonBlocking(serverFD) else {
+            log("Failed to set server socket non-blocking: \(errnoDescription)")
+            closeSocket(serverFD)
+            serverFD = -1
+            return
+        }
 
         // Bind
         var addr = sockaddr_un()
@@ -106,8 +112,8 @@ public final class DofficeServer {
             return
         }
 
-        // Set permissions so any local user can connect
-        chmod(socketPath, 0o666)
+        // Restrict socket to current user only (owner read/write)
+        chmod(socketPath, 0o600)
 
         // Listen
         guard listen(serverFD, maxConnections) == 0 else {
@@ -146,6 +152,7 @@ public final class DofficeServer {
         clientLock.lock()
         let clients = clientSources
         clientSources.removeAll()
+        clientBuffers.removeAll()
         clientLock.unlock()
 
         for (fd, source) in clients {
@@ -171,8 +178,16 @@ public final class DofficeServer {
         guard clientFD >= 0 else { return }
 
         // Set non-blocking on client socket
-        let flags = fcntl(clientFD, F_GETFL)
-        _ = fcntl(clientFD, F_SETFL, flags | O_NONBLOCK)
+        guard setNonBlocking(clientFD) else {
+            log("Failed to set client socket non-blocking: \(errnoDescription)")
+            closeSocket(clientFD)
+            return
+        }
+
+        // SO_NOSIGPIPE: 클라이언트가 연결을 끊은 상태에서 write()하면 SIGPIPE 발생 → 앱 크래시.
+        // 소켓 레벨에서 SIGPIPE를 억제하고 write()가 EPIPE 에러를 반환하게 합니다.
+        var noSigPipe: Int32 = 1
+        setsockopt(clientFD, SOL_SOCKET, SO_NOSIGPIPE, &noSigPipe, socklen_t(MemoryLayout<Int32>.size))
 
         let source = DispatchSource.makeReadSource(fileDescriptor: clientFD, queue: queue)
         source.setEventHandler { [weak self] in
@@ -186,28 +201,56 @@ public final class DofficeServer {
 
         clientLock.lock()
         clientSources[clientFD] = source
+        clientBuffers[clientFD] = Data()
         clientLock.unlock()
     }
 
     private func readFromClient(fd: Int32) {
-        var buffer = [UInt8](repeating: 0, count: bufferSize)
-        let bytesRead = read(fd, &buffer, bufferSize)
+        var readAnyBytes = false
 
-        if bytesRead <= 0 {
-            // Connection closed or error
+        while true {
+            var buffer = [UInt8](repeating: 0, count: bufferSize)
+            let bytesRead = Darwin.read(fd, &buffer, bufferSize)
+
+            if bytesRead > 0 {
+                readAnyBytes = true
+                let chunk = Data(buffer.prefix(bytesRead))
+                guard appendClientBuffer(chunk, fd: fd) else {
+                    sendError(fd: fd, message: "Request exceeded maximum size.")
+                    disconnectClient(fd: fd)
+                    return
+                }
+                continue
+            }
+
+            if bytesRead == 0 {
+                disconnectClient(fd: fd)
+                return
+            }
+
+            if errno == EINTR {
+                continue
+            }
+
+            if errno == EAGAIN || errno == EWOULDBLOCK {
+                break
+            }
+
             disconnectClient(fd: fd)
             return
         }
 
-        guard let rawString = String(bytes: buffer[0..<bytesRead], encoding: .utf8) else {
-            sendError(fd: fd, message: "Invalid UTF-8 input")
-            return
-        }
+        guard readAnyBytes else { return }
 
-        // Support multiple newline-delimited requests in a single read
-        let lines = rawString.components(separatedBy: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        for lineData in takeCompleteRequestLines(fd: fd) {
+            guard let rawString = String(data: lineData, encoding: .utf8) else {
+                sendError(fd: fd, message: "Invalid UTF-8 input")
+                continue
+            }
 
-        for line in lines {
+            let line = rawString.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !line.isEmpty else { continue }
+
             let response = processRequest(line)
             sendResponse(fd: fd, response: response)
         }
@@ -216,13 +259,22 @@ public final class DofficeServer {
     private func disconnectClient(fd: Int32) {
         clientLock.lock()
         let source = clientSources.removeValue(forKey: fd)
+        clientBuffers.removeValue(forKey: fd)
         clientLock.unlock()
-        source?.cancel()
+        if let source = source {
+            // cancel handler 내에서 closeSocket + removeClient가 호출되므로
+            // 여기서는 source.cancel()만 호출 (중복 close 방지)
+            source.cancel()
+        } else {
+            // source가 없으면 이미 정리된 상태 — FD를 직접 닫음
+            closeSocket(fd)
+        }
     }
 
     private func removeClient(fd: Int32) {
         clientLock.lock()
         clientSources.removeValue(forKey: fd)
+        clientBuffers.removeValue(forKey: fd)
         clientLock.unlock()
     }
 
@@ -278,23 +330,23 @@ public final class DofficeServer {
     // MARK: - Command Handlers
 
     private func handleListTabs() -> [String: Any] {
-        let tabs = dispatchToMainSync { () -> [[String: Any]] in
+        let tabs = dispatchToMainSync({ () -> [[String: Any]] in
             let manager = SessionManager.shared
             return manager.userVisibleTabs.map { tab in
                 self.tabInfo(tab)
             }
-        }
+        }, fallback: [])
         return successResponse(["tabs": tabs])
     }
 
     private func handleSelectTab(id: String) -> [String: Any] {
-        let found = dispatchToMainSync { () -> Bool in
+        let found = dispatchToMainSync({ () -> Bool in
             let manager = SessionManager.shared
             guard manager.tabs.contains(where: { $0.id == id }) else { return false }
             manager.selectTab(id)
             NotificationCenter.default.post(name: .dofficeSelectTab, object: id)
             return true
-        }
+        }, fallback: false)
         if found {
             return successResponse(["selected": id])
         } else {
@@ -306,7 +358,7 @@ public final class DofficeServer {
         let resolvedPath = path ?? NSHomeDirectory()
         let resolvedName = name ?? URL(fileURLWithPath: resolvedPath).lastPathComponent
 
-        let tabId = dispatchToMainSync { () -> String in
+        let tabId = dispatchToMainSync({ () -> String? in
             let manager = SessionManager.shared
             let tab = manager.addTab(
                 projectName: resolvedName,
@@ -317,18 +369,19 @@ public final class DofficeServer {
             )
             NotificationCenter.default.post(name: .dofficeNewTab, object: tab.id)
             return tab.id
-        }
+        }, fallback: nil)
+        guard let tabId else { return errorResponse("Main thread timeout — could not create tab") }
         return successResponse(["id": tabId, "name": resolvedName, "path": resolvedPath])
     }
 
     private func handleCloseTab(id: String) -> [String: Any] {
-        let found = dispatchToMainSync { () -> Bool in
+        let found = dispatchToMainSync({ () -> Bool in
             let manager = SessionManager.shared
             guard manager.tabs.contains(where: { $0.id == id }) else { return false }
             manager.removeTab(id)
             NotificationCenter.default.post(name: .dofficeCloseTab, object: id)
             return true
-        }
+        }, fallback: false)
         if found {
             return successResponse(["closed": id])
         } else {
@@ -337,14 +390,14 @@ public final class DofficeServer {
     }
 
     private func handleSendInput(id: String, text: String) -> [String: Any] {
-        let result = dispatchToMainSync { () -> (Bool, String?) in
+        let result = dispatchToMainSync({ () -> (Bool, String?) in
             let manager = SessionManager.shared
             guard let tab = manager.tabs.first(where: { $0.id == id }) else {
                 return (false, "Tab not found: \(id)")
             }
             tab.send(text)
             return (true, nil)
-        }
+        }, fallback: (false, "Main thread timeout"))
         if result.0 {
             return successResponse(["sent": true, "id": id])
         } else {
@@ -353,7 +406,7 @@ public final class DofficeServer {
     }
 
     private func handleGetStatus() -> [String: Any] {
-        let status = dispatchToMainSync { () -> [String: Any] in
+        let status = dispatchToMainSync({ () -> [String: Any] in
             let manager = SessionManager.shared
             var info: [String: Any] = [
                 "tab_count": manager.userVisibleTabs.count,
@@ -370,7 +423,7 @@ public final class DofficeServer {
                 ] as [String: Any]
             }
             return info
-        }
+        }, fallback: ["error": "Main thread timeout"])
         return successResponse(status)
     }
 
@@ -388,7 +441,7 @@ public final class DofficeServer {
     }
 
     private func handleGetNotifications() -> [String: Any] {
-        let notifications = dispatchToMainSync { () -> [[String: Any]] in
+        let notifications = dispatchToMainSync({ () -> [[String: Any]] in
             let manager = SessionManager.shared
             var items: [[String: Any]] = []
 
@@ -433,7 +486,7 @@ public final class DofficeServer {
                 }
             }
             return items
-        }
+        }, fallback: [])
         return successResponse(["notifications": notifications, "count": notifications.count])
     }
 
@@ -480,16 +533,25 @@ public final class DofficeServer {
     }
 
     /// Synchronously dispatch a closure to the main thread and return its result.
-    /// Must NOT be called from the main thread.
-    private func dispatchToMainSync<T>(_ work: @escaping () -> T) -> T {
+    /// Uses DispatchSemaphore instead of DispatchQueue.main.sync to avoid
+    /// deadlock when main thread is blocked (e.g., by a modal dialog).
+    /// Includes a timeout to prevent indefinite hangs.
+    private func dispatchToMainSync<T>(_ work: @escaping () -> T, fallback: T) -> T {
         if Thread.isMainThread {
             return work()
         }
-        var result: T!
-        DispatchQueue.main.sync {
+        let semaphore = DispatchSemaphore(value: 0)
+        var result: T?
+        DispatchQueue.main.async {
             result = work()
+            semaphore.signal()
         }
-        return result
+        let timeout = semaphore.wait(timeout: .now() + 5.0)
+        if timeout == .timedOut {
+            CrashLogger.shared.warning("dispatchToMainSync timed out after 5s — main thread may be blocked")
+            return fallback
+        }
+        return result ?? fallback
     }
 
     // MARK: - I/O Utilities
@@ -509,7 +571,14 @@ public final class DofficeServer {
             var written = 0
             while written < len {
                 let n = Darwin.write(fd, ptr.advanced(by: written), len - written)
-                if n <= 0 { break }
+                if n < 0 {
+                    // EPIPE (클라이언트 disconnect) 또는 기타 에러 — 중단
+                    if errno != EPIPE && errno != ECONNRESET {
+                        CrashLogger.shared.warning("DofficeServer: write failed fd=\(fd) errno=\(errno)")
+                    }
+                    break
+                }
+                if n == 0 { break }
                 written += n
             }
         }
@@ -522,6 +591,52 @@ public final class DofficeServer {
     private func closeSocket(_ fd: Int32) {
         guard fd >= 0 else { return }
         Darwin.close(fd)
+    }
+
+    private func setNonBlocking(_ fd: Int32) -> Bool {
+        let flags = fcntl(fd, F_GETFL)
+        guard flags >= 0 else { return false }
+        return fcntl(fd, F_SETFL, flags | O_NONBLOCK) == 0
+    }
+
+    private func appendClientBuffer(_ chunk: Data, fd: Int32) -> Bool {
+        clientLock.lock()
+        defer { clientLock.unlock() }
+
+        var buffer = clientBuffers[fd] ?? Data()
+        buffer.append(chunk)
+        guard buffer.count <= maxPendingRequestBytes else {
+            clientBuffers[fd] = Data()
+            return false
+        }
+
+        clientBuffers[fd] = buffer
+        return true
+    }
+
+    private func takeCompleteRequestLines(fd: Int32) -> [Data] {
+        clientLock.lock()
+        defer { clientLock.unlock() }
+
+        guard var buffer = clientBuffers[fd] else { return [] }
+        let lines = Self.extractCompleteLines(from: &buffer)
+        clientBuffers[fd] = buffer
+        return lines
+    }
+
+    static func extractCompleteLines(from buffer: inout Data) -> [Data] {
+        var lines: [Data] = []
+
+        while let newlineIndex = buffer.firstIndex(of: 0x0A) {
+            var line = Data(buffer[..<newlineIndex])
+            if line.last == 0x0D {
+                line.removeLast()
+            }
+            lines.append(line)
+            buffer.removeSubrange(...newlineIndex)
+        }
+
+        return lines
     }
 
     private var errnoDescription: String {

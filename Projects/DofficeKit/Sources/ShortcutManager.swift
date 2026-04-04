@@ -93,6 +93,8 @@ public enum ShortcutAction: String, CaseIterable, Codable, Identifiable {
 
     // ── 액션 ──
     case exportSessionLog   = "exportSessionLog"
+    case diagnosticReport   = "diagnosticReport"
+    case copyConversation   = "copyConversation"
 
     public var id: String { rawValue }
 
@@ -105,7 +107,7 @@ public enum ShortcutAction: String, CaseIterable, Codable, Identifiable {
             return .terminal
         case .commandPalette, .actionCenter, .toggleSplitView, .toggleOfficeView, .toggleTerminalView, .toggleBrowserView:
             return .view
-        case .exportSessionLog:
+        case .exportSessionLog, .diagnosticReport, .copyConversation:
             return .action
         }
     }
@@ -132,6 +134,8 @@ public enum ShortcutAction: String, CaseIterable, Codable, Identifiable {
         case .toggleTerminalView: return .dofficeToggleTerminal
         case .toggleBrowserView:  return .dofficeToggleBrowser
         case .exportSessionLog:   return .dofficeExportLog
+        case .diagnosticReport:   return .dofficeDiagnosticReport
+        case .copyConversation:   return .dofficeCopyConversation
         }
     }
 }

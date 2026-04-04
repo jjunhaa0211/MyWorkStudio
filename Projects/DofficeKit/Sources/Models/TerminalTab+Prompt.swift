@@ -377,10 +377,20 @@ extension TerminalTab {
                 try proc.run()
 
                 // Watchdog: 30분 타임아웃 — CLI가 무한 hang 방지
-                let watchdog = DispatchWorkItem { [weak proc] in
+                // procId를 캡처하여 워치독 발동 시 현재 프로세스인지 검증.
+                // 프로세스 메모리가 재사용되면 다른 프로세스를 종료할 수 있으므로 identity 검증이 필수.
+                let watchdog = DispatchWorkItem { [weak self, weak proc] in
                     guard let p = proc, p.isRunning else { return }
-                    print("[Doffice] ⚠️ Process watchdog: 30분 타임아웃 도달, 강제 종료")
+                    // 이 프로세스가 여전히 현재 활성 프로세스인지 확인
+                    let isStillCurrent = self?.currentProcess.map { ObjectIdentifier($0) == procId } ?? false
+                    guard isStillCurrent else { return }
+                    CrashLogger.shared.warning("Process watchdog: 30min timeout reached, terminating pid=\(p.processIdentifier)")
                     p.terminate()
+                    // SIGTERM이 무시될 경우 SIGKILL로 강제 종료
+                    let pid = p.processIdentifier
+                    DispatchQueue.global().asyncAfter(deadline: .now() + 5.0) {
+                        if p.isRunning { kill(pid, SIGKILL) }
+                    }
                 }
                 DispatchQueue.global().asyncAfter(deadline: .now() + 1800, execute: watchdog)
 
@@ -388,6 +398,10 @@ extension TerminalTab {
                 watchdog.cancel()
             } catch {
                 print("[도피스] 프로세스 실행 실패: \(error)")
+                CrashLogger.shared.error("Process launch failed: \(error.localizedDescription)")
+                // 실패 시 파이프 핸들러 정리 — 누수 방지
+                outPipe.fileHandleForReading.readabilityHandler = nil
+                errPipe.fileHandleForReading.readabilityHandler = nil
                 DispatchQueue.main.async { [weak self] in
                     self?.appendBlock(.error(message: NSLocalizedString("tab.process.launch.failed", comment: "")), content: String(format: NSLocalizedString("tab.process.launch.failed.detail", comment: ""), error.localizedDescription))
                     self?.isProcessing = false

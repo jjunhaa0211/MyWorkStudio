@@ -140,9 +140,13 @@ class AppSettings: ObservableObject {
         _themeSaveTimer?.invalidate()
         _themeSaveTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: false) { [weak self] _ in
             guard let self else { return }
-            if let data = try? JSONEncoder().encode(config),
-               let json = String(data: data, encoding: .utf8) {
-                self.customThemeJSON = json
+            do {
+                let data = try JSONEncoder().encode(config)
+                if let json = String(data: data, encoding: .utf8) {
+                    self.customThemeJSON = json
+                }
+            } catch {
+                CrashLogger.shared.error("Theme: Failed to encode custom theme — \(error.localizedDescription)")
             }
             self.notifyIfNeeded()
             Theme.invalidateFontCache()
@@ -153,13 +157,23 @@ class AppSettings: ObservableObject {
         let config = customTheme
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
-        guard let data = try? encoder.encode(config) else { return }
+        let data: Data
+        do {
+            data = try encoder.encode(config)
+        } catch {
+            CrashLogger.shared.error("Theme: Failed to encode theme for export — \(error.localizedDescription)")
+            return
+        }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.json]
         panel.nameFieldStringValue = "doffice_theme.json"
         panel.title = NSLocalizedString("settings.customtheme.export", comment: "")
         if panel.runModal() == .OK, let url = panel.url {
-            try? data.write(to: url)
+            do {
+                try data.write(to: url)
+            } catch {
+                CrashLogger.shared.error("Theme: Failed to write theme to \(url.path) — \(error.localizedDescription)")
+            }
         }
     }
 
@@ -169,9 +183,13 @@ class AppSettings: ObservableObject {
         panel.allowsMultipleSelection = false
         panel.title = NSLocalizedString("settings.customtheme.import", comment: "")
         if panel.runModal() == .OK, let url = panel.url {
-            guard let data = try? Data(contentsOf: url),
-                  let config = try? JSONDecoder().decode(CustomThemeConfig.self, from: data) else { return }
-            saveCustomTheme(config)
+            do {
+                let data = try Data(contentsOf: url)
+                let config = try JSONDecoder().decode(CustomThemeConfig.self, from: data)
+                saveCustomTheme(config)
+            } catch {
+                CrashLogger.shared.error("Theme: Failed to import from \(url.lastPathComponent) — \(error.localizedDescription)")
+            }
         }
     }
 
@@ -950,8 +968,13 @@ final class AutomationTemplateStore: ObservableObject {
         let workItem = DispatchWorkItem {
             if snapshot.isEmpty {
                 UserDefaults.standard.removeObject(forKey: key)
-            } else if let data = try? JSONEncoder().encode(snapshot) {
-                UserDefaults.standard.set(data, forKey: key)
+            } else {
+                do {
+                    let data = try JSONEncoder().encode(snapshot)
+                    UserDefaults.standard.set(data, forKey: key)
+                } catch {
+                    CrashLogger.shared.error("TokenOverrides: Failed to encode overrides — \(error.localizedDescription)")
+                }
             }
         }
         saveWorkItem = workItem
@@ -959,11 +982,12 @@ final class AutomationTemplateStore: ObservableObject {
     }
 
     private func load() {
-        guard let data = UserDefaults.standard.data(forKey: saveKey),
-              let decoded = try? JSONDecoder().decode([String: String].self, from: data) else {
-            return
+        guard let data = UserDefaults.standard.data(forKey: saveKey) else { return }
+        do {
+            overrides = try JSONDecoder().decode([String: String].self, from: data)
+        } catch {
+            CrashLogger.shared.error("TokenOverrides: Failed to decode saved overrides — \(error.localizedDescription)")
         }
-        overrides = decoded
     }
 }
 

@@ -116,6 +116,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
         menuBarManager.setup()
 
+        // 파일 로거 시작
+        CrashLogger.shared.info("App launched — v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?")")
+
         // 글로벌 크래시 핸들러 — 예기치 않은 종료 시 세션 자동 저장
         setupCrashRecovery()
 
@@ -397,28 +400,53 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// 주의: signal handler 내에서는 async-signal-safe 함수만 호출 가능하므로,
     /// 실제 저장은 DispatchSource를 통해 메인 스레드에서 처리
     private func setupCrashRecovery() {
-        let signals: [Int32] = [SIGTERM, SIGINT, SIGHUP]
-        for sig in signals {
-            // 기본 시그널 핸들러를 무시하고 DispatchSource로 처리
+        CrashLogger.shared.info("Setting up crash recovery handlers")
+
+        // 정상 종료 시그널 — DispatchSource로 안전하게 처리
+        let gracefulSignals: [Int32] = [SIGTERM, SIGINT, SIGHUP]
+        for sig in gracefulSignals {
             signal(sig, SIG_IGN)
             let source = DispatchSource.makeSignalSource(signal: sig, queue: .main)
             source.setEventHandler {
+                let sigName = sig == SIGTERM ? "SIGTERM" : sig == SIGINT ? "SIGINT" : "SIGHUP"
+                CrashLogger.shared.logCrash(signal: sigName, additionalInfo: "Graceful shutdown")
                 SessionManager.shared.saveSessions(immediately: true)
                 exit(0)
             }
             source.resume()
-            // source가 해제되지 않도록 유지
             _signalSources.append(source)
+        }
+
+        // 치명적 크래시 시그널 — C-level handler로 최소한의 로깅
+        let crashSignals: [(Int32, String)] = [
+            (SIGABRT, "SIGABRT"), (SIGBUS, "SIGBUS"),
+            (SIGSEGV, "SIGSEGV"), (SIGFPE, "SIGFPE"), (SIGILL, "SIGILL")
+        ]
+        for (sig, name) in crashSignals {
+            Self._crashSignalNames[sig] = name
+            signal(sig) { signum in
+                // async-signal-safe가 아니지만, 어차피 크래시 직전이므로 best-effort
+                CrashLogger.shared.logCrash(
+                    signal: AppDelegate._crashSignalNames[signum] ?? "SIG\(signum)",
+                    additionalInfo: "Fatal crash — process will terminate"
+                )
+                SessionManager.shared.saveSessions(immediately: true)
+                // 기본 핸들러로 복원 후 재전송하여 OS 크래시 리포트 생성
+                Foundation.signal(signum, SIG_DFL)
+                raise(signum)
+            }
         }
 
         // NSException (Objective-C 예외) 핸들러
         NSSetUncaughtExceptionHandler { exception in
-            print("[Doffice] Uncaught exception: \(exception.name) — \(exception.reason ?? "unknown")")
-            // 예외 핸들러에서는 최소한의 작업만 수행 — 저장은 best-effort
+            CrashLogger.shared.logException(exception)
             SessionManager.shared.saveSessions(immediately: true)
         }
+
+        CrashLogger.shared.info("Crash recovery handlers installed")
     }
     private var _signalSources: [DispatchSourceSignal] = []
+    private static var _crashSignalNames: [Int32: String] = [:]
 
     func applicationWillTerminate(_ notification: Notification) {
         SessionManager.shared.saveSessions(immediately: true)

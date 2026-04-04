@@ -143,7 +143,9 @@ class BrowserManager: ObservableObject {
 
     @discardableResult
     func createNewTab(url: URL? = nil) -> UUID {
-        let tab = BrowserTab(url: url ?? URL(string: "https://www.google.com")!)
+        // swiftlint:disable:next force_unwrapping — static URL guaranteed valid
+        let defaultURL = URL(string: "https://www.google.com") ?? URL(string: "about:blank")!
+        let tab = BrowserTab(url: url ?? defaultURL)
         tabs.append(tab)
         activeTabId = tab.id
         return tab.id
@@ -1078,7 +1080,21 @@ struct BrowserPanelView: View {
         navigate: PassthroughSubject<URL, Never>
     ) {
         ensureSubjects(for: id)
-        return (goBackSubjects[id]!, goForwardSubjects[id]!, reloadSubjects[id]!, navigateSubjects[id]!)
+        guard let goBack = goBackSubjects[id],
+              let goForward = goForwardSubjects[id],
+              let reload = reloadSubjects[id],
+              let navigate = navigateSubjects[id] else {
+            // ensureSubjects가 호출되었으므로 여기 도달하면 안 되지만, 크래시 방지
+            CrashLogger.shared.error("BrowserView: ensuredSubjects failed for id \(id)")
+            let fallback = (
+                goBack: PassthroughSubject<Void, Never>(),
+                goForward: PassthroughSubject<Void, Never>(),
+                reload: PassthroughSubject<Void, Never>(),
+                navigate: PassthroughSubject<URL, Never>()
+            )
+            return fallback
+        }
+        return (goBack, goForward, reload, navigate)
     }
 }
 

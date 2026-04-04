@@ -67,6 +67,17 @@ public enum AgentProvider: String, CaseIterable, Identifiable {
         }
     }
 
+    public var installCommand: String {
+        switch self {
+        case .claude:
+            return "npm install -g @anthropic-ai/claude-code"
+        case .codex:
+            return "npm install -g @openai/codex"
+        case .gemini:
+            return "npm install -g @google/gemini-cli"
+        }
+    }
+
     public var installDetail: String {
         switch self {
         case .claude:
@@ -74,7 +85,7 @@ public enum AgentProvider: String, CaseIterable, Identifiable {
         case .codex:
             return "Codex CLI를 찾을 수 없습니다.\n\n설치 후 `which codex`로 경로를 확인해주세요."
         case .gemini:
-            return "Gemini CLI를 찾을 수 없습니다.\n\n설치: npm install -g @anthropic-ai/gemini-cli\n설치 후 `which gemini`로 경로를 확인해주세요."
+            return "Gemini CLI를 찾을 수 없습니다.\n\n설치: \(installCommand)\n설치 후 `which gemini`로 경로를 확인해주세요."
         }
     }
 

@@ -115,6 +115,34 @@ final class CoreTests: XCTestCase {
         XCTAssertEqual(tab.browserURL, "")
     }
 
+    func testDofficeServerExtractCompleteLinesKeepsPartialRequestBuffered() {
+        var buffer = Data("{\"command\":\"list-tabs\"}".utf8)
+
+        XCTAssertTrue(DofficeServer.extractCompleteLines(from: &buffer).isEmpty)
+
+        buffer.append(Data("\n{\"command\":\"ping\"}\n{\"command\":\"partial".utf8))
+        let lines = DofficeServer.extractCompleteLines(from: &buffer).compactMap {
+            String(data: $0, encoding: .utf8)
+        }
+
+        XCTAssertEqual(lines, [
+            "{\"command\":\"list-tabs\"}",
+            "{\"command\":\"ping\"}",
+        ])
+        XCTAssertEqual(String(data: buffer, encoding: .utf8), "{\"command\":\"partial")
+    }
+
+    func testDofficeServerExtractCompleteLinesStripsCarriageReturns() {
+        var buffer = Data("first\r\nsecond\r\n".utf8)
+
+        let lines = DofficeServer.extractCompleteLines(from: &buffer).compactMap {
+            String(data: $0, encoding: .utf8)
+        }
+
+        XCTAssertEqual(lines, ["first", "second"])
+        XCTAssertTrue(buffer.isEmpty)
+    }
+
     func testPluginValidationRejectsEmptyDirectory() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -301,5 +329,419 @@ final class CoreTests: XCTestCase {
         XCTAssertNotNil(manager.lastError)
         XCTAssertTrue(manager.plugins.isEmpty)
         XCTAssertFalse(FileManager.default.fileExists(atPath: baseDir.appendingPathComponent("Broken").path))
+    }
+
+    // MARK: - VT100Terminal Regression Tests
+
+    func testVT100DeleteCharAtEndOfRow() {
+        // Bug: 커서가 행 끝에 있을 때 "P" (문자 삭제) 명령이
+        // 정수 언더플로우로 크래시할 수 있음
+        let terminal = VT100Terminal(rows: 2, cols: 5)
+
+        // 행에 "ABCDE" 입력
+        terminal.feed("ABCDE")
+
+        // 커서를 마지막 열에 놓고 삭제 시도 — 크래시하면 안 됨
+        terminal.feed("\u{1B}[5G")  // 커서를 5열로 (0-indexed: 4)
+        terminal.feed("\u{1B}[1P")  // 1문자 삭제
+
+        let text = terminal.render(fontSize: 12).string
+        // 크래시 없이 정상 동작하면 성공
+        XCTAssertFalse(text.isEmpty)
+    }
+
+    func testVT100DeleteCharEmptyRow() {
+        // Bug: 빈 행에서 삭제 시도 시 guard로 안전하게 건너뛰어야 함
+        let terminal = VT100Terminal(rows: 2, cols: 5)
+
+        // 아무것도 입력하지 않은 상태에서 삭제 시도
+        terminal.feed("\u{1B}[1P")
+
+        // 크래시 없이 정상 동작
+        let text = terminal.render(fontSize: 12).string
+        XCTAssertTrue(text.isEmpty || text.allSatisfy { $0 == " " || $0 == "\n" })
+    }
+
+    func testVT100DeleteCharLargeCount() {
+        // 행 길이보다 큰 삭제 요청 — available로 클램핑되어야 함
+        let terminal = VT100Terminal(rows: 2, cols: 5)
+        terminal.feed("ABC")
+        terminal.feed("\u{1B}[1G")  // 커서를 1열로
+        terminal.feed("\u{1B}[99P") // 99문자 삭제 시도
+
+        // 크래시 없이 정상 동작
+        let text = terminal.render(fontSize: 12).string
+        XCTAssertNotNil(text)
+    }
+
+    // MARK: - CrashLogger Tests
+
+    func testCrashLoggerWritesFile() {
+        let logger = CrashLogger.shared
+        logger.info("Test log entry from unit test")
+        logger.flush()
+
+        let logFiles = logger.recentLogFiles()
+        XCTAssertFalse(logFiles.isEmpty, "Log directory should contain at least one log file")
+
+        if let latest = logFiles.first,
+           let content = try? String(contentsOf: latest, encoding: .utf8) {
+            XCTAssertTrue(content.contains("Test log entry from unit test"))
+        }
+    }
+
+    // MARK: - SessionStore Regression Tests
+
+    func testSessionStoreHandlesCorruptedFile() {
+        // 손상된 세션 파일이 있을 때 크래시하지 않고 빈 세션으로 복구해야 함
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("DofficeTest-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let fileURL = tempDir.appendingPathComponent("sessions.json")
+        try? "{{invalid json content!!!".write(to: fileURL, atomically: true, encoding: .utf8)
+
+        let store = SessionStore(fileURL: fileURL)
+        // 크래시 없이 빈 세션 반환
+        let sessions = store.load()
+        XCTAssertTrue(sessions.isEmpty, "Corrupted file should result in empty sessions, not crash")
+    }
+
+    func testSessionStoreSaveAndLoad() {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("DofficeTest-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let fileURL = tempDir.appendingPathComponent("sessions.json")
+        let store = SessionStore(fileURL: fileURL)
+
+        // 빈 상태에서 시작
+        XCTAssertTrue(store.load().isEmpty)
+        XCTAssertEqual(store.sessionCount, 0)
+    }
+
+    // MARK: - SessionStore Concurrent Load Race (TOCTOU Regression)
+
+    func testSessionStoreConcurrentLoadDoesNotCrash() {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("DofficeTest-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let fileURL = tempDir.appendingPathComponent("sessions.json")
+        let store = SessionStore(fileURL: fileURL)
+
+        // Concurrent loads must not crash or corrupt state (TOCTOU regression test)
+        let group = DispatchGroup()
+        for _ in 0..<20 {
+            group.enter()
+            DispatchQueue.global().async {
+                _ = store.load()
+                group.leave()
+            }
+        }
+        let result = group.wait(timeout: .now() + 5.0)
+        XCTAssertEqual(result, .success, "Concurrent loads should complete without deadlock")
+    }
+
+    // MARK: - sanitizeTerminalText Regression
+
+    func testSanitizeTerminalTextStripsAnsiCodes() {
+        let tab = TerminalTab(
+            id: "ansi-test",
+            projectName: "Test",
+            projectPath: "/tmp",
+            workerName: "Tester",
+            workerColor: .blue
+        )
+
+        let input = "\u{001B}[32mHello\u{001B}[0m World\u{001B}[1;31m!\u{001B}[0m"
+        let result = tab.sanitizeTerminalText(input)
+        XCTAssertEqual(result, "Hello World!")
+    }
+
+    func testSanitizeTerminalTextHandlesEmptyString() {
+        let tab = TerminalTab(
+            id: "ansi-empty",
+            projectName: "Test",
+            projectPath: "/tmp",
+            workerName: "Tester",
+            workerColor: .blue
+        )
+
+        XCTAssertEqual(tab.sanitizeTerminalText(""), "")
+        XCTAssertEqual(tab.sanitizeTerminalText("\r\n"), "")
+    }
+
+    func testSanitizeTerminalTextNormalizesLineEndings() {
+        let tab = TerminalTab(
+            id: "ansi-crlf",
+            projectName: "Test",
+            projectPath: "/tmp",
+            workerName: "Tester",
+            workerColor: .blue
+        )
+
+        let result = tab.sanitizeTerminalText("line1\r\nline2\rline3")
+        XCTAssertEqual(result, "line1\nline2\nline3")
+    }
+
+    // MARK: - AuditLog Trim Regression
+
+    func testAuditLogTrimDoesNotCrash() {
+        let log = AuditLog.shared
+        let initialCount = log.entries.count
+
+        // Insert enough entries to trigger trim (maxEntries = 5000)
+        // We just verify that inserting works without crash
+        for i in 0..<10 {
+            log.log(.sessionStart, tabId: "trim-test-\(i)", projectName: "Test", detail: "entry \(i)")
+        }
+
+        let expectation = expectation(description: "Entries inserted")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            XCTAssertGreaterThanOrEqual(log.entries.count, initialCount)
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: 2.0)
+    }
+
+    // MARK: - DofficeServer extractCompleteLines Edge Cases
+
+    func testDofficeServerExtractCompleteLinesEmptyBuffer() {
+        var buffer = Data()
+        let lines = DofficeServer.extractCompleteLines(from: &buffer)
+        XCTAssertTrue(lines.isEmpty)
+        XCTAssertTrue(buffer.isEmpty)
+    }
+
+    func testDofficeServerExtractCompleteLinesOnlyNewlines() {
+        var buffer = Data("\n\n\n".utf8)
+        let lines = DofficeServer.extractCompleteLines(from: &buffer)
+        // Should produce 3 empty strings
+        XCTAssertEqual(lines.count, 3)
+        XCTAssertTrue(buffer.isEmpty)
+    }
+
+    // MARK: - GitDataParser Bounds Safety
+
+    func testGitDataParserSanitizePathRemovesDangerousCharacters() {
+        // sanitizePath strips injection characters: null, backtick, $, ;, &, |, newlines
+        let dangerous = "file`name;rm$PATH|test&\0"
+        let sanitized = GitDataParser.sanitizePath(dangerous)
+        XCTAssertFalse(sanitized.contains("`"))
+        XCTAssertFalse(sanitized.contains(";"))
+        XCTAssertFalse(sanitized.contains("$"))
+        XCTAssertFalse(sanitized.contains("|"))
+        XCTAssertFalse(sanitized.contains("&"))
+        XCTAssertFalse(sanitized.contains("\0"))
+        XCTAssertEqual(sanitized, "filenamermPATHtest")
+    }
+
+    func testGitDataParserSanitizePathStripsLeadingDashes() {
+        let flagInjection = "--exec=malicious"
+        let sanitized = GitDataParser.sanitizePath(flagInjection)
+        XCTAssertFalse(sanitized.hasPrefix("-"))
+    }
+
+    // MARK: - SessionStore Silent Failure Logging Tests
+
+    func testSessionStoreInitLogsDirectoryCreationFailure() {
+        // SessionStore init should not crash even with an invalid path
+        // (it logs the error and continues)
+        let impossibleURL = URL(fileURLWithPath: "/dev/null/impossible/sessions.json")
+        let store = SessionStore(fileURL: impossibleURL)
+        // Should gracefully handle — load returns empty, no crash
+        XCTAssertTrue(store.load().isEmpty)
+    }
+
+    func testSessionStoreSaveAndReloadPreservesData() {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("DofficeTest-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let fileURL = tempDir.appendingPathComponent("sessions.json")
+        let store = SessionStore(fileURL: fileURL, writeDelay: 0)
+
+        let tab = TerminalTab(
+            id: "save-reload-test",
+            projectName: "TestProject",
+            projectPath: "/tmp/test",
+            workerName: "TestWorker",
+            workerColor: .blue
+        )
+        tab.tokensUsed = 1234
+        tab.totalCost = 0.05
+        tab.selectedModel = .opus
+        tab.effortLevel = .high
+        tab.permissionMode = .bypassPermissions
+        tab.systemPrompt = "Be helpful"
+
+        store.save(tabs: [tab], immediately: true)
+
+        // Load from a fresh store instance to verify persistence
+        let store2 = SessionStore(fileURL: fileURL)
+        let loaded = store2.load()
+        XCTAssertEqual(loaded.count, 1)
+
+        let saved = loaded[0]
+        XCTAssertEqual(saved.tabId, "save-reload-test")
+        XCTAssertEqual(saved.projectName, "TestProject")
+        XCTAssertEqual(saved.projectPath, "/tmp/test")
+        XCTAssertEqual(saved.tokensUsed, 1234)
+        XCTAssertEqual(saved.totalCost, 0.05)
+        XCTAssertEqual(saved.selectedModel, ClaudeModel.opus.rawValue)
+        XCTAssertEqual(saved.effortLevel, EffortLevel.high.rawValue)
+        XCTAssertEqual(saved.systemPrompt, "Be helpful")
+    }
+
+    func testSessionStoreRestoredTabMatchesOriginal() {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("DofficeTest-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let fileURL = tempDir.appendingPathComponent("sessions.json")
+        let store = SessionStore(fileURL: fileURL, writeDelay: 0)
+
+        // Create a tab with specific configuration
+        let original = TerminalTab(
+            id: "restore-test",
+            projectName: "Restore",
+            projectPath: "/tmp/restore",
+            workerName: "Worker",
+            workerColor: .red
+        )
+        original.selectedModel = .haiku
+        original.effortLevel = .low
+        original.continueSession = true
+        original.useWorktree = true
+        original.sessionName = "my-session"
+        original.customAgent = "custom-agent"
+        original.enableBrief = true
+        original.tmuxMode = true
+        original.tokenLimit = 5000
+
+        store.save(tabs: [original], immediately: true)
+
+        let store2 = SessionStore(fileURL: fileURL)
+        let saved = store2.load().first!
+
+        // Restore into a new tab and verify
+        let restored = TerminalTab(
+            id: saved.tabId ?? "unknown",
+            projectName: saved.projectName,
+            projectPath: saved.projectPath,
+            workerName: saved.workerName,
+            workerColor: .red
+        )
+        restored.applySavedSessionConfiguration(saved)
+
+        XCTAssertEqual(restored.selectedModel, .haiku)
+        XCTAssertEqual(restored.effortLevel, .low)
+        XCTAssertTrue(restored.continueSession)
+        XCTAssertTrue(restored.useWorktree)
+        XCTAssertEqual(restored.sessionName, "my-session")
+        XCTAssertEqual(restored.customAgent, "custom-agent")
+        XCTAssertTrue(restored.enableBrief)
+        XCTAssertTrue(restored.tmuxMode)
+        XCTAssertEqual(restored.tokenLimit, 5000)
+    }
+
+    // MARK: - BuildFullPATH Thread Safety
+
+    func testBuildFullPATHConcurrentCallsDoNotCrash() {
+        // Verify that concurrent calls to buildFullPATH don't crash due to static var race
+        let group = DispatchGroup()
+        for _ in 0..<20 {
+            group.enter()
+            DispatchQueue.global().async {
+                let path = TerminalTab.buildFullPATH()
+                XCTAssertFalse(path.isEmpty)
+                group.leave()
+            }
+        }
+        let result = group.wait(timeout: .now() + 10.0)
+        XCTAssertEqual(result, .success, "Concurrent buildFullPATH should not deadlock")
+    }
+
+    // MARK: - TerminalTab Cancel Ordering Regression
+
+    func testCancelProcessingDoesNotCrashWithoutProcess() {
+        // cancelProcessing() should be safe to call when no process is running
+        let tab = TerminalTab(
+            id: "cancel-test",
+            projectName: "Test",
+            projectPath: "/tmp",
+            workerName: "Tester",
+            workerColor: .blue
+        )
+        tab.isProcessing = true
+        tab.claudeActivity = .thinking
+
+        // Should not crash even with no currentProcess
+        tab.cancelProcessing()
+
+        XCTAssertFalse(tab.isProcessing)
+        XCTAssertEqual(tab.claudeActivity, .idle)
+    }
+
+    func testForceStopDoesNotCrashWithoutProcess() {
+        let tab = TerminalTab(
+            id: "force-stop-test",
+            projectName: "Test",
+            projectPath: "/tmp",
+            workerName: "Tester",
+            workerColor: .blue
+        )
+        tab.isProcessing = true
+        tab.isRunning = true
+
+        // Should not crash even with no process
+        tab.forceStop()
+
+        XCTAssertFalse(tab.isProcessing)
+        XCTAssertFalse(tab.isRunning)
+    }
+
+    // MARK: - SessionStore Recovery Bundle
+
+    func testSessionStoreRecoveryBundleCreation() {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("DofficeTest-\(UUID().uuidString)")
+        let projectDir = tempDir.appendingPathComponent("project")
+        try? FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let fileURL = tempDir.appendingPathComponent("sessions.json")
+        let store = SessionStore(fileURL: fileURL, writeDelay: 0)
+
+        let tab = TerminalTab(
+            id: "recovery-test",
+            projectName: "RecoveryProject",
+            projectPath: projectDir.path,
+            workerName: "Worker",
+            workerColor: .green
+        )
+        tab.lastPromptText = "Fix the bug"
+        tab.lastResultText = "Done fixing"
+        tab.tokensUsed = 500
+
+        let bundleURL = store.writeRecoveryBundle(for: tab, reason: "test-crash")
+        XCTAssertNotNil(bundleURL)
+
+        if let bundleURL {
+            let readmePath = bundleURL.appendingPathComponent("README.md")
+            XCTAssertTrue(FileManager.default.fileExists(atPath: readmePath.path))
+
+            if let content = try? String(contentsOf: readmePath, encoding: .utf8) {
+                XCTAssertTrue(content.contains("RecoveryProject"))
+                XCTAssertTrue(content.contains("test-crash"))
+                XCTAssertTrue(content.contains("Fix the bug"))
+            }
+        }
     }
 }

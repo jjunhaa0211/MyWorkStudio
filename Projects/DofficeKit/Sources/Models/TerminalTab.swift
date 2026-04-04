@@ -11,6 +11,10 @@ import DesignSystem
 public class TerminalTab: ObservableObject, Identifiable {
     static let maxRetainedBlocks = 420
     static let maxRetainedFileChanges = 240
+    /// Pre-compiled ANSI escape regex for sanitizeTerminalText (avoid per-call recompilation).
+    private static let ansiRegex: NSRegularExpression? = try? NSRegularExpression(
+        pattern: "\u{001B}\\[[0-9;?]*[ -/]*[@-~]"
+    )
 
     /// Decoupled character lookup (set by App layer to bridge CharacterRegistry)
     public static var characterLookup: ((String) -> WorkerCharacter?) = { _ in nil }
@@ -246,6 +250,12 @@ public class TerminalTab: ObservableObject, Identifiable {
         let normalized = text
             .replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n")
+        if let regex = Self.ansiRegex {
+            let range = NSRange(normalized.startIndex..., in: normalized)
+            let cleaned = regex.stringByReplacingMatches(in: normalized, range: range, withTemplate: "")
+            return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        // Fallback: original behavior if regex compilation failed
         let ansiPattern = "\u{001B}\\[[0-9;?]*[ -/]*[@-~]"
         return normalized
             .replacingOccurrences(of: ansiPattern, with: "", options: .regularExpression)

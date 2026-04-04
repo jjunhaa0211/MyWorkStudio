@@ -40,4 +40,11 @@ final class CLIInstallCheckerTests: XCTestCase {
         XCTAssertTrue(AgentProvider.codex.installChecker === CodexInstallChecker.shared)
         XCTAssertTrue(AgentProvider.gemini.installChecker === GeminiInstallChecker.shared)
     }
+
+    func testInstallCommandsMatchSupportedCLIs() {
+        XCTAssertEqual(AgentProvider.claude.installCommand, "npm install -g @anthropic-ai/claude-code")
+        XCTAssertEqual(AgentProvider.codex.installCommand, "npm install -g @openai/codex")
+        XCTAssertEqual(AgentProvider.gemini.installCommand, "npm install -g @google/gemini-cli")
+        XCTAssertTrue(AgentProvider.gemini.installDetail.contains("@google/gemini-cli"))
+    }
 }
