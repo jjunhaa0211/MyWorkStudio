@@ -270,8 +270,10 @@ struct SidebarView: View {
             if !isCompactChrome {
                 gamePanel
             }
-            tokenUsagePanel
-            if manager.totalTokensUsed > 0 { tokenPanel }
+            if settings.tokenProtectionEnabled {
+                tokenUsagePanel
+                if manager.totalTokensUsed > 0 { tokenPanel }
+            }
             if isCompactChrome {
                 lightweightManagementButtons
             } else {

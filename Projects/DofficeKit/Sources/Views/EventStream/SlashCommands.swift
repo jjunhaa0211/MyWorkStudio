@@ -59,6 +59,30 @@ extension EventStreamView {
                 tab.appendBlock(.status(message: String(format: NSLocalizedString("terminal.copied.to.clipboard", comment: ""), last.content.count)))
             } else { tab.appendBlock(.status(message: NSLocalizedString("terminal.no.response.to.copy", comment: ""))) }
         },
+        SlashCommand("copyall", NSLocalizedString("slash.cmd.copyall", comment: ""), category: NSLocalizedString("slash.category.general", comment: "")) { tab, _, _ in
+            let text = tab.blocks.map { block -> String in
+                let prefix: String
+                switch block.blockType {
+                case .userPrompt: prefix = "> "
+                case .thought: prefix = "💭 "
+                case .toolUse(let name, _): prefix = "⏺ [\(name)] "
+                case .toolOutput: prefix = "  ⎿ "
+                case .toolError: prefix = "  ✗ "
+                case .status(let msg): return "ℹ️ \(msg)"
+                case .completion: prefix = "✅ "
+                case .error(let msg): return "🚨 \(msg)"
+                default: prefix = ""
+                }
+                return prefix + block.content
+            }.joined(separator: "\n")
+            if text.isEmpty {
+                tab.appendBlock(.status(message: NSLocalizedString("terminal.no.response.to.copy", comment: "")))
+            } else {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(text, forType: .string)
+                tab.appendBlock(.status(message: String(format: NSLocalizedString("terminal.copied.to.clipboard", comment: ""), text.count)))
+            }
+        },
         SlashCommand("export", NSLocalizedString("slash.cmd.export", comment: ""), category: NSLocalizedString("slash.category.general", comment: "")) { tab, _, _ in
             let text = tab.blocks.map { block -> String in
                 let prefix: String

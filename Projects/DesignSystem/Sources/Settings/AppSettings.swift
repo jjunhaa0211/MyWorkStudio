@@ -268,6 +268,12 @@ public class AppSettings: ObservableObject {
 
     // MARK: - Token Limits
 
+    // ── 캐릭터 속도 ──
+    /// 캐릭터 이동 속도 배율 (0.5 = 느림, 1.0 = 보통, 2.0 = 빠름)
+    @AppStorage("characterSpeedMultiplier") public var characterSpeedMultiplier: Double = 1.0 {
+        didSet { notifyIfNeeded() }
+    }
+
     // ── 토큰 보호 ──
     @AppStorage("tokenProtectionEnabled") public var tokenProtectionEnabled: Bool = true {
         didSet { notifyIfNeeded() }

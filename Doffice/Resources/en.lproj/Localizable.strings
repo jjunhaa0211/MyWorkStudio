@@ -328,6 +328,8 @@
 "terminal.help.log.filter" = "Log Filter";
 "terminal.file" = "File";
 "terminal.help.file.changes" = "File Changes";
+"terminal.copyall" = "Copy All";
+"terminal.help.copyall" = "Copy entire conversation to clipboard";
 "terminal.status.idle" = "Idle";
 "terminal.status.thinking" = "Thinking";
 "terminal.status.reading" = "Reading";
@@ -462,6 +464,7 @@
 "slash.cmd.cancel" = "Cancel current task";
 "slash.cmd.stop" = "Force stop running command (SIGKILL)";
 "slash.cmd.copy" = "Copy last response to clipboard";
+"slash.cmd.copyall" = "Copy entire conversation to clipboard";
 "slash.cmd.export" = "Save conversation log to file";
 "slash.cmd.model" = "Change model";
 "slash.cmd.effort" = "Change effort level";
@@ -1132,6 +1135,14 @@
 "settings.camera.full" = "Full";
 "settings.camera.focus" = "Focus";
 
+/* Settings - Character Speed */
+"settings.character.speed" = "Character Speed";
+"settings.character.speed.slow" = "Slow";
+"settings.character.speed.fast" = "Fast";
+"settings.character.speed.very.slow" = "Very Slow";
+"settings.character.speed.normal" = "Normal";
+"settings.character.speed.very.fast" = "Very Fast";
+
 /* Settings - Tokens */
 "settings.usage" = "Usage";
 "settings.usage.subtitle" = "Today / This Week";
@@ -1142,6 +1153,12 @@
 "settings.token.ok.desc" = "New input is currently available. Even if you set the limit too low, a safety margin is calculated based on your limit to prevent immediate blocking.";
 "settings.token.apply.min" = "Apply Recommended Min";
 "settings.token.reset" = "Reset Token History";
+
+/* Settings - Token Protection */
+"settings.token.protection" = "Token Protection";
+"settings.token.protection.toggle" = "Enable Token Protection";
+"settings.token.protection.on" = "Auto-block when daily/weekly limits exceeded";
+"settings.token.protection.off" = "Protection off — daily/weekly limits ignored";
 
 /* Settings - Automation */
 "settings.automation" = "Automation Protection";

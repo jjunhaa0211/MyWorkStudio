@@ -328,6 +328,8 @@
 "terminal.help.log.filter" = "로그 필터";
 "terminal.file" = "파일";
 "terminal.help.file.changes" = "파일 변경";
+"terminal.copyall" = "전체 복사";
+"terminal.help.copyall" = "전체 대화를 클립보드에 복사";
 "terminal.status.idle" = "대기";
 "terminal.status.thinking" = "생각 중";
 "terminal.status.reading" = "읽는 중";
@@ -462,6 +464,7 @@
 "slash.cmd.cancel" = "현재 작업 취소";
 "slash.cmd.stop" = "진행 중인 명령어 강제 중지 (SIGKILL)";
 "slash.cmd.copy" = "마지막 응답을 클립보드에 복사";
+"slash.cmd.copyall" = "전체 대화를 클립보드에 복사";
 "slash.cmd.export" = "대화 로그를 파일로 저장";
 "slash.cmd.model" = "모델 변경";
 "slash.cmd.effort" = "노력 수준 변경";
@@ -1132,6 +1135,14 @@
 "settings.camera.full" = "전체";
 "settings.camera.focus" = "포커스";
 
+/* Settings - Character Speed */
+"settings.character.speed" = "캐릭터 속도";
+"settings.character.speed.slow" = "느림";
+"settings.character.speed.fast" = "빠름";
+"settings.character.speed.very.slow" = "매우 느림";
+"settings.character.speed.normal" = "보통";
+"settings.character.speed.very.fast" = "매우 빠름";
+
 /* Settings - Tokens */
 "settings.usage" = "사용량";
 "settings.usage.subtitle" = "오늘 / 이번 주";
@@ -1142,6 +1153,12 @@
 "settings.token.ok.desc" = "현재는 새 입력이 가능한 상태입니다. 한도를 너무 낮게 잡아도 즉시 막히지 않도록 보호선을 사용자 한도에 맞춰 계산합니다.";
 "settings.token.apply.min" = "권장 하한 적용";
 "settings.token.reset" = "토큰 이력 초기화";
+
+/* Settings - Token Protection */
+"settings.token.protection" = "토큰 보호";
+"settings.token.protection.toggle" = "토큰 보호 활성화";
+"settings.token.protection.on" = "일간/주간 한도 초과 시 자동 차단";
+"settings.token.protection.off" = "보호 꺼짐 — 일간/주간 한도 무시";
 
 /* Settings - Automation */
 "settings.automation" = "자동화 보호";

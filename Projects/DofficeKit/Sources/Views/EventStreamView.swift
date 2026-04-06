@@ -311,6 +311,36 @@ public struct EventStreamView: View {
                 .padding(.horizontal, 5).padding(.vertical, 2)
                 .background(showFilePanel ? Theme.accent.opacity(0.08) : .clear).cornerRadius(Theme.cornerSmall)
             }.buttonStyle(.plain).help(NSLocalizedString("terminal.help.file.changes", comment: ""))
+
+            Button(action: {
+                let text = tab.blocks.map { block -> String in
+                    let prefix: String
+                    switch block.blockType {
+                    case .userPrompt: prefix = "> "
+                    case .thought: prefix = "💭 "
+                    case .toolUse(let name, _): prefix = "⏺ [\(name)] "
+                    case .toolOutput: prefix = "  ⎿ "
+                    case .toolError: prefix = "  ✗ "
+                    case .status(let msg): return "ℹ️ \(msg)"
+                    case .completion: prefix = "✅ "
+                    case .error(let msg): return "🚨 \(msg)"
+                    default: prefix = ""
+                    }
+                    return prefix + block.content
+                }.joined(separator: "\n")
+                if !text.isEmpty {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(text, forType: .string)
+                    tab.appendBlock(.status(message: String(format: NSLocalizedString("terminal.copied.to.clipboard", comment: ""), text.count)))
+                }
+            }) {
+                HStack(spacing: 3) {
+                    Image(systemName: "doc.on.doc").font(Theme.chrome(8))
+                    Text(NSLocalizedString("terminal.copyall", comment: "")).font(Theme.chrome(8))
+                }
+                .foregroundColor(Theme.textDim)
+                .padding(.horizontal, 5).padding(.vertical, 2)
+            }.buttonStyle(.plain).help(NSLocalizedString("terminal.help.copyall", comment: ""))
         }
         .padding(.horizontal, Theme.sp3).padding(.vertical, 5)
         .background(Theme.bgSurface.opacity(0.5))

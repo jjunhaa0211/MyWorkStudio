@@ -122,7 +122,6 @@ struct OfficeSceneView: View {
                         )
                     }
                 }
-                .background(viewportBackground)
                 .contentShape(Rectangle())
                 .gesture(
                     DragGesture(minimumDistance: 0)

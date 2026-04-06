@@ -14,7 +14,16 @@ final class HexColorCache {
     private var rgbaCache: [String: (UInt8, UInt8, UInt8)] = [:]
     private var lock = os_unfair_lock()
 
+    /// 메인 스레드 전용 빠른 경로 — lock 없이 딕셔너리 직접 접근
+    @inline(__always)
     func color(for hex: String) -> Color {
+        if Thread.isMainThread {
+            if let cached = cache[hex] { return cached }
+            let c = Color(hex: hex)
+            cache[hex] = c
+            return c
+        }
+        // 백그라운드 스레드 경로
         os_unfair_lock_lock(&lock)
         if let cached = cache[hex] {
             os_unfair_lock_unlock(&lock)
@@ -25,17 +34,20 @@ final class HexColorCache {
         let c = Color(hex: hex)
 
         os_unfair_lock_lock(&lock)
-        if let cached = cache[hex] {
-            os_unfair_lock_unlock(&lock)
-            return cached
-        }
-        cache[hex] = c
+        if cache[hex] == nil { cache[hex] = c }
         os_unfair_lock_unlock(&lock)
         return c
     }
 
     /// CGImage 래스터용 — hex → (R, G, B) 바이트
+    /// CGImage 래스터용 — hex → (R, G, B) 바이트
     func rgb(for hex: String) -> (UInt8, UInt8, UInt8) {
+        if Thread.isMainThread {
+            if let cached = rgbaCache[hex] { return cached }
+            let result = Self.parseHexToRGB(hex)
+            rgbaCache[hex] = result
+            return result
+        }
         os_unfair_lock_lock(&lock)
         if let cached = rgbaCache[hex] {
             os_unfair_lock_unlock(&lock)
@@ -43,21 +55,22 @@ final class HexColorCache {
         }
         os_unfair_lock_unlock(&lock)
 
+        let result = Self.parseHexToRGB(hex)
+
+        os_unfair_lock_lock(&lock)
+        if rgbaCache[hex] == nil { rgbaCache[hex] = result }
+        os_unfair_lock_unlock(&lock)
+        return result
+    }
+
+    private static func parseHexToRGB(_ hex: String) -> (UInt8, UInt8, UInt8) {
         var cleanHex = hex.replacingOccurrences(of: "#", with: "").uppercased()
         if cleanHex.count == 3 {
             cleanHex = cleanHex.map { "\($0)\($0)" }.joined()
         }
         var int: UInt64 = 0
         Scanner(string: cleanHex).scanHexInt64(&int)
-        let r = UInt8((int >> 16) & 0xFF)
-        let g = UInt8((int >> 8) & 0xFF)
-        let b = UInt8(int & 0xFF)
-        let result = (r, g, b)
-
-        os_unfair_lock_lock(&lock)
-        rgbaCache[hex] = result
-        os_unfair_lock_unlock(&lock)
-        return result
+        return (UInt8((int >> 16) & 0xFF), UInt8((int >> 8) & 0xFF), UInt8(int & 0xFF))
     }
 
     func clear() {
@@ -74,6 +87,8 @@ final class HexColorCache {
 
 /// 픽셀 그리드 스프라이트를 CGImage로 프리래스터 — Canvas fill 수백 번 → drawImage 1번
 enum SpriteRasterizer {
+    private static let colorSpace = CGColorSpaceCreateDeviceRGB()
+
     /// SpriteData를 RGBA CGImage로 변환 (16×20 → 18×23 @ 1.15x)
     /// CGContext 직접 사용 — Data 복사 없이 메모리 효율적
     static func rasterize(_ sprite: SpriteData) -> CGImage? {
@@ -88,7 +103,7 @@ enum SpriteRasterizer {
             data: nil,
             width: dstW, height: dstH,
             bitsPerComponent: 8, bytesPerRow: dstW * 4,
-            space: CGColorSpaceCreateDeviceRGB(),
+            space: Self.colorSpace,
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ) else { return nil }
 
@@ -216,6 +231,8 @@ struct OfficeSpriteRenderer {
 
     // Sprite cache: keyed by color combination string → CharacterSpriteSet
     private static var spriteCache: [String: CharacterSpriteSet] = [:]
+    private static var spriteCacheInsertOrder: [String] = []
+    private static let maxSpriteCacheSize = 30
 
     // Reusable Z-sort buffer — avoids per-frame heap allocation
     private static var zBuffer: [ZDrawable] = []
@@ -918,9 +935,17 @@ struct OfficeSpriteRenderer {
             ))
         }
 
-        // Z-sort: 요소 수 + 첫/마지막 zY로 빠른 변경 감지
+        // Z-sort: Hasher 기반 변경 감지
         let bufCount = Self.zBuffer.count
-        let quickSig = bufCount ^ Int(bitPattern: UInt(bitPattern: Int((Self.zBuffer.first?.zY ?? 0) * 97))) ^ Int(bitPattern: UInt(bitPattern: Int((Self.zBuffer.last?.zY ?? 0) * 31)))
+        var hasher = Hasher()
+        hasher.combine(bufCount)
+        if let first = Self.zBuffer.first?.zY { hasher.combine(Int(first * 1000)) }
+        if let last = Self.zBuffer.last?.zY { hasher.combine(Int(last * 1000)) }
+        // 중간 요소도 샘플링하여 충돌 감소
+        if bufCount > 2 {
+            hasher.combine(Int((Self.zBuffer[bufCount / 2].zY) * 1000))
+        }
+        let quickSig = hasher.finalize()
         if quickSig != Self.lastZSortSignature || bufCount != Self._lastZBufferCount {
             Self.zBuffer.sort { $0.zY < $1.zY }
             Self.lastZSortSignature = quickSig
@@ -995,6 +1020,8 @@ struct OfficeSpriteRenderer {
 
     /// 플러그인 가구 CGImage 캐시 — 매 프레임 Color(hex:) 생성 방지
     fileprivate static var pluginFurnitureImageCache: [String: CGImage] = [:]
+    private static var pluginCacheInsertOrder: [String] = []
+    private static let maxPluginCacheSize = 50
 
     /// 플러그인 가구의 sprite 데이터를 CGImage로 사전 래스터화하여 렌더링
     private static func drawPluginFurniture(_ ctx: GraphicsContext, pluginId: String,
@@ -1013,7 +1040,15 @@ struct OfficeSpriteRenderer {
 
         // SpriteRasterizer로 CGImage 생성 (한 번만)
         if let img = SpriteRasterizer.rasterize(sprite) {
+            // FIFO eviction
+            if pluginFurnitureImageCache.count >= maxPluginCacheSize {
+                let removeCount = max(1, maxPluginCacheSize / 4)
+                let keysToRemove = pluginCacheInsertOrder.prefix(removeCount)
+                for k in keysToRemove { pluginFurnitureImageCache.removeValue(forKey: k) }
+                pluginCacheInsertOrder.removeFirst(min(removeCount, pluginCacheInsertOrder.count))
+            }
             pluginFurnitureImageCache[pluginId] = img
+            pluginCacheInsertOrder.append(pluginId)
             ctx.draw(Image(decorative: img, scale: 1),
                      in: CGRect(x: x, y: y, width: w, height: h))
         }
@@ -1829,12 +1864,16 @@ struct OfficeSpriteRenderer {
         if let cached = Self.spriteCache[cacheKey] {
             sprites = cached
         } else {
-            // 캐시 크기 제한 (활성 캐릭터 수 + 여유분)
-            if Self.spriteCache.count > 30 {
-                Self.spriteCache.removeAll(keepingCapacity: true)
+            // FIFO eviction: 25% 제거 (전체 삭제 대신 점진적 제거)
+            if Self.spriteCache.count >= Self.maxSpriteCacheSize {
+                let removeCount = max(1, Self.maxSpriteCacheSize / 4)
+                let keysToRemove = Self.spriteCacheInsertOrder.prefix(removeCount)
+                for k in keysToRemove { Self.spriteCache.removeValue(forKey: k) }
+                Self.spriteCacheInsertOrder.removeFirst(min(removeCount, Self.spriteCacheInsertOrder.count))
             }
             let built = SpriteCatalog.buildCharacterSprites(skin: skinHex, hair: hairHex, shirt: shirtHex, pants: pantsHex)
             Self.spriteCache[cacheKey] = built
+            Self.spriteCacheInsertOrder.append(cacheKey)
             sprites = built
         }
 
@@ -1915,42 +1954,66 @@ struct OfficeSpriteRenderer {
             with: .color(Color.black.opacity(dark ? 0.18 : 0.10))
         )
 
-        // ── 최적화: 모든 상태에서 CGImage 프리래스터 ──
-        // 이동/비이동 구분 없이 CGImage 1장 캐시 → ctx.draw 1회
-        // 걷기 바디 시프트는 3-slice (상체/중체/하체) CGImage 그리기로 해결
-        let imageKey = "\(cacheKey)|\(dir.rawValue)|\(state)|\(frame)"
-        if let cgImage = SpriteRasterizer.cachedImage(key: imageKey, sprite: sprite) {
-            if !isWalking || (upperShiftY == 0 && midShiftY == 0 && lowerShiftY == 0) {
-                // 시프트 없음 → 단일 이미지 1번 그리기
-                let imgW = CGFloat(cgImage.width)
-                let imgH = CGFloat(cgImage.height)
-                ctx.draw(
-                    Image(decorative: cgImage, scale: 1),
-                    in: CGRect(x: drawX, y: drawY, width: imgW, height: imgH)
-                )
-            } else {
-                // 걷기 바디 시프트 → 3-slice로 분할 그리기 (fill 320회 → draw 3회)
-                let imgW = cgImage.width
-                let imgH = cgImage.height
-                let scale115 = 1.15
-                // 상체 (row 0-9), 중체 (row 10-15), 하체 (row 16+)
-                let slices: [(startRow: Int, endRow: Int, shiftX: CGFloat, shiftY: CGFloat)] = [
-                    (0, min(Int(Double(10) * scale115), imgH), upperShiftX, upperShiftY),
-                    (Int(Double(10) * scale115), min(Int(Double(16) * scale115), imgH), midShiftX, midShiftY),
-                    (Int(Double(16) * scale115), imgH, 0, lowerShiftY)
-                ]
-                for slice in slices {
-                    let sliceH = slice.endRow - slice.startRow
-                    guard sliceH > 0 else { continue }
-                    if let cropped = cgImage.cropping(to: CGRect(x: 0, y: slice.startRow, width: imgW, height: sliceH)) {
-                        let dstX = drawX + slice.shiftX
-                        let dstY = drawY + CGFloat(slice.startRow) + slice.shiftY
-                        ctx.draw(
-                            Image(decorative: cropped, scale: 1),
-                            in: CGRect(x: dstX, y: dstY, width: CGFloat(imgW), height: CGFloat(sliceH))
-                        )
-                    }
+        // 스프라이트 고유 색상을 로컬 딕셔너리에 1회만 조회하여 캐싱
+        var localColors: [String: Color] = [:]
+        let colorCache = HexColorCache.shared
+        for row in sprite {
+            for hex in row where !hex.isEmpty {
+                if localColors[hex] == nil {
+                    localColors[hex] = colorCache.color(for: hex)
                 }
+            }
+        }
+
+        // Pixel render — batch contiguous same-color pixels into single rects per row
+        for y in 0..<sprite.count {
+            let rowShiftX: CGFloat
+            let rowShiftY: CGFloat
+            if isWalking {
+                switch y {
+                case ..<10:
+                    rowShiftX = upperShiftX
+                    rowShiftY = upperShiftY
+                case 10..<16:
+                    rowShiftX = midShiftX
+                    rowShiftY = midShiftY
+                default:
+                    rowShiftX = 0
+                    rowShiftY = lowerShiftY
+                }
+            } else {
+                rowShiftX = 0
+                rowShiftY = 0
+            }
+
+            let row = sprite[y]
+            let rowY = snappedPixel(drawY + CGFloat(y) + rowShiftY)
+            var runStart = -1
+            var runHex = ""
+
+            for x in 0..<row.count {
+                let hex = row[x]
+                if hex == runHex && !hex.isEmpty {
+                    continue  // extend current run
+                }
+                // Flush previous run
+                if !runHex.isEmpty && runStart >= 0, let color = localColors[runHex] {
+                    let runLen = CGFloat(x - runStart)
+                    ctx.fill(Path(CGRect(
+                        x: snappedPixel(drawX + CGFloat(runStart) + rowShiftX),
+                        y: rowY, width: runLen * 1.15, height: 1.15
+                    )), with: .color(color))
+                }
+                runStart = x
+                runHex = hex
+            }
+            // Flush last run
+            if !runHex.isEmpty && runStart >= 0, let color = localColors[runHex] {
+                let runLen = CGFloat(row.count - runStart)
+                ctx.fill(Path(CGRect(
+                    x: snappedPixel(drawX + CGFloat(runStart) + rowShiftX),
+                    y: rowY, width: runLen * 1.15, height: 1.15
+                )), with: .color(color))
             }
         }
 

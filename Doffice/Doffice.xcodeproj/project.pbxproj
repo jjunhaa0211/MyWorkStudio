@@ -498,7 +498,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.0.46;
+				MARKETING_VERSION = 0.0.47;
 				PRODUCT_BUNDLE_IDENTIFIER = com.junha.doffice;
 				PRODUCT_NAME = Doffice;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -526,7 +526,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.0.46;
+				MARKETING_VERSION = 0.0.47;
 				PRODUCT_BUNDLE_IDENTIFIER = com.junha.doffice;
 				PRODUCT_NAME = Doffice;
 				SWIFT_EMIT_LOC_STRINGS = YES;

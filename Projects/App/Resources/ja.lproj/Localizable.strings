@@ -333,6 +333,8 @@
 "terminal.help.log.filter" = "ログフィルター";
 "terminal.file" = "ファイル";
 "terminal.help.file.changes" = "ファイル変更";
+"terminal.copyall" = "全体コピー";
+"terminal.help.copyall" = "会話全体をクリップボードにコピー";
 "terminal.status.idle" = "待機";
 "terminal.status.thinking" = "思考中";
 "terminal.status.reading" = "読取中";
@@ -467,6 +469,7 @@
 "slash.cmd.cancel" = "現在のタスクをキャンセル";
 "slash.cmd.stop" = "実行中のコマンドを強制停止 (SIGKILL)";
 "slash.cmd.copy" = "最後の応答をクリップボードにコピー";
+"slash.cmd.copyall" = "会話全体をクリップボードにコピー";
 "slash.cmd.export" = "会話ログをファイルに保存";
 "slash.cmd.model" = "モデル変更";
 "slash.cmd.effort" = "努力レベル変更";
@@ -1140,6 +1143,14 @@
 "settings.camera" = "カメラ視点";
 "settings.camera.full" = "全体";
 "settings.camera.focus" = "フォーカス";
+
+/* Settings - Character Speed */
+"settings.character.speed" = "キャラクター速度";
+"settings.character.speed.slow" = "遅い";
+"settings.character.speed.fast" = "速い";
+"settings.character.speed.very.slow" = "とても遅い";
+"settings.character.speed.normal" = "普通";
+"settings.character.speed.very.fast" = "とても速い";
 
 /* Settings - Tokens */
 "settings.usage" = "使用量";

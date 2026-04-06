@@ -328,6 +328,8 @@
 "terminal.help.log.filter" = "ログフィルター";
 "terminal.file" = "ファイル";
 "terminal.help.file.changes" = "ファイル変更";
+"terminal.copyall" = "全体コピー";
+"terminal.help.copyall" = "会話全体をクリップボードにコピー";
 "terminal.status.idle" = "待機";
 "terminal.status.thinking" = "思考中";
 "terminal.status.reading" = "読取中";
@@ -462,6 +464,7 @@
 "slash.cmd.cancel" = "現在のタスクをキャンセル";
 "slash.cmd.stop" = "実行中のコマンドを強制停止 (SIGKILL)";
 "slash.cmd.copy" = "最後の応答をクリップボードにコピー";
+"slash.cmd.copyall" = "会話全体をクリップボードにコピー";
 "slash.cmd.export" = "会話ログをファイルに保存";
 "slash.cmd.model" = "モデル変更";
 "slash.cmd.effort" = "努力レベル変更";
@@ -1132,6 +1135,14 @@
 "settings.camera.full" = "全体";
 "settings.camera.focus" = "フォーカス";
 
+/* Settings - Character Speed */
+"settings.character.speed" = "キャラクター速度";
+"settings.character.speed.slow" = "遅い";
+"settings.character.speed.fast" = "速い";
+"settings.character.speed.very.slow" = "とても遅い";
+"settings.character.speed.normal" = "普通";
+"settings.character.speed.very.fast" = "とても速い";
+
 /* Settings - Tokens */
 "settings.usage" = "使用量";
 "settings.usage.subtitle" = "今日 / 今週";
@@ -1142,6 +1153,12 @@
 "settings.token.ok.desc" = "現在は新しい入力が可能な状態です。上限を低く設定しても、即座にブロックされないようユーザー上限に合わせて保護ラインを計算します。";
 "settings.token.apply.min" = "推奨下限を適用";
 "settings.token.reset" = "トークン履歴リセット";
+
+/* Settings - Token Protection */
+"settings.token.protection" = "トークン保護";
+"settings.token.protection.toggle" = "トークン保護を有効化";
+"settings.token.protection.on" = "日次/週次上限超過時に自動ブロック";
+"settings.token.protection.off" = "保護オフ — 日次/週次上限を無視";
 
 /* Settings - Automation */
 "settings.automation" = "自動化保護";

@@ -333,6 +333,8 @@
 "terminal.help.log.filter" = "Log Filter";
 "terminal.file" = "File";
 "terminal.help.file.changes" = "File Changes";
+"terminal.copyall" = "Copy All";
+"terminal.help.copyall" = "Copy entire conversation to clipboard";
 "terminal.status.idle" = "Idle";
 "terminal.status.thinking" = "Thinking";
 "terminal.status.reading" = "Reading";
@@ -467,6 +469,7 @@
 "slash.cmd.cancel" = "Cancel current task";
 "slash.cmd.stop" = "Force stop running command (SIGKILL)";
 "slash.cmd.copy" = "Copy last response to clipboard";
+"slash.cmd.copyall" = "Copy entire conversation to clipboard";
 "slash.cmd.export" = "Save conversation log to file";
 "slash.cmd.model" = "Change model";
 "slash.cmd.effort" = "Change effort level";
@@ -1140,6 +1143,14 @@
 "settings.camera" = "Camera View";
 "settings.camera.full" = "Full";
 "settings.camera.focus" = "Focus";
+
+/* Settings - Character Speed */
+"settings.character.speed" = "Character Speed";
+"settings.character.speed.slow" = "Slow";
+"settings.character.speed.fast" = "Fast";
+"settings.character.speed.very.slow" = "Very Slow";
+"settings.character.speed.normal" = "Normal";
+"settings.character.speed.very.fast" = "Very Fast";
 
 /* Settings - Tokens */
 "settings.usage" = "Usage";

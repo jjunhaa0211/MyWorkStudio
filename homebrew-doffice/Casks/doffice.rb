@@ -1,11 +1,11 @@
 cask "doffice" do
-  version "0.0.46"
+  version "0.0.47"
   sha256 :no_check
 
-  url "https://github.com/jjunhaa0211/MyWorkStudio/releases/download/v#{version}/DofficeApp.zip"
+  url "https://github.com/jjunhaa0211/Doffice/releases/download/v#{version}/Doffice-v#{version}.zip"
   name "Doffice"
   desc "Gamified Claude Code session manager with pixel-art visualization"
-  homepage "https://github.com/jjunhaa0211/MyWorkStudio"
+  homepage "https://github.com/jjunhaa0211/Doffice"
 
   auto_updates true
 

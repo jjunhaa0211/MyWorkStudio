@@ -577,7 +577,8 @@ public class OfficeCharacterController: ObservableObject {
         let dx = tx - ch.pixelX
         let dy = ty - ch.pixelY
         let dist = sqrt(dx * dx + dy * dy)
-        let rawStep = OfficeConstants.walkSpeed * CGFloat(dt)
+        let speedMultiplier = CGFloat(AppSettings.shared.characterSpeedMultiplier)
+        let rawStep = OfficeConstants.walkSpeed * speedMultiplier * CGFloat(dt)
         let step = max(0.5, rawStep)
         let previousX = ch.pixelX
         let previousY = ch.pixelY

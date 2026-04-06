@@ -5,8 +5,12 @@ import AppKit
 class SessionManager: ObservableObject {
     static let shared = SessionManager()
 
-    @Published var tabs: [TerminalTab] = []
-    @Published var activeTabId: String?
+    @Published var tabs: [TerminalTab] = [] {
+        didSet { _activeTabCachedIndex = nil }
+    }
+    @Published var activeTabId: String? {
+        didSet { _activeTabCachedIndex = nil }
+    }
     @Published var showNewTabSheet: Bool = false
     @Published var showSSHSheet: Bool = false
 
@@ -32,6 +36,11 @@ class SessionManager: ObservableObject {
 
     var userVisibleTabs: [TerminalTab] {
         tabs.filter { $0.automationSourceTabId == nil }
+    }
+
+    /// O(1) 탭 조회 헬퍼 — tabs.first(where:) 대신 사용
+    func tab(byId id: String) -> TerminalTab? {
+        tabs.first(where: { $0.id == id })
     }
 
     /// Recalculates cached `totalTokensUsed` from all tabs.
@@ -153,15 +162,29 @@ class SessionManager: ObservableObject {
     }
 
     var activeTab: TerminalTab? {
-        guard let activeTabId,
-              let tab = tabs.first(where: { $0.id == activeTabId }) else {
+        guard let activeTabId else {
             return userVisibleTabs.first
         }
-        if let sourceId = tab.automationSourceTabId {
-            return tabs.first(where: { $0.id == sourceId }) ?? tab
+        // activeTabIndex 캐시로 O(1) 조회 시도
+        if let idx = _activeTabCachedIndex, idx < tabs.count, tabs[idx].id == activeTabId {
+            let matched = tabs[idx]
+            if let sourceId = matched.automationSourceTabId {
+                return self.tab(byId: sourceId) ?? matched
+            }
+            return matched
         }
-        return tab
+        // 캐시 미스 시 선형 검색 + 인덱스 캐싱
+        guard let idx = tabs.firstIndex(where: { $0.id == activeTabId }) else {
+            return userVisibleTabs.first
+        }
+        _activeTabCachedIndex = idx
+        let matched = tabs[idx]
+        if let sourceId = matched.automationSourceTabId {
+            return self.tab(byId: sourceId) ?? matched
+        }
+        return matched
     }
+    private var _activeTabCachedIndex: Int?
 
     private init() {
         isAppActive = NSApplication.shared.isActive

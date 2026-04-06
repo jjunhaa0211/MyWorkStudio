@@ -367,6 +367,8 @@ public final class OfficeSceneStore: ObservableObject {
     private var lastSyncSignature: Int?
     private var backgroundSnapshotSignature: Int?
     private var isPreparingBackgroundSnapshot = false
+    private var cachedStaticBgSignature: Int?
+    private var cachedStaticBgSignatureKey: String?
 
     private init() {
         let preset = OfficePreset(rawValue: AppSettings.shared.officePreset) ?? .cozy
@@ -393,26 +395,16 @@ public final class OfficeSceneStore: ObservableObject {
         }
         lastAdvanceTime = now
 
-        // 캐릭터 이전 상태 스냅샷 (위치 + 프레임만 비교)
-        let prevPositions: [(String, CGFloat, CGFloat, Int)] = controller.characters.map {
-            ($0.key, $0.value.pixelX, $0.value.pixelY, $0.value.frame)
-        }
-        let prevCount = prevPositions.count
+        // 해시 기반 변경 감지 — O(n) 배열 복사 대신 해시 비교
+        let prevHash = characterPositionHash()
 
         syncCharactersIfNeeded(with: tabs)
         let dt = min(elapsed, 0.25)
         controller.tick(deltaTime: dt)
         updateCamera(activeTabId: activeTabId, focusMode: focusMode)
 
-        // 변경 감지 — 위치/프레임이 바뀌었을 때만 frame 증가
-        let newCount = controller.characters.count
-        var changed = prevCount != newCount
-        if !changed {
-            for (id, px, py, f) in prevPositions {
-                guard let ch = controller.characters[id] else { changed = true; break }
-                if ch.pixelX != px || ch.pixelY != py || ch.frame != f { changed = true; break }
-            }
-        }
+        let newHash = characterPositionHash()
+        let changed = prevHash != newHash
         if changed {
             frame += 1
         }
@@ -552,6 +544,18 @@ public final class OfficeSceneStore: ObservableObject {
         cameraZoom += (targetZoom - cameraZoom) * blend
     }
 
+    private func characterPositionHash() -> Int {
+        var hasher = Hasher()
+        hasher.combine(controller.characters.count)
+        for (id, ch) in controller.characters {
+            hasher.combine(id)
+            hasher.combine(Int(ch.pixelX * 100))
+            hasher.combine(Int(ch.pixelY * 100))
+            hasher.combine(ch.frame)
+        }
+        return hasher.finalize()
+    }
+
     private func syncCharactersIfNeeded(with tabs: [TerminalTab]) {
         let signature = syncSignature(for: tabs)
         guard signature != lastSyncSignature else { return }
@@ -588,10 +592,18 @@ public final class OfficeSceneStore: ObservableObject {
         backgroundSnapshot = nil
         backgroundSnapshotSignature = nil
         isPreparingBackgroundSnapshot = false
+        cachedStaticBgSignature = nil
+        cachedStaticBgSignatureKey = nil
         OfficeSpriteRenderer.invalidateBackgroundCache()
     }
 
     private func staticBackgroundSignature(theme: BackgroundTheme, dark: Bool) -> Int {
+        // 테마/다크모드 키가 같으면 캐시된 시그니처 반환 (레이아웃 변경 시 invalidate)
+        let key = "\(theme.rawValue)-\(dark)"
+        if key == cachedStaticBgSignatureKey, let cached = cachedStaticBgSignature {
+            return cached
+        }
+
         var hasher = Hasher()
         hasher.combine(theme.rawValue)
         hasher.combine(dark)
@@ -612,7 +624,10 @@ public final class OfficeSceneStore: ObservableObject {
             hasher.combine(furniture.mirrored)
         }
 
-        return hasher.finalize()
+        let result = hasher.finalize()
+        cachedStaticBgSignature = result
+        cachedStaticBgSignatureKey = key
+        return result
     }
 }
 

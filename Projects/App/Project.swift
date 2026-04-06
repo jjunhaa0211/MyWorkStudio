@@ -21,7 +21,7 @@ let project = Project(
     name: "Doffice",
     settings: .settings(
         base: [
-            "MARKETING_VERSION": "0.0.46",
+            "MARKETING_VERSION": "0.0.47",
             "CURRENT_PROJECT_VERSION": "1",
             "DEAD_CODE_STRIPPING": "YES",
         ],

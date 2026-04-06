@@ -19,18 +19,28 @@ class OfficeCharacterController: ObservableObject {
     private var seatAssignmentsByGroup: [String: String] = [:]
     private var socialEventCooldown: Double = 0
     private var socialScanCooldown: Double = 0
+    private var seatById: [String: Seat] = [:]
 
     init(map: OfficeMap) {
         self.map = map
+        rebuildSeatLookup()
         rebuildWalkableCache()
+    }
+
+    private func rebuildSeatLookup() {
+        seatById.removeAll(keepingCapacity: true)
+        for seat in map.seats {
+            seatById[seat.id] = seat
+        }
     }
 
     func refreshLayout(with tabs: [TerminalTab]) {
         map.rebuildWalkability()
+        rebuildSeatLookup()
         rebuildWalkableCache()
 
         for (id, var ch) in characters {
-            guard let seatId = ch.seatId, let seat = map.seats.first(where: { $0.id == seatId }) else {
+            guard let seatId = ch.seatId, let seat = seatById[seatId] else {
                 characters[id] = ch
                 continue
             }
@@ -572,7 +582,8 @@ class OfficeCharacterController: ObservableObject {
         let dx = tx - ch.pixelX
         let dy = ty - ch.pixelY
         let dist = sqrt(dx * dx + dy * dy)
-        let rawStep = OfficeConstants.walkSpeed * CGFloat(dt)
+        let speedMultiplier = CGFloat(AppSettings.shared.characterSpeedMultiplier)
+        let rawStep = OfficeConstants.walkSpeed * speedMultiplier * CGFloat(dt)
         let step = max(0.5, rawStep)
         let previousX = ch.pixelX
         let previousY = ch.pixelY
@@ -1047,7 +1058,7 @@ class OfficeCharacterController: ObservableObject {
 
     private func seat(for character: OfficeCharacter) -> Seat? {
         guard let seatId = character.seatId else { return nil }
-        return map.seats.first(where: { $0.id == seatId })
+        return seatById[seatId]
     }
 
     private func snapToSeat(_ ch: inout OfficeCharacter, seat: Seat) {

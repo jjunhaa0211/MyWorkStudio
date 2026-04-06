@@ -111,9 +111,9 @@ class AuditLog: ObservableObject {
         guard enabled else { return }
         let entry = AuditEntry(tabId: tabId, projectName: projectName, eventType: type, detail: detail, isDangerous: isDangerous)
         DispatchQueue.main.async {
-            self.entries.insert(entry, at: 0)
+            self.entries.append(entry)
             if self.entries.count > self.maxEntries {
-                self.entries.removeSubrange(self.maxEntries...)
+                self.entries.removeFirst(self.entries.count - self.maxEntries)
             }
             self.scheduleSave()
         }

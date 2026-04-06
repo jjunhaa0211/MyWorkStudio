@@ -103,6 +103,17 @@ class AppSettings: ObservableObject {
         didSet { notifyIfNeeded() }
     }
 
+    // ── 토큰 보호 ──
+    @AppStorage("tokenProtectionEnabled") var tokenProtectionEnabled: Bool = true {
+        didSet { notifyIfNeeded() }
+    }
+
+    // ── 캐릭터 속도 ──
+    /// 캐릭터 이동 속도 배율 (0.5 = 느림, 1.0 = 보통, 2.0 = 빠름)
+    @AppStorage("characterSpeedMultiplier") var characterSpeedMultiplier: Double = 1.0 {
+        didSet { notifyIfNeeded() }
+    }
+
     // ── 배경 테마 ──
     @AppStorage("backgroundTheme") var backgroundTheme: String = "auto" {
         didSet { notifyIfNeeded() }
@@ -3188,6 +3199,37 @@ struct SettingsView: View {
                     officeCameraButton(title: NSLocalizedString("settings.camera.focus", comment: ""), icon: "scope", mode: "side")
                 }
             }
+
+            settingsSection(title: NSLocalizedString("settings.character.speed", comment: ""), subtitle: characterSpeedLabel) {
+                VStack(spacing: 6) {
+                    Slider(value: $settings.characterSpeedMultiplier, in: 0.25...3.0, step: 0.25)
+                        .tint(Theme.accent)
+                    HStack {
+                        Text(NSLocalizedString("settings.character.speed.slow", comment: ""))
+                            .font(.caption2)
+                            .foregroundColor(Theme.textDim)
+                        Spacer()
+                        Text(NSLocalizedString("settings.character.speed.fast", comment: ""))
+                            .font(.caption2)
+                            .foregroundColor(Theme.textDim)
+                    }
+                }
+            }
+        }
+    }
+
+    private var characterSpeedLabel: String {
+        let multiplier = settings.characterSpeedMultiplier
+        if multiplier < 0.6 {
+            return NSLocalizedString("settings.character.speed.very.slow", comment: "")
+        } else if multiplier < 0.9 {
+            return NSLocalizedString("settings.character.speed.slow", comment: "")
+        } else if multiplier <= 1.1 {
+            return NSLocalizedString("settings.character.speed.normal", comment: "")
+        } else if multiplier <= 1.75 {
+            return NSLocalizedString("settings.character.speed.fast", comment: "")
+        } else {
+            return NSLocalizedString("settings.character.speed.very.fast", comment: "")
         }
     }
 
@@ -3196,6 +3238,18 @@ struct SettingsView: View {
     private var tokenTab: some View {
         let protectionReason = tokenTracker.startBlockReason(isAutomation: false)
         return VStack(spacing: 14) {
+            settingsSection(title: NSLocalizedString("settings.token.protection", comment: ""), subtitle: settings.tokenProtectionEnabled ? NSLocalizedString("settings.token.protection.on", comment: "") : NSLocalizedString("settings.token.protection.off", comment: "")) {
+                settingsToggleRow(
+                    title: NSLocalizedString("settings.token.protection.toggle", comment: ""),
+                    subtitle: settings.tokenProtectionEnabled ? NSLocalizedString("settings.token.protection.on", comment: "") : NSLocalizedString("settings.token.protection.off", comment: ""),
+                    isOn: Binding(
+                        get: { settings.tokenProtectionEnabled },
+                        set: { settings.tokenProtectionEnabled = $0 }
+                    ),
+                    tint: settings.tokenProtectionEnabled ? Theme.green : Theme.textDim
+                )
+            }
+
             settingsSection(title: NSLocalizedString("settings.usage", comment: ""), subtitle: NSLocalizedString("settings.usage.subtitle", comment: "")) {
                 VStack(spacing: 12) {
                     HStack(spacing: 10) {
