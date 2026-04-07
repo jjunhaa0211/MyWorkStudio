@@ -18,15 +18,18 @@ jobs:
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode_16.3.app || sudo xcode-select -s /Applications/Xcode_16.2.app || sudo xcode-select -s /Applications/Xcode.app
 
-      - name: Install Tuist
+      - name: Install mise
         run: |
-          curl -Ls https://install.tuist.io | bash || true
-          if ! command -v tuist &>/dev/null; then
-            brew install --formula tuist/tuist/tuist@3 || true
-          fi
+          curl https://mise.run | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install Tuist via mise
+        run: |
+          mise install
+          echo "Tuist version: $(mise exec -- tuist version)"
 
       - name: Generate Project
-        run: tuist generate --no-open || true
+        run: mise exec -- tuist generate --no-open || true
 
       - name: Smoke Test Pipeline
         run: |
