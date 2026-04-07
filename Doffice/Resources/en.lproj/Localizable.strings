@@ -308,6 +308,7 @@
 "sidebar.report.copy" = "Copy";
 "sidebar.report.select" = "Select a report";
 "sidebar.report.load.fail" = "Failed to load report.";
+"sidebar.report.loading" = "Loading...";
 "sidebar.open.terminal" = "Open in Terminal";
 "sidebar.a11y.open.single" = "Opens this session individually";
 "sidebar.field.name" = "Name";

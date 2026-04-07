@@ -1070,7 +1070,13 @@ struct ReportCenterView: View {
 
     private func loadReport(_ path: String) {
         selectedReportPath = path
-        reportText = (try? String(contentsOfFile: path, encoding: .utf8)) ?? NSLocalizedString("sidebar.report.load.fail", comment: "")
+        reportText = NSLocalizedString("sidebar.report.loading", comment: "")
+        DispatchQueue.global(qos: .userInitiated).async {
+            let content = (try? String(contentsOfFile: path, encoding: .utf8)) ?? NSLocalizedString("sidebar.report.load.fail", comment: "")
+            DispatchQueue.main.async {
+                reportText = content
+            }
+        }
     }
 
     private func deleteReport(_ report: SessionManager.ReportReference) {

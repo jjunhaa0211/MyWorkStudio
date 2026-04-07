@@ -6,7 +6,10 @@ class SessionManager: ObservableObject {
     static let shared = SessionManager()
 
     @Published var tabs: [TerminalTab] = [] {
-        didSet { _activeTabCachedIndex = nil }
+        didSet {
+            _activeTabCachedIndex = nil
+            updateUserVisibleTabCount()
+        }
     }
     @Published var activeTabId: String? {
         didSet { _activeTabCachedIndex = nil }
@@ -34,9 +37,9 @@ class SessionManager: ObservableObject {
     @Published private(set) var totalTokensUsed: Int = 0
     @Published private(set) var userVisibleTabCount: Int = 0
 
-    var userVisibleTabs: [TerminalTab] {
-        tabs.filter { $0.automationSourceTabId == nil }
-    }
+    @Published private(set) var cachedUserVisibleTabs: [TerminalTab] = []
+
+    var userVisibleTabs: [TerminalTab] { cachedUserVisibleTabs }
 
     /// O(1) 탭 조회 헬퍼 — tabs.first(where:) 대신 사용
     func tab(byId id: String) -> TerminalTab? {
@@ -50,7 +53,9 @@ class SessionManager: ObservableObject {
 
     /// Recalculates cached `userVisibleTabCount`.
     private func updateUserVisibleTabCount() {
-        userVisibleTabCount = tabs.filter { $0.automationSourceTabId == nil }.count
+        let visible = tabs.filter { $0.automationSourceTabId == nil }
+        cachedUserVisibleTabs = visible
+        userVisibleTabCount = visible.count
     }
 
     /// Convenience: update all tab-derived caches.

@@ -20,12 +20,12 @@ let project = Project(
         ]
     ),
     targets: [
-        Target(
+        .target(
             name: "DofficeKit",
-            platform: .macOS,
+            destinations: .macOS,
             product: .staticFramework,
             bundleId: "com.junha.doffice.kit",
-            deploymentTarget: .macOS(targetVersion: "14.0"),
+            deploymentTargets: .macOS("14.0"),
             sources: ["Sources/**"],
             dependencies: [
                 .project(target: "DesignSystem", path: .relativeToRoot("Projects/DesignSystem")),
@@ -33,12 +33,12 @@ let project = Project(
                 .package(product: "OrderedCollections"),
             ]
         ),
-        Target(
+        .target(
             name: "DofficeKitTests",
-            platform: .macOS,
+            destinations: .macOS,
             product: .unitTests,
             bundleId: "com.junha.doffice.kit.tests",
-            deploymentTarget: .macOS(targetVersion: "14.0"),
+            deploymentTargets: .macOS("14.0"),
             sources: ["Tests/**"],
             dependencies: [
                 .target(name: "DofficeKit"),

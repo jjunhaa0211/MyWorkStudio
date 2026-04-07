@@ -308,6 +308,7 @@
 "sidebar.report.copy" = "コピー";
 "sidebar.report.select" = "レポートを選択してください";
 "sidebar.report.load.fail" = "レポートを読み込めませんでした。";
+"sidebar.report.loading" = "読み込み中...";
 "sidebar.open.terminal" = "ターミナルで開く";
 "sidebar.a11y.open.single" = "このセッションを単独で開きます";
 "sidebar.field.name" = "名前";

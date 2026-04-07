@@ -271,13 +271,6 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		135179E03F6988013C751AF6 /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			name = Frameworks;
-			sourceTree = "<group>";
-		};
 		21B44FE84D9BAD37936460BE /* InfoPlists */ = {
 			isa = PBXGroup;
 			children = (
@@ -428,9 +421,8 @@
 		B9101727424D55FAE1B288B5 = {
 			isa = PBXGroup;
 			children = (
-				E0260F76907C17E661AB1B8A /* Project */,
-				135179E03F6988013C751AF6 /* Frameworks */,
 				ADF72D1455352295C154AAE3 /* Products */,
+				E0260F76907C17E661AB1B8A /* Project */,
 			);
 			sourceTree = "<group>";
 		};
@@ -471,8 +463,8 @@
 			buildPhases = (
 				F75B765BB7229E38D6C9D52D /* Sources */,
 				BF7BDD84E8D64278D952A94A /* Resources */,
-				A67940A82E22FD895A01AF20 /* Embed Frameworks */,
 				DE2BB201FD66064A11B313D0 /* Frameworks */,
+				A67940A82E22FD895A01AF20 /* Embed Frameworks */,
 				8A391201C3FB1A28B8D2F4A5 /* Dependencies */,
 			);
 			buildRules = (
@@ -494,8 +486,8 @@
 			buildPhases = (
 				BD7323AFA12A6547D81A142F /* Sources */,
 				C70BEA6EA0B6CCAB560AD92B /* Resources */,
-				6CBD8780A1CC3F071C787960 /* Embed Frameworks */,
 				3F06F6BB247520FA56631BE5 /* Frameworks */,
+				6CBD8780A1CC3F071C787960 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -503,6 +495,8 @@
 				EF2E81849B1F8243D56F8BCF /* PBXTargetDependency */,
 			);
 			name = DofficeKitTests;
+			packageProductDependencies = (
+			);
 			productName = DofficeKitTests;
 			productReference = 93502233D4AADB61D1DB7D98 /* DofficeKitTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -518,7 +512,7 @@
 				};
 			};
 			buildConfigurationList = 847E739198CEEB70BC5A2CD8 /* Build configuration list for PBXProject "DofficeKit" */;
-			compatibilityVersion = "Xcode 13.0";
+			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -700,7 +694,10 @@
 				PRODUCT_NAME = DofficeKit;
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = (
+					"$(inherited)",
+					DEBUG,
+				);
 				SWIFT_COMPILATION_MODE = singlefile;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -720,10 +717,17 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-L$(DT_TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME)",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.junha.doffice.kit.tests;
 				PRODUCT_NAME = DofficeKitTests;
 				SDKROOT = macosx;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = (
+					"$(inherited)",
+					DEBUG,
+				);
 				SWIFT_COMPILATION_MODE = singlefile;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -741,11 +745,15 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-L$(DT_TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME)",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.junha.doffice.kit.tests;
 				PRODUCT_NAME = DofficeKitTests;
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
-				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
@@ -890,7 +898,7 @@
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
-				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";

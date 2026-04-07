@@ -81,17 +81,20 @@ struct OfficeSceneView: View {
             ZStack(alignment: .topLeading) {
                 Canvas { context, size in
                     let metrics = sceneMetrics(for: size)
+                    let visibleTabs = manager.userVisibleTabs
                     let palette = store.cachedPalette(theme: sceneTheme, dark: settings.isDarkMode)
+                    store.updateTabLookupIfNeeded(tabs: visibleTabs)
                     var renderer = OfficeSpriteRenderer(
                         map: map,
                         characters: controller.characters,
-                        tabs: manager.userVisibleTabs,
+                        tabs: visibleTabs,
                         frame: store.frame,
                         dark: settings.isDarkMode,
                         theme: sceneTheme,
                         selectedTabId: manager.activeTabId,
                         selectedFurnitureId: selectedFurnitureId,
-                        cachedPalette: palette
+                        cachedPalette: palette,
+                        cachedTabLookup: store.cachedTabLookup
                     )
                     renderer.chromeScreenshots = store.chromeScreenshots
                     if let background = store.backgroundSnapshot {

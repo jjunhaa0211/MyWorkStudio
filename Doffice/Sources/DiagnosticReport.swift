@@ -18,14 +18,18 @@ final class DiagnosticReport {
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
-        do {
-            try export(to: url)
-        } catch {
-            let alert = NSAlert()
-            alert.messageText = NSLocalizedString("diagnostic.export.error", comment: "Export Failed")
-            alert.informativeText = error.localizedDescription
-            alert.alertStyle = .warning
-            alert.runModal()
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                try self.export(to: url)
+            } catch {
+                DispatchQueue.main.async {
+                    let alert = NSAlert()
+                    alert.messageText = NSLocalizedString("diagnostic.export.error", comment: "Export Failed")
+                    alert.informativeText = error.localizedDescription
+                    alert.alertStyle = .warning
+                    alert.runModal()
+                }
+            }
         }
     }
 

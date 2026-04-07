@@ -16,21 +16,21 @@ let project = Project(
         ]
     ),
     targets: [
-        Target(
+        .target(
             name: "DesignSystem",
-            platform: .macOS,
+            destinations: .macOS,
             product: .staticFramework,
             bundleId: "com.junha.doffice.designsystem",
-            deploymentTarget: .macOS(targetVersion: "14.0"),
+            deploymentTargets: .macOS("14.0"),
             sources: ["Sources/**"],
             dependencies: []
         ),
-        Target(
+        .target(
             name: "DesignSystemCatalog",
-            platform: .macOS,
+            destinations: .macOS,
             product: .app,
             bundleId: "com.junha.doffice.designsystem.catalog",
-            deploymentTarget: .macOS(targetVersion: "14.0"),
+            deploymentTargets: .macOS("14.0"),
             infoPlist: .extendingDefault(with: [
                 "CFBundleName": "DS Catalog",
                 "CFBundleDisplayName": "도피스 디자인 시스템",
@@ -41,12 +41,12 @@ let project = Project(
                 .target(name: "DesignSystem"),
             ]
         ),
-        Target(
+        .target(
             name: "DesignSystemTests",
-            platform: .macOS,
+            destinations: .macOS,
             product: .unitTests,
             bundleId: "com.junha.doffice.designsystem.tests",
-            deploymentTarget: .macOS(targetVersion: "14.0"),
+            deploymentTargets: .macOS("14.0"),
             sources: ["Tests/**"],
             dependencies: [
                 .target(name: "DesignSystem"),

@@ -382,6 +382,7 @@ class CharacterRegistry: ObservableObject {
             let key = "boss.line.\(i + 1)"
             let localized = NSLocalizedString(key, comment: "")
             if localized != key { return localized }
+            guard !Self.defaultBossLines.isEmpty else { return key }
             return i < Self.defaultBossLines.count ? Self.defaultBossLines[i] : Self.defaultBossLines[i % Self.defaultBossLines.count]
         }
     }

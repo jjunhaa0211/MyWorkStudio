@@ -351,6 +351,10 @@ public final class OfficeSceneStore: ObservableObject {
     private var _cachedPalette: OfficeScenePalette?
     private var _cachedPaletteKey: Int = -1
 
+    /// Cached tab lookup — 탭 변경 시만 재구축
+    private(set) var cachedTabLookup: [String: TerminalTab] = [:]
+    private var _tabLookupSignature: Int = -1
+
     func cachedPalette(theme: BackgroundTheme, dark: Bool) -> OfficeScenePalette {
         let key = theme.hashValue ^ (dark ? 1 : 0)
         if key == _cachedPaletteKey, let cached = _cachedPalette {
@@ -360,6 +364,19 @@ public final class OfficeSceneStore: ObservableObject {
         _cachedPalette = palette
         _cachedPaletteKey = key
         return palette
+    }
+
+    func updateTabLookupIfNeeded(tabs: [TerminalTab]) {
+        var hasher = Hasher()
+        hasher.combine(tabs.count)
+        for tab in tabs { hasher.combine(tab.id) }
+        let sig = hasher.finalize()
+        guard sig != _tabLookupSignature else { return }
+        _tabLookupSignature = sig
+        var lookup: [String: TerminalTab] = [:]
+        lookup.reserveCapacity(tabs.count)
+        for tab in tabs { lookup[tab.id] = tab }
+        cachedTabLookup = lookup
     }
 
     private var lastAdvanceTime: TimeInterval = 0

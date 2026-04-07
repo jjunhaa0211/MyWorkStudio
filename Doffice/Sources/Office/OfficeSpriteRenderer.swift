@@ -212,7 +212,8 @@ struct OfficeSpriteRenderer {
     init(map: OfficeMap, characters: [String: OfficeCharacter], tabs: [TerminalTab],
          frame: Int, dark: Bool, theme: BackgroundTheme,
          selectedTabId: String?, selectedFurnitureId: String?,
-         cachedPalette: OfficeScenePalette) {
+         cachedPalette: OfficeScenePalette,
+         cachedTabLookup: [String: TerminalTab]? = nil) {
         self.map = map
         self.characters = characters
         self.tabs = tabs
@@ -222,11 +223,14 @@ struct OfficeSpriteRenderer {
         self.selectedTabId = selectedTabId
         self.selectedFurnitureId = selectedFurnitureId
         self.palette = cachedPalette
-        // Build O(1) tab lookup once instead of O(n) per character
-        var lookup: [String: TerminalTab] = [:]
-        lookup.reserveCapacity(tabs.count)
-        for tab in tabs { lookup[tab.id] = tab }
-        self.tabLookup = lookup
+        if let cached = cachedTabLookup {
+            self.tabLookup = cached
+        } else {
+            var lookup: [String: TerminalTab] = [:]
+            lookup.reserveCapacity(tabs.count)
+            for tab in tabs { lookup[tab.id] = tab }
+            self.tabLookup = lookup
+        }
     }
 
     // Sprite cache: keyed by color combination string → CharacterSpriteSet
@@ -1965,7 +1969,8 @@ struct OfficeSpriteRenderer {
             }
         }
 
-        // Pixel render — batch contiguous same-color pixels into single rects per row
+        // Path 배칭: 같은 색 픽셀의 rect를 하나의 Path에 모아서 색상별 1회 fill
+        var colorPaths: [String: Path] = [:]
         for y in 0..<sprite.count {
             let rowShiftX: CGFloat
             let rowShiftY: CGFloat
@@ -1994,26 +1999,32 @@ struct OfficeSpriteRenderer {
             for x in 0..<row.count {
                 let hex = row[x]
                 if hex == runHex && !hex.isEmpty {
-                    continue  // extend current run
+                    continue
                 }
-                // Flush previous run
-                if !runHex.isEmpty && runStart >= 0, let color = localColors[runHex] {
+                if !runHex.isEmpty && runStart >= 0 {
                     let runLen = CGFloat(x - runStart)
-                    ctx.fill(Path(CGRect(
+                    let rect = CGRect(
                         x: snappedPixel(drawX + CGFloat(runStart) + rowShiftX),
                         y: rowY, width: runLen * 1.15, height: 1.15
-                    )), with: .color(color))
+                    )
+                    colorPaths[runHex, default: Path()].addRect(rect)
                 }
                 runStart = x
                 runHex = hex
             }
-            // Flush last run
-            if !runHex.isEmpty && runStart >= 0, let color = localColors[runHex] {
+            if !runHex.isEmpty && runStart >= 0 {
                 let runLen = CGFloat(row.count - runStart)
-                ctx.fill(Path(CGRect(
+                let rect = CGRect(
                     x: snappedPixel(drawX + CGFloat(runStart) + rowShiftX),
                     y: rowY, width: runLen * 1.15, height: 1.15
-                )), with: .color(color))
+                )
+                colorPaths[runHex, default: Path()].addRect(rect)
+            }
+        }
+        // 색상별 1회 fill — 개별 fill 수십 회 → 고유 색상 수(5-7회)로 감소
+        for (hex, path) in colorPaths {
+            if let color = localColors[hex] {
+                ctx.fill(path, with: .color(color))
             }
         }
 

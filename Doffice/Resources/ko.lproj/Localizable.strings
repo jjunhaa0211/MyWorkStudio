@@ -308,6 +308,7 @@
 "sidebar.report.copy" = "복사";
 "sidebar.report.select" = "보고서를 선택하세요";
 "sidebar.report.load.fail" = "보고서를 불러오지 못했습니다.";
+"sidebar.report.loading" = "로딩 중...";
 "sidebar.open.terminal" = "터미널에서 열기";
 "sidebar.a11y.open.single" = "이 세션을 단독으로 엽니다";
 "sidebar.field.name" = "이름";
