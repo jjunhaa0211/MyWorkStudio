@@ -7,22 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A50001 /* PluginManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50001 /* PluginManager.swift */; };
-		A50002 /* PromptFavorites.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50002 /* PromptFavorites.swift */; };
-		A50003 /* PluginEffectEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50003 /* PluginEffectEngine.swift */; };
-		A50004 /* BrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50004 /* BrowserView.swift */; };
-		A50005 /* SSHConnectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50005 /* SSHConnectionManager.swift */; };
-		A50006 /* PaneLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50006 /* PaneLayout.swift */; };
-		A50007 /* AutomationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50007 /* AutomationEngine.swift */; };
-		A50008 /* TmuxSessionBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50008 /* TmuxSessionBridge.swift */; };
-		A60001 /* CrashLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60001 /* CrashLogger.swift */; };
-		A60002 /* DiagnosticReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60002 /* DiagnosticReport.swift */; };
 		07A2B801437FFDA42534AA17 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AADE3B5D98B955B0C80A5DE3 /* Cocoa.framework */; };
+		0C4B4F039608CD5C74531CC5 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F3828283C36F01A4EA307E /* SettingsView.swift */; };
 		273023032BF912399A803AEC /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F35199C3D3E258D53AF607EA /* XCTest.framework */; };
 		28ABC1238F8EE87369BBC7EF /* AuditLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19D1AE3CB99EAC879DE06BC9 /* AuditLog.swift */; };
 		3CB39BC52F73FB3E0004E716 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = DEP001 /* SwiftTerm */; };
+		66DA2090B5936E1AA59DAAEA /* AccessoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C2A0CE1E54AD3EA20C170C2 /* AccessoryView.swift */; };
+		85454FCE4B59F099EC99D2D8 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5AA1D689F74AEB1DFBFF1BF /* AppSettings.swift */; };
 		8EAB07DCD8A5717B584AE381 /* SessionPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B57D61AE58AAA182FF626C15 /* SessionPersistenceTests.swift */; };
-		CORETEST01 /* CoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CORETEST02 /* CoreTests.swift */; };
 		9141A180C2CDC4F91C87AA78 /* UpdateChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01FB8028B43E80A3835392CA /* UpdateChecker.swift */; };
 		A10001 /* DofficeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001 /* DofficeApp.swift */; };
 		A10002 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10002 /* Models.swift */; };
@@ -38,6 +30,8 @@
 		A10012 /* CharacterSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10012 /* CharacterSystem.swift */; };
 		A10013 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10013 /* Assets.xcassets */; };
 		A10014 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = B10014 /* AppIcon.icns */; };
+		A10015 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = V10001 /* Localizable.strings */; };
+		A10016 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = V10002 /* InfoPlist.strings */; };
 		A10020 /* OfficeWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10020 /* OfficeWindowView.swift */; };
 		A10030 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10030 /* OnboardingView.swift */; };
 		A10031 /* OverlayComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10031 /* OverlayComponents.swift */; };
@@ -53,11 +47,21 @@
 		A20008 /* OfficeLayoutStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20008 /* OfficeLayoutStore.swift */; };
 		A30001 /* GitDataProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30001 /* GitDataProvider.swift */; };
 		A30002 /* GitPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30002 /* GitPanelView.swift */; };
-		A10015 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = V10001 /* Localizable.strings */; };
-		A10016 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = V10002 /* InfoPlist.strings */; };
+		A37C7BAA3F0D1D94691A5DF7 /* DSComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BBFE11226A4BCA2F1840024 /* DSComponents.swift */; };
+		A40001 /* ShortcutManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40001 /* ShortcutManager.swift */; };
+		A50001 /* PluginManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50001 /* PluginManager.swift */; };
+		A50002 /* PromptFavorites.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50002 /* PromptFavorites.swift */; };
+		A50003 /* PluginEffectEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50003 /* PluginEffectEngine.swift */; };
+		A50004 /* BrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50004 /* BrowserView.swift */; };
+		A50005 /* SSHConnectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50005 /* SSHConnectionManager.swift */; };
+		A50006 /* PaneLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50006 /* PaneLayout.swift */; };
+		A50007 /* AutomationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50007 /* AutomationEngine.swift */; };
+		A50008 /* TmuxSessionBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50008 /* TmuxSessionBridge.swift */; };
+		A60001 /* CrashLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60001 /* CrashLogger.swift */; };
+		A60002 /* DiagnosticReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60002 /* DiagnosticReport.swift */; };
+		CORETEST01 /* CoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CORETEST02 /* CoreTests.swift */; };
 		DABD99DB56A43993BD71CB63 /* SensitiveFileShield.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCDF8262B8C09E5CB418BA0D /* SensitiveFileShield.swift */; };
 		FC234AD686A13A3048D439D8 /* DangerousCommandDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C60E443524B7F6AE927F898 /* DangerousCommandDetector.swift */; };
-		A40001 /* ShortcutManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40001 /* ShortcutManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -74,7 +78,11 @@
 		01FB8028B43E80A3835392CA /* UpdateChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateChecker.swift; sourceTree = "<group>"; };
 		19D1AE3CB99EAC879DE06BC9 /* AuditLog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuditLog.swift; sourceTree = "<group>"; };
 		4B6C4A9868E571719C427D24 /* DofficeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DofficeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		4BBFE11226A4BCA2F1840024 /* DSComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DSComponents.swift; sourceTree = "<group>"; };
+		79F3828283C36F01A4EA307E /* SettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		7C2A0CE1E54AD3EA20C170C2 /* AccessoryView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccessoryView.swift; sourceTree = "<group>"; };
 		9C60E443524B7F6AE927F898 /* DangerousCommandDetector.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DangerousCommandDetector.swift; sourceTree = "<group>"; };
+		A5AA1D689F74AEB1DFBFF1BF /* AppSettings.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		AADE3B5D98B955B0C80A5DE3 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
 		B10001 /* DofficeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DofficeApp.swift; sourceTree = "<group>"; };
 		B10002 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
@@ -105,9 +113,6 @@
 		B20008 /* OfficeLayoutStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfficeLayoutStore.swift; sourceTree = "<group>"; };
 		B30001 /* GitDataProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitDataProvider.swift; sourceTree = "<group>"; };
 		B30002 /* GitPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitPanelView.swift; sourceTree = "<group>"; };
-		CORETEST02 /* CoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CoreTests.swift; sourceTree = "<group>"; };
-		B57D61AE58AAA182FF626C15 /* SessionPersistenceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SessionPersistenceTests.swift; sourceTree = "<group>"; };
-		BCDF8262B8C09E5CB418BA0D /* SensitiveFileShield.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SensitiveFileShield.swift; sourceTree = "<group>"; };
 		B40001 /* ShortcutManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutManager.swift; sourceTree = "<group>"; };
 		B50001 /* PluginManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginManager.swift; sourceTree = "<group>"; };
 		B50002 /* PromptFavorites.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptFavorites.swift; sourceTree = "<group>"; };
@@ -117,8 +122,11 @@
 		B50006 /* PaneLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneLayout.swift; sourceTree = "<group>"; };
 		B50007 /* AutomationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutomationEngine.swift; sourceTree = "<group>"; };
 		B50008 /* TmuxSessionBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TmuxSessionBridge.swift; sourceTree = "<group>"; };
+		B57D61AE58AAA182FF626C15 /* SessionPersistenceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SessionPersistenceTests.swift; sourceTree = "<group>"; };
 		B60001 /* CrashLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrashLogger.swift; sourceTree = "<group>"; };
 		B60002 /* DiagnosticReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticReport.swift; sourceTree = "<group>"; };
+		BCDF8262B8C09E5CB418BA0D /* SensitiveFileShield.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SensitiveFileShield.swift; sourceTree = "<group>"; };
+		CORETEST02 /* CoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CoreTests.swift; sourceTree = "<group>"; };
 		D10001 /* Doffice.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Doffice.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E10001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		E10002 /* DofficeApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DofficeApp.entitlements; sourceTree = "<group>"; };
@@ -227,6 +235,10 @@
 				B50008 /* TmuxSessionBridge.swift */,
 				B50005 /* SSHConnectionManager.swift */,
 				B50002 /* PromptFavorites.swift */,
+				A5AA1D689F74AEB1DFBFF1BF /* AppSettings.swift */,
+				79F3828283C36F01A4EA307E /* SettingsView.swift */,
+				7C2A0CE1E54AD3EA20C170C2 /* AccessoryView.swift */,
+				4BBFE11226A4BCA2F1840024 /* DSComponents.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -419,6 +431,10 @@
 				A50008 /* TmuxSessionBridge.swift in Sources */,
 				A50005 /* SSHConnectionManager.swift in Sources */,
 				A50002 /* PromptFavorites.swift in Sources */,
+				85454FCE4B59F099EC99D2D8 /* AppSettings.swift in Sources */,
+				0C4B4F039608CD5C74531CC5 /* SettingsView.swift in Sources */,
+				66DA2090B5936E1AA59DAAEA /* AccessoryView.swift in Sources */,
+				A37C7BAA3F0D1D94691A5DF7 /* DSComponents.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
