@@ -7,8 +7,8 @@
     "skinTone": "c4a882",
     "shirtColor": "4b5320",
     "pantsColor": "3b3b2e",
-    "hatType": "helmet",
-    "accessory": "scope",
+    "hatType": "cap",
+    "accessory": "sunglasses",
     "species": "Human",
     "jobRole": "developer"
   },
@@ -20,8 +20,8 @@
     "skinTone": "e8c4a0",
     "shirtColor": "ffffff",
     "pantsColor": "4b5320",
-    "hatType": "medic",
-    "accessory": "cross",
+    "hatType": "hardhat",
+    "accessory": "scarf",
     "species": "Human",
     "jobRole": "qa"
   },
@@ -34,7 +34,7 @@
     "shirtColor": "556b2f",
     "pantsColor": "3b3b2e",
     "hatType": "beret",
-    "accessory": "radio",
+    "accessory": "glasses",
     "species": "Human",
     "jobRole": "sre"
   }

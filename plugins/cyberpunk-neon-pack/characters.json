@@ -1,0 +1,41 @@
+[
+  {
+    "id": "neon_hacker",
+    "name": "네온 해커",
+    "archetype": "어둠 속에서 네온 빛만으로 코딩하는 사이버 해커",
+    "hairColor": "ff00ff",
+    "skinTone": "c4a882",
+    "shirtColor": "1a1a2e",
+    "pantsColor": "0a0a1a",
+    "hatType": "headphones",
+    "accessory": "goggles",
+    "species": "Human",
+    "jobRole": "developer"
+  },
+  {
+    "id": "cyber_runner",
+    "name": "사이버 러너",
+    "archetype": "데이터 스트림을 달리며 버그를 추적하는 러너",
+    "hairColor": "00ffff",
+    "skinTone": "d4a574",
+    "shirtColor": "2a2a3e",
+    "pantsColor": "1a1a2e",
+    "hatType": "helmet",
+    "accessory": "mask",
+    "species": "Robot",
+    "jobRole": "sre"
+  },
+  {
+    "id": "data_ghost",
+    "name": "데이터 고스트",
+    "archetype": "네트워크 사이를 떠도는 유령 같은 데이터 분석가",
+    "hairColor": "8833ff",
+    "skinTone": "e0e0ff",
+    "shirtColor": "141428",
+    "pantsColor": "0a0a1a",
+    "hatType": "none",
+    "accessory": "glasses",
+    "species": "Ghost",
+    "jobRole": "reviewer"
+  }
+]

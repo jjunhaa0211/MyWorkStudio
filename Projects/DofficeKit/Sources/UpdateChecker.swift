@@ -28,6 +28,9 @@ public class UpdateChecker: ObservableObject {
     @Published public var releaseNotes: String = ""
     @Published public var downloadURL: String = ""
 
+    /// 바이너리 버전 불일치로 건너뛴 태그 (같은 태그를 반복 다운로드하지 않기 위함)
+    private static let skippedTagKey = "doffice.skippedTagVersion"
+
     public var hasUpdate: Bool {
         switch state {
         case .available, .downloading, .extracting, .readyToInstall, .failed:
@@ -125,7 +128,12 @@ public class UpdateChecker: ObservableObject {
                     }
                 }
 
-                if self.isNewer(version, than: self.currentVersion) {
+                // 바이너리 버전 불일치로 이미 건너뛴 태그인지 확인
+                let skippedTag = UserDefaults.standard.string(forKey: Self.skippedTagKey) ?? ""
+                if version == skippedTag {
+                    self.state = .noUpdate
+                    print("[도피스] 이미 확인된 태그(바이너리 버전 불일치): v\(version)")
+                } else if self.isNewer(version, than: self.currentVersion) {
                     self.state = .available
                     print("[도피스] 업데이트 발견: v\(self.currentVersion) → v\(version)")
                     // 백그라운드 자동 다운로드 시작
@@ -199,6 +207,19 @@ public class UpdateChecker: ObservableObject {
                 guard let self else { return }
                 switch result {
                 case .success(let appURL):
+                    // 다운로드된 앱의 실제 버전 확인 (태그와 바이너리 버전 불일치 방지)
+                    let downloadedPlist = appURL.appendingPathComponent("Contents/Info.plist")
+                    if let plistData = NSDictionary(contentsOf: downloadedPlist),
+                       let downloadedVersion = plistData["CFBundleShortVersionString"] as? String,
+                       !self.isNewer(downloadedVersion, than: self.currentVersion) {
+                        print("[도피스] 다운로드된 앱 버전(\(downloadedVersion))이 현재(\(self.currentVersion))와 동일 — 이 태그 건너뜀")
+                        // 이 태그만 건너뛰도록 기록 (다음 새 릴리스는 정상 처리)
+                        UserDefaults.standard.set(self.latestVersion, forKey: Self.skippedTagKey)
+                        UserDefaults.standard.synchronize()
+                        self.state = .noUpdate
+                        try? FileManager.default.removeItem(at: appURL.deletingLastPathComponent())
+                        return
+                    }
                     self.downloadedAppURL = appURL
                     self.state = .readyToInstall
                     print("[도피스] 설치 준비 완료: \(appURL.path)")
@@ -272,6 +293,10 @@ public class UpdateChecker: ObservableObject {
         }
 
         state = .installing
+
+        // 실제 설치 시 건너뛴 태그 기록 초기화
+        UserDefaults.standard.removeObject(forKey: Self.skippedTagKey)
+        UserDefaults.standard.synchronize()
 
         let currentAppURL = Bundle.main.bundleURL
         let pid = ProcessInfo.processInfo.processIdentifier
@@ -514,31 +539,45 @@ public struct UpdateSheet: View {
     // MARK: - Version Compare
 
     private var versionCompareView: some View {
-        HStack(spacing: 16) {
-            VStack(spacing: 4) {
-                Text(NSLocalizedString("update.label.current", comment: "")).font(Theme.mono(9)).foregroundColor(Theme.textDim)
-                Text("v\(updater.currentVersion)")
-                    .font(Theme.mono(13, weight: .bold)).foregroundColor(Theme.textSecondary)
-            }
-            Image(systemName: "arrow.right")
-                .font(.system(size: Theme.iconSize(14)))
-                .foregroundColor(Theme.green)
-            VStack(spacing: 4) {
-                Text(NSLocalizedString("update.label.latest", comment: "")).font(Theme.mono(9)).foregroundColor(Theme.textDim)
-                Text("v\(updater.latestVersion.isEmpty ? "..." : updater.latestVersion)")
-                    .font(Theme.mono(13, weight: .bold)).foregroundColor(Theme.green)
+        Group {
+            if updater.state == .noUpdate {
+                // 최신 버전일 때는 현재 버전만 표시
+                VStack(spacing: 4) {
+                    Text(NSLocalizedString("update.label.current", comment: "")).font(Theme.mono(9)).foregroundColor(Theme.textDim)
+                    Text("v\(updater.currentVersion)")
+                        .font(Theme.mono(13, weight: .bold)).foregroundColor(Theme.green)
+                }
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Theme.bgSurface))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.green.opacity(0.2), lineWidth: 1))
+            } else {
+                HStack(spacing: 16) {
+                    VStack(spacing: 4) {
+                        Text(NSLocalizedString("update.label.current", comment: "")).font(Theme.mono(9)).foregroundColor(Theme.textDim)
+                        Text("v\(updater.currentVersion)")
+                            .font(Theme.mono(13, weight: .bold)).foregroundColor(Theme.textSecondary)
+                    }
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: Theme.iconSize(14)))
+                        .foregroundColor(Theme.green)
+                    VStack(spacing: 4) {
+                        Text(NSLocalizedString("update.label.latest", comment: "")).font(Theme.mono(9)).foregroundColor(Theme.textDim)
+                        Text("v\(updater.latestVersion.isEmpty ? "..." : updater.latestVersion)")
+                            .font(Theme.mono(13, weight: .bold)).foregroundColor(Theme.green)
+                    }
+                }
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Theme.bgSurface))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.green.opacity(0.2), lineWidth: 1))
             }
         }
-        .padding(12)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Theme.bgSurface))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.green.opacity(0.2), lineWidth: 1))
     }
 
     // MARK: - Release Notes
 
     @ViewBuilder
     private var releaseNotesView: some View {
-        if !updater.releaseNotes.isEmpty {
+        if !updater.releaseNotes.isEmpty && updater.state != .noUpdate {
             VStack(alignment: .leading, spacing: 4) {
                 Text(NSLocalizedString("update.release.notes", comment: "")).font(Theme.mono(9, weight: .bold)).foregroundColor(Theme.textDim)
                 ScrollView {

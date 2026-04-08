@@ -187,9 +187,11 @@ public struct OfficeSceneView: View {
             }
         }
         .onReceive(timer) { _ in
+            guard NSApp.windows.contains(where: { $0.isVisible }) else { return }
             store.advance(with: manager.userVisibleTabs, activeTabId: manager.activeTab?.id, focusMode: isFocusMode, fps: currentFPS)
         }
         .onReceive(slowTimer) { _ in
+            guard NSApp.windows.contains(where: { $0.isVisible }) else { return }
             // FPS check
             let newFPS = Self.computeAdaptiveFPS()
             if newFPS != currentFPS { currentFPS = newFPS }

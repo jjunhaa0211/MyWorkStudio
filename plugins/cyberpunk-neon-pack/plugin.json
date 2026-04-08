@@ -1,0 +1,130 @@
+{
+  "name": "사이버펑크 네온 팩",
+  "version": "1.0.0",
+  "description": "네온 불빛이 번쩍이는 사이버펑크 오피스. 홀로그램 데스크와 서버랙 사이에서 해킹하듯 코딩하세요.",
+  "author": "Doffice",
+  "contributes": {
+    "characters": "characters.json",
+    "themes": [
+      {
+        "id": "cyberpunk-dark",
+        "name": "사이버펑크 (다크)",
+        "isDark": true,
+        "accentHex": "ff00ff",
+        "bgHex": "0a0a1a",
+        "cardHex": "141428",
+        "textHex": "e0e0ff",
+        "greenHex": "00ff88",
+        "redHex": "ff2266",
+        "yellowHex": "ffee00",
+        "purpleHex": "8833ff",
+        "cyanHex": "00ffff",
+        "useGradient": true,
+        "gradientStartHex": "1a0033",
+        "gradientEndHex": "0a0a1a"
+      },
+      {
+        "id": "cyberpunk-light",
+        "name": "사이버펑크 (라이트)",
+        "isDark": false,
+        "accentHex": "cc00cc",
+        "bgHex": "f0e8ff",
+        "cardHex": "ffffff",
+        "textHex": "1a1a2e",
+        "greenHex": "00cc66",
+        "redHex": "ff3366",
+        "yellowHex": "ffcc00",
+        "purpleHex": "7722dd",
+        "cyanHex": "00cccc",
+        "useGradient": true,
+        "gradientStartHex": "e8d0ff",
+        "gradientEndHex": "f0e8ff"
+      }
+    ],
+    "furniture": [
+      {
+        "id": "neon-sign",
+        "name": "네온 사인",
+        "sprite": [
+          ["ff00ff", "00ffff", "ff00ff", "00ffff", "ff00ff"],
+          ["00ffff", "", "", "", "00ffff"],
+          ["ff00ff", "", "ffee00", "", "ff00ff"],
+          ["00ffff", "", "", "", "00ffff"],
+          ["ff00ff", "00ffff", "ff00ff", "00ffff", "ff00ff"]
+        ],
+        "width": 2,
+        "height": 2,
+        "zone": "mainOffice"
+      },
+      {
+        "id": "hologram-desk",
+        "name": "홀로그램 데스크",
+        "sprite": [
+          ["", "00ffff", "00ffff", "00ffff", "00ffff", ""],
+          ["1a1a2e", "00cccc", "00ffff", "00ffff", "00cccc", "1a1a2e"],
+          ["1a1a2e", "1a1a2e", "2a2a3e", "2a2a3e", "1a1a2e", "1a1a2e"],
+          ["", "1a1a2e", "", "", "1a1a2e", ""],
+          ["", "1a1a2e", "", "", "1a1a2e", ""],
+          ["1a1a2e", "1a1a2e", "", "", "1a1a2e", "1a1a2e"]
+        ],
+        "width": 3,
+        "height": 2,
+        "zone": "mainOffice"
+      },
+      {
+        "id": "server-rack",
+        "name": "서버 랙",
+        "sprite": [
+          ["2a2a3e", "2a2a3e", "2a2a3e", "2a2a3e"],
+          ["2a2a3e", "00ff88", "ff2266", "2a2a3e"],
+          ["2a2a3e", "00ffff", "00ff88", "2a2a3e"],
+          ["2a2a3e", "ff00ff", "00ffff", "2a2a3e"],
+          ["2a2a3e", "00ff88", "ff2266", "2a2a3e"],
+          ["2a2a3e", "2a2a3e", "2a2a3e", "2a2a3e"],
+          ["1a1a2e", "1a1a2e", "1a1a2e", "1a1a2e"]
+        ],
+        "width": 2,
+        "height": 3,
+        "zone": "mainOffice"
+      },
+      {
+        "id": "vending-machine-cyber",
+        "name": "사이버 자판기",
+        "sprite": [
+          ["2a2a3e", "2a2a3e", "2a2a3e", "2a2a3e", "2a2a3e"],
+          ["2a2a3e", "ff00ff", "00ffff", "ff00ff", "2a2a3e"],
+          ["2a2a3e", "00ffff", "ff00ff", "00ffff", "2a2a3e"],
+          ["2a2a3e", "ff00ff", "00ffff", "ff00ff", "2a2a3e"],
+          ["2a2a3e", "", "ffee00", "", "2a2a3e"],
+          ["2a2a3e", "2a2a3e", "2a2a3e", "2a2a3e", "2a2a3e"],
+          ["1a1a2e", "", "", "", "1a1a2e"]
+        ],
+        "width": 2,
+        "height": 3,
+        "zone": "mainOffice"
+      }
+    ],
+    "effects": [
+      {
+        "id": "neon-flash",
+        "trigger": "onPromptSubmit",
+        "type": "flash",
+        "config": {
+          "colorHex": "ff00ff",
+          "duration": 0.3
+        },
+        "enabled": true
+      },
+      {
+        "id": "glitch-shake",
+        "trigger": "onSessionError",
+        "type": "screen-shake",
+        "config": {
+          "intensity": 7.0,
+          "duration": 0.5
+        },
+        "enabled": true
+      }
+    ]
+  }
+}

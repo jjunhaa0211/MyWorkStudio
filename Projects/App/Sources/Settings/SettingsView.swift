@@ -30,6 +30,7 @@ struct SettingsView: View {
     @State var pendingThemeMode: String?
     @State var showFontRestartAlert = false
     @State var pendingFontScale: Double?
+    @State var showUpdateSheet = false
 
     // Custom Theme
     @State var customAccentColor: Color = Theme.accent

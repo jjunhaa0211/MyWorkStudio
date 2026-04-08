@@ -178,10 +178,18 @@ struct WorkerCharacter: Identifiable, Codable, Equatable {
 
     enum HatType: String, Codable, CaseIterable {
         case none, beanie, cap, hardhat, wizard, crown, headphones, beret
+        init(from decoder: Decoder) throws {
+            let raw = try decoder.singleValueContainer().decode(String.self)
+            self = HatType(rawValue: raw) ?? .cap
+        }
     }
 
     enum Accessory: String, Codable, CaseIterable {
         case none, glasses, sunglasses, scarf, mask, earring
+        init(from decoder: Decoder) throws {
+            let raw = try decoder.singleValueContainer().decode(String.self)
+            self = Accessory(rawValue: raw) ?? .none
+        }
     }
 
     enum Species: String, Codable, CaseIterable {
@@ -203,6 +211,11 @@ struct WorkerCharacter: Identifiable, Codable, Equatable {
         case panda = "Panda"
         case unicorn = "Unicorn"
         case skeleton = "Skeleton"
+
+        init(from decoder: Decoder) throws {
+            let raw = try decoder.singleValueContainer().decode(String.self)
+            self = Species(rawValue: raw) ?? .human
+        }
 
         var localizationKey: String {
             switch self {

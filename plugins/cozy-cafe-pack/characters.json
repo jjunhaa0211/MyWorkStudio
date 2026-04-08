@@ -1,0 +1,28 @@
+[
+  {
+    "id": "barista_dev",
+    "name": "바리스타 개발자",
+    "archetype": "라떼아트처럼 정교한 코드를 만드는 바리스타 개발자",
+    "hairColor": "3b2f2f",
+    "skinTone": "e8c4a0",
+    "shirtColor": "8b5e3c",
+    "pantsColor": "2a201a",
+    "hatType": "beret",
+    "accessory": "glasses",
+    "species": "Human",
+    "jobRole": "developer"
+  },
+  {
+    "id": "latte_artist",
+    "name": "라떼 아티스트",
+    "archetype": "UI를 라떼아트처럼 아름답게 디자인하는 아티스트",
+    "hairColor": "c68e5a",
+    "skinTone": "d4a574",
+    "shirtColor": "fff8f0",
+    "pantsColor": "6b4226",
+    "hatType": "none",
+    "accessory": "scarf",
+    "species": "Cat",
+    "jobRole": "designer"
+  }
+]

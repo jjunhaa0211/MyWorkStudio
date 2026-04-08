@@ -6,21 +6,10 @@
       "author": "Doffice",
       "description": "플리 마켓에서 바로 고용할 수 있는 히든 캐릭터 3종을 추가합니다.",
       "version": "1.0.0",
-      "downloadURL": "https://raw.githubusercontent.com/jjunhaa0211/Doffice/main/plugins/flea-market-hidden-pack/plugin.json",
+      "downloadURL": "bundled://flea-market-hidden-pack",
       "characterCount": 3,
       "tags": ["hidden", "market", "characters"],
       "stars": 42
-    },
-    {
-      "id": "typing-combo-pack",
-      "name": "타이핑 콤보 팩",
-      "author": "Doffice",
-      "description": "터미널 외부에서 타이핑할 때 콤보 카운터, 파티클, 화면 흔들림 이펙트가 발동합니다.",
-      "version": "1.0.0",
-      "downloadURL": "bundled://typing-combo-pack",
-      "characterCount": 0,
-      "tags": ["effects", "combo", "typing", "particles"],
-      "stars": 128
     },
     {
       "id": "premium-furniture-pack",
@@ -37,22 +26,22 @@
       "id": "vacation-beach-pack",
       "name": "바캉스 비치 팩",
       "author": "Doffice",
-      "description": "사무실을 해변으로 변신! 야자수, 서핑보드, 파라솔 아래에서 코딩하는 바캉스 컨셉 오피스.",
+      "description": "사무실을 해변으로 변신! 야자수, 서핑보드, 파라솔 + 바캉스 테마 2종 + 캐릭터 2종.",
       "version": "1.0.0",
       "downloadURL": "bundled://vacation-beach-pack",
       "characterCount": 2,
-      "tags": ["theme", "beach", "vacation", "tropical", "office-preset"],
+      "tags": ["theme", "beach", "vacation", "characters", "furniture"],
       "stars": 210
     },
     {
       "id": "battleground-pack",
       "name": "배틀그라운드 팩",
       "author": "Doffice",
-      "description": "사무실이 전장으로! 나무, 바위, 수풀에 숨어 코딩하는 배그 컨셉 오피스. 에어드랍 이펙트 포함.",
+      "description": "사무실이 전장으로! 수풀, 바위, 참호 가구 + 배그 테마 2종 + 캐릭터 3종 + 전투 이펙트.",
       "version": "1.0.0",
       "downloadURL": "bundled://battleground-pack",
       "characterCount": 3,
-      "tags": ["theme", "battleground", "military", "survival", "office-preset"],
+      "tags": ["theme", "battleground", "military", "characters", "furniture"],
       "stars": 187
     }
   ]

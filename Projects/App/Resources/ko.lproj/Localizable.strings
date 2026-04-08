@@ -2682,3 +2682,16 @@
 
 "office.action.terminal" = "터미널 열기";
 "office.action.role" = "직무 변경";
+
+/* App Icon Settings */
+"settings.appicon" = "앱 아이콘";
+"settings.icon.classic" = "클래식";
+"settings.icon.pixel" = "픽셀";
+"settings.icon.ocean" = "오션";
+"settings.icon.sunset" = "선셋";
+"settings.icon.mint" = "민트";
+"settings.icon.slate" = "슬레이트";
+"settings.icon.change.title" = "앱 아이콘 변경";
+"settings.icon.restart" = "재시작";
+"settings.icon.change.message" = "앱 아이콘을 변경하려면 앱을 재시작해야 합니다.";
+"button.cancel" = "취소";

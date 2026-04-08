@@ -1,0 +1,41 @@
+[
+  {
+    "id": "astro_coder",
+    "name": "우주 코더",
+    "archetype": "무중력 환경에서도 안정적인 코드를 작성하는 우주 비행사",
+    "hairColor": "2d2d2d",
+    "skinTone": "e8c4a0",
+    "shirtColor": "ffffff",
+    "pantsColor": "303050",
+    "hatType": "helmet",
+    "accessory": "badge",
+    "species": "Human",
+    "jobRole": "developer"
+  },
+  {
+    "id": "mission_control",
+    "name": "미션 컨트롤",
+    "archetype": "지상에서 우주 개발팀을 지휘하는 프로젝트 매니저",
+    "hairColor": "4a4a4a",
+    "skinTone": "c4a882",
+    "shirtColor": "303050",
+    "pantsColor": "202040",
+    "hatType": "headphones",
+    "accessory": "glasses",
+    "species": "Human",
+    "jobRole": "planner"
+  },
+  {
+    "id": "alien_intern",
+    "name": "외계인 인턴",
+    "archetype": "다른 행성에서 온 호기심 많은 주니어 개발자",
+    "hairColor": "00cc66",
+    "skinTone": "a0e0a0",
+    "shirtColor": "4a90d9",
+    "pantsColor": "303050",
+    "hatType": "none",
+    "accessory": "goggles",
+    "species": "Alien",
+    "jobRole": "qa"
+  }
+]

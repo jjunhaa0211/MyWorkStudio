@@ -271,43 +271,81 @@ extension GitPanelView {
         let laneMap = git.commitLaneMap
         let isMerge = parentHashes.count > 1
         let hasTag = commit.refs.contains { $0.type == .tag }
+        let firstParentLane = commit.firstParentLane
+        let childLanes = commit.childLanes
 
         return Canvas { ctx, size in
             let rowH = size.height
             let midY = rowH / 2
 
-            for laneIdx in activeLanes where laneIdx != commitLane {
-                let x = CGFloat(laneIdx) * colW + 10
-                let color = laneColors[laneIdx % laneColors.count]
-                let p = Path { p in p.move(to: CGPoint(x: x, y: 0)); p.addLine(to: CGPoint(x: x, y: rowH)) }
-                ctx.stroke(p, with: .color(color.opacity(0.25)), lineWidth: 1.5)
+            func laneX(_ lane: Int) -> CGFloat { CGFloat(lane) * colW + 10 }
+
+            func strokeLine(_ path: Path, color: Color) {
+                ctx.stroke(path, with: .color(color.opacity(0.08)), lineWidth: 5)
+                ctx.stroke(path, with: .color(color.opacity(0.45)), lineWidth: 2)
             }
 
-            let nodeX = CGFloat(commitLane) * colW + 10
+            func strokeCurve(from: CGPoint, to: CGPoint, color: Color) {
+                let mp = Path { p in
+                    p.move(to: from)
+                    p.addCurve(to: to,
+                               control1: CGPoint(x: from.x, y: from.y + (to.y - from.y) * 0.5),
+                               control2: CGPoint(x: to.x, y: to.y - (to.y - from.y) * 0.5))
+                }
+                ctx.stroke(mp, with: .color(color.opacity(0.08)), lineWidth: 5)
+                ctx.stroke(mp, with: .color(color.opacity(0.45)), lineWidth: 2)
+            }
+
+            // ── 패스스루 레인 (이 커밋 레인 아닌 활성 레인) ──
+            for laneIdx in activeLanes where laneIdx != commitLane {
+                let x = laneX(laneIdx)
+                let color = laneColors[laneIdx % laneColors.count]
+                strokeLine(Path { p in p.move(to: CGPoint(x: x, y: 0)); p.addLine(to: CGPoint(x: x, y: rowH)) }, color: color)
+            }
+
+            let nodeX = laneX(commitLane)
             let nodeColor = laneColors[commitLane % laneColors.count]
 
-            ctx.stroke(Path { p in p.move(to: CGPoint(x: nodeX, y: 0)); p.addLine(to: CGPoint(x: nodeX, y: midY)) },
-                       with: .color(nodeColor.opacity(0.4)), lineWidth: 1.5)
-            if !parentHashes.isEmpty {
-                ctx.stroke(Path { p in p.move(to: CGPoint(x: nodeX, y: midY)); p.addLine(to: CGPoint(x: nodeX, y: rowH)) },
-                           with: .color(nodeColor.opacity(0.4)), lineWidth: 1.5)
+            // ── 위쪽: 자식에서 이 커밋으로의 연결 ──
+            // 자식이 같은 레인에 있으면 직선, 아니면 (자식 행이 그릴 것이므로) 그냥 직선
+            let hasChildOnSameLane = childLanes.contains(commitLane) || childLanes.isEmpty
+            if hasChildOnSameLane {
+                strokeLine(Path { p in p.move(to: CGPoint(x: nodeX, y: 0)); p.addLine(to: CGPoint(x: nodeX, y: midY)) }, color: nodeColor)
+            }
+            // 다른 레인의 자식이 분기해 내려온 경우: 위에서 이 커밋으로 곡선
+            for childLane in childLanes where childLane != commitLane {
+                let childX = laneX(childLane)
+                let childColor = laneColors[childLane % laneColors.count]
+                strokeCurve(from: CGPoint(x: childX, y: 0), to: CGPoint(x: nodeX, y: midY), color: childColor)
             }
 
-            for pIdx in parentHashes.indices.dropFirst() {
-                if let parentLane = laneMap[parentHashes[pIdx]] {
-                    let parentX = CGFloat(parentLane) * colW + 10
-                    let mergeColor = laneColors[parentLane % laneColors.count]
-                    let mp = Path { p in
-                        p.move(to: CGPoint(x: nodeX, y: midY))
-                        p.addCurve(to: CGPoint(x: parentX, y: rowH),
-                                   control1: CGPoint(x: nodeX, y: midY + rowH * 0.3),
-                                   control2: CGPoint(x: parentX, y: rowH - rowH * 0.3))
-                    }
-                    ctx.stroke(mp, with: .color(mergeColor.opacity(0.4)), lineWidth: 1.5)
+            // ── 아래쪽: 이 커밋에서 부모로의 연결 ──
+            if !parentHashes.isEmpty {
+                if firstParentLane >= 0 && firstParentLane == commitLane {
+                    // 첫 번째 부모가 같은 레인 → 직선
+                    strokeLine(Path { p in p.move(to: CGPoint(x: nodeX, y: midY)); p.addLine(to: CGPoint(x: nodeX, y: rowH)) }, color: nodeColor)
+                } else if firstParentLane >= 0 {
+                    // 첫 번째 부모가 다른 레인 → 곡선
+                    let parentX = laneX(firstParentLane)
+                    let parentColor = laneColors[firstParentLane % laneColors.count]
+                    strokeCurve(from: CGPoint(x: nodeX, y: midY), to: CGPoint(x: parentX, y: rowH), color: parentColor)
+                } else {
+                    // 부모 레인 정보 없음 → 직선 fallback
+                    strokeLine(Path { p in p.move(to: CGPoint(x: nodeX, y: midY)); p.addLine(to: CGPoint(x: nodeX, y: rowH)) }, color: nodeColor)
                 }
             }
 
-            let r: CGFloat = hasTag ? 5 : 4
+            // 머지 곡선 (2번째+ 부모)
+            for pIdx in parentHashes.indices.dropFirst() {
+                if let parentLane = laneMap[parentHashes[pIdx]] {
+                    let parentX = laneX(parentLane)
+                    let mergeColor = laneColors[parentLane % laneColors.count]
+                    strokeCurve(from: CGPoint(x: nodeX, y: midY), to: CGPoint(x: parentX, y: rowH), color: mergeColor)
+                }
+            }
+
+            // ── 노드 (커밋 점) ──
+            let r: CGFloat = hasTag ? 5.5 : 4.5
             let nodeRect = CGRect(x: nodeX - r, y: midY - r, width: r * 2, height: r * 2)
             if hasTag {
                 let diamond = Path { p in
@@ -318,12 +356,16 @@ extension GitPanelView {
                     p.closeSubpath()
                 }
                 ctx.fill(diamond, with: .color(Color.yellow))
-                ctx.stroke(diamond, with: .color(Color.yellow.opacity(0.6)), lineWidth: 1)
+                ctx.stroke(diamond, with: .color(Color.yellow.opacity(0.7)), lineWidth: 1.5)
             } else {
+                let glowRect = CGRect(x: nodeX - r - 2, y: midY - r - 2, width: (r + 2) * 2, height: (r + 2) * 2)
+                ctx.fill(Path(ellipseIn: glowRect), with: .color(nodeColor.opacity(0.15)))
                 ctx.fill(Path(ellipseIn: nodeRect), with: .color(nodeColor))
+                let hlRect = CGRect(x: nodeX - r * 0.4, y: midY - r * 0.4, width: r * 0.8, height: r * 0.8)
+                ctx.fill(Path(ellipseIn: hlRect), with: .color(.white.opacity(0.3)))
                 if isMerge {
-                    let ring = CGRect(x: nodeX - r - 1.5, y: midY - r - 1.5, width: (r + 1.5) * 2, height: (r + 1.5) * 2)
-                    ctx.stroke(Path(ellipseIn: ring), with: .color(nodeColor), lineWidth: 1.5)
+                    let ring = CGRect(x: nodeX - r - 2.5, y: midY - r - 2.5, width: (r + 2.5) * 2, height: (r + 2.5) * 2)
+                    ctx.stroke(Path(ellipseIn: ring), with: .color(nodeColor.opacity(0.7)), lineWidth: 1.5)
                 }
             }
         }

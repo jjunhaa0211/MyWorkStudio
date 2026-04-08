@@ -9,6 +9,7 @@ public struct CharacterCollectionView: View {
     @State private var editingId: String?
     @State private var editName = ""
     @State private var selectedSpecies: WorkerCharacter.Species? = nil
+    @State private var showPluginOnly = false
     // grid only (list mode removed)
 
     @State private var showPipeline = false
@@ -19,22 +20,23 @@ public struct CharacterCollectionView: View {
         GridItem(.adaptive(minimum: 240, maximum: 320), spacing: 12, alignment: .top)
     ]
 
+    private func applyFilters(_ chars: [WorkerCharacter]) -> [WorkerCharacter] {
+        var result = chars
+        if showPluginOnly { result = result.filter { $0.isPluginCharacter } }
+        if let sp = selectedSpecies { result = result.filter { $0.species == sp } }
+        return sortedCharacters(result)
+    }
+
     private var filteredHired: [WorkerCharacter] {
-        let chars = registry.hiredCharacters
-        guard let sp = selectedSpecies else { return sortedCharacters(chars) }
-        return sortedCharacters(chars.filter { $0.species == sp })
+        applyFilters(registry.hiredCharacters)
     }
 
     private var filteredAvailable: [WorkerCharacter] {
-        let chars = registry.availableCharacters.filter { registry.isUnlocked($0) }
-        guard let sp = selectedSpecies else { return sortedCharacters(chars) }
-        return sortedCharacters(chars.filter { $0.species == sp })
+        applyFilters(registry.availableCharacters.filter { registry.isUnlocked($0) })
     }
 
     private var filteredLocked: [WorkerCharacter] {
-        let chars = registry.availableCharacters.filter { !registry.isUnlocked($0) }
-        guard let sp = selectedSpecies else { return sortedCharacters(chars) }
-        return sortedCharacters(chars.filter { $0.species == sp })
+        applyFilters(registry.availableCharacters.filter { !registry.isUnlocked($0) })
     }
 
     public var body: some View {
@@ -56,6 +58,22 @@ public struct CharacterCollectionView: View {
                 HStack(spacing: 4) {
                     ForEach(Array(speciesWithCount.enumerated()), id: \.offset) { _, item in
                         speciesChip(species: item.sp, emoji: item.label, count: item.count)
+                    }
+                    // 플러그인 필터 버튼
+                    let pluginCount = registry.allCharacters.filter { $0.isPluginCharacter }.count
+                    if pluginCount > 0 {
+                        Button(action: { withAnimation(.easeInOut(duration: 0.15)) { showPluginOnly.toggle(); if showPluginOnly { selectedSpecies = nil } } }) {
+                            HStack(spacing: 3) {
+                                Image(systemName: "puzzlepiece.fill").font(.system(size: 8))
+                                Text("플러그인").font(Theme.mono(8, weight: .bold))
+                                Text("\(pluginCount)").font(Theme.mono(7)).foregroundColor(showPluginOnly ? Theme.textPrimary : Theme.textDim)
+                            }
+                            .padding(.horizontal, 8).padding(.vertical, 5)
+                            .background(RoundedRectangle(cornerRadius: 6).fill(showPluginOnly ? Theme.purple.opacity(0.2) : Theme.bgSurface))
+                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(showPluginOnly ? Theme.purple.opacity(0.5) : Theme.border.opacity(0.3), lineWidth: 1))
+                            .foregroundColor(showPluginOnly ? Theme.purple : Theme.textSecondary)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal, 12).padding(.vertical, 8)

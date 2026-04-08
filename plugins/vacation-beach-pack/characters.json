@@ -1,28 +1,28 @@
 [
   {
     "id": "beach_lifeguard",
-    "name": "비치 라이프가드",
-    "archetype": "해변 안전 요원 겸 시니어 개발자",
-    "hairColor": "f5d380",
+    "name": "해변 라이프가드",
+    "archetype": "코드가 빠지지 않게 지키는 안전요원",
+    "hairColor": "d4a017",
     "skinTone": "d4a574",
-    "shirtColor": "f14c4c",
-    "pantsColor": "f5d380",
+    "shirtColor": "ff4500",
+    "pantsColor": "1e90ff",
     "hatType": "cap",
     "accessory": "sunglasses",
     "species": "Human",
-    "jobRole": "developer"
+    "jobRole": "reviewer"
   },
   {
     "id": "coconut_coder",
     "name": "코코넛 코더",
-    "archetype": "코코넛 워터를 마시며 코딩하는 디지털 노마드",
-    "hairColor": "2d2d2d",
-    "skinTone": "e8c4a0",
-    "shirtColor": "4ac6b7",
-    "pantsColor": "3291ff",
-    "hatType": "straw",
-    "accessory": "sunglasses",
+    "archetype": "야자수 아래에서 코딩하는 프리랜서",
+    "hairColor": "2f1b0e",
+    "skinTone": "c68642",
+    "shirtColor": "00ced1",
+    "pantsColor": "f0e68c",
+    "hatType": "beanie",
+    "accessory": "earring",
     "species": "Human",
-    "jobRole": "developer"
+    "jobRole": "designer"
   }
 ]

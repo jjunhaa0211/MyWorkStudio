@@ -1,0 +1,118 @@
+{
+  "name": "레트로 아케이드 팩",
+  "version": "1.0.0",
+  "description": "90년대 오락실 감성! 아케이드 캐비닛과 핀볼 머신 사이에서 픽셀 코딩.",
+  "author": "Doffice",
+  "contributes": {
+    "characters": "characters.json",
+    "themes": [
+      {
+        "id": "retro-dark",
+        "name": "레트로 아케이드 (다크)",
+        "isDark": true,
+        "accentHex": "ff6600",
+        "bgHex": "0a0a0a",
+        "cardHex": "1a1a1a",
+        "textHex": "e0d0c0",
+        "greenHex": "33cc33",
+        "redHex": "ff3333",
+        "yellowHex": "ffcc00",
+        "purpleHex": "9933ff",
+        "cyanHex": "33ccff",
+        "useGradient": true,
+        "gradientStartHex": "1a0a00",
+        "gradientEndHex": "0a0a0a"
+      },
+      {
+        "id": "pixel-pastel",
+        "name": "레트로 아케이드 (파스텔)",
+        "isDark": false,
+        "accentHex": "ff8844",
+        "bgHex": "fff0e8",
+        "cardHex": "fff8f4",
+        "textHex": "2a2a2a",
+        "greenHex": "66cc66",
+        "redHex": "ff6666",
+        "yellowHex": "ffdd44",
+        "purpleHex": "aa66ff",
+        "cyanHex": "66ccff",
+        "useGradient": true,
+        "gradientStartHex": "ffe0d0",
+        "gradientEndHex": "fff0e8"
+      }
+    ],
+    "furniture": [
+      {
+        "id": "arcade-cabinet",
+        "name": "아케이드 캐비닛",
+        "sprite": [
+          ["1a1a1a", "1a1a1a", "1a1a1a", "1a1a1a", "1a1a1a"],
+          ["1a1a1a", "33ccff", "33cc33", "ff3333", "1a1a1a"],
+          ["1a1a1a", "ffcc00", "33ccff", "ff6600", "1a1a1a"],
+          ["1a1a1a", "1a1a1a", "1a1a1a", "1a1a1a", "1a1a1a"],
+          ["1a1a1a", "", "ff6600", "", "1a1a1a"],
+          ["1a1a1a", "1a1a1a", "1a1a1a", "1a1a1a", "1a1a1a"],
+          ["", "1a1a1a", "", "1a1a1a", ""]
+        ],
+        "width": 2,
+        "height": 3,
+        "zone": "mainOffice"
+      },
+      {
+        "id": "pinball-machine",
+        "name": "핀볼 머신",
+        "sprite": [
+          ["ff6600", "ff6600", "ff6600", "ff6600", "ff6600"],
+          ["1a1a1a", "ffcc00", "33ccff", "ffcc00", "1a1a1a"],
+          ["1a1a1a", "33cc33", "ff3333", "33cc33", "1a1a1a"],
+          ["1a1a1a", "ffcc00", "9933ff", "ffcc00", "1a1a1a"],
+          ["1a1a1a", "1a1a1a", "1a1a1a", "1a1a1a", "1a1a1a"],
+          ["", "1a1a1a", "1a1a1a", "1a1a1a", ""]
+        ],
+        "width": 2,
+        "height": 2,
+        "zone": "mainOffice"
+      },
+      {
+        "id": "jukebox",
+        "name": "주크박스",
+        "sprite": [
+          ["", "ff8844", "ff8844", "ff8844", ""],
+          ["ff8844", "ffcc00", "ffcc00", "ffcc00", "ff8844"],
+          ["ff6600", "9933ff", "33ccff", "9933ff", "ff6600"],
+          ["ff6600", "9933ff", "33ccff", "9933ff", "ff6600"],
+          ["ff8844", "ff8844", "ff8844", "ff8844", "ff8844"],
+          ["", "1a1a1a", "", "1a1a1a", ""]
+        ],
+        "width": 2,
+        "height": 2,
+        "zone": "mainOffice"
+      },
+      {
+        "id": "pac-table",
+        "name": "팩맨 테이블",
+        "sprite": [
+          ["1a1a1a", "1a1a1a", "1a1a1a", "1a1a1a", "1a1a1a", "1a1a1a"],
+          ["1a1a1a", "ffcc00", "ffcc00", "", "ff3333", "1a1a1a"],
+          ["1a1a1a", "ffcc00", "", "33ccff", "33cc33", "1a1a1a"],
+          ["1a1a1a", "1a1a1a", "1a1a1a", "1a1a1a", "1a1a1a", "1a1a1a"],
+          ["", "1a1a1a", "", "", "1a1a1a", ""],
+          ["", "1a1a1a", "", "", "1a1a1a", ""]
+        ],
+        "width": 3,
+        "height": 2,
+        "zone": "mainOffice"
+      }
+    ],
+    "achievements": [
+      {
+        "id": "high-score",
+        "name": "하이 스코어!",
+        "description": "레트로 아케이드 테마에서 레벨 10을 달성했습니다",
+        "icon": "star.fill",
+        "rarity": "epic",
+        "xp": 400
+      }
+    ]
+  }
+}

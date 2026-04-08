@@ -18,6 +18,8 @@ struct GitCommitNode: Identifiable, Equatable {
     let refs: [GitRef]
     var lane: Int = 0         // column for graph drawing
     var activeLanes: Set<Int> = [] // which lanes are active at this row (for drawing vertical lines)
+    var childLanes: Set<Int> = []
+    var firstParentLane: Int = -1
 
     struct GitRef: Equatable {
         let name: String
@@ -925,6 +927,19 @@ enum GitDataParser {
 
             // Collapse trailing nils
             while activeLanes.last == nil && activeLanes.count > 1 { activeLanes.removeLast() }
+        }
+
+        let laneMap = Dictionary(uniqueKeysWithValues: result.map { ($0.id, $0.lane) })
+        for i in 0..<result.count {
+            let commit = result[i]
+            if let firstParent = commit.parentHashes.first, let pLane = laneMap[firstParent] {
+                result[i].firstParentLane = pLane
+            }
+            for parentHash in commit.parentHashes {
+                if let parentIdx = result.firstIndex(where: { $0.id == parentHash }) {
+                    result[parentIdx].childLanes.insert(commit.lane)
+                }
+            }
         }
 
         return result

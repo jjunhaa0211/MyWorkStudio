@@ -145,13 +145,12 @@ public struct NewTabSheet: View {
             isCreatingSessions = false
             bootstrapFromLastDraftIfNeeded()
         }
-        .alert(item: $unavailableProviderAlert) { provider in
-            Alert(
-                title: Text(provider.selectionUnavailableTitle),
-                message: Text(provider.selectionUnavailableDetail),
-                dismissButton: .default(Text("확인"))
-            )
-        }
+        .alert(
+            unavailableProviderAlert?.selectionUnavailableTitle ?? "",
+            isPresented: Binding(get: { unavailableProviderAlert != nil }, set: { if !$0 { unavailableProviderAlert = nil } }),
+            actions: { Button(NSLocalizedString("confirm", comment: "")) { unavailableProviderAlert = nil } },
+            message: { Text(unavailableProviderAlert?.selectionUnavailableDetail ?? "") }
+        )
     }
 
 }

@@ -1,0 +1,150 @@
+{
+  "name": "우주 정거장 팩",
+  "version": "1.0.0",
+  "description": "우주 정거장에서 미션 코딩! 커맨드 콘솔과 에어락 사이에서 무중력 개발.",
+  "author": "Doffice",
+  "contributes": {
+    "characters": "characters.json",
+    "themes": [
+      {
+        "id": "space-dark",
+        "name": "우주 정거장 (딥 스페이스)",
+        "isDark": true,
+        "accentHex": "4a90d9",
+        "bgHex": "050510",
+        "cardHex": "101020",
+        "textHex": "c0d0e0",
+        "greenHex": "00cc66",
+        "redHex": "ff4444",
+        "yellowHex": "ffaa00",
+        "purpleHex": "6644aa",
+        "cyanHex": "00aadd",
+        "useGradient": true,
+        "gradientStartHex": "0a0a2a",
+        "gradientEndHex": "050510"
+      },
+      {
+        "id": "nebula-glow",
+        "name": "우주 정거장 (네뷸라 글로우)",
+        "isDark": true,
+        "accentHex": "aa55cc",
+        "bgHex": "0a0520",
+        "cardHex": "150a30",
+        "textHex": "d0c0e0",
+        "greenHex": "33cc99",
+        "redHex": "ff5566",
+        "yellowHex": "ffcc44",
+        "purpleHex": "8855cc",
+        "cyanHex": "55aaee",
+        "useGradient": true,
+        "gradientStartHex": "200a40",
+        "gradientEndHex": "0a0520"
+      }
+    ],
+    "furniture": [
+      {
+        "id": "command-console",
+        "name": "커맨드 콘솔",
+        "sprite": [
+          ["303050", "303050", "303050", "303050", "303050", "303050"],
+          ["303050", "00aadd", "00cc66", "ffaa00", "ff4444", "303050"],
+          ["303050", "00aadd", "00cc66", "ffaa00", "ff4444", "303050"],
+          ["303050", "303050", "303050", "303050", "303050", "303050"],
+          ["202040", "303050", "303050", "303050", "303050", "202040"],
+          ["202040", "", "", "", "", "202040"]
+        ],
+        "width": 3,
+        "height": 2,
+        "zone": "mainOffice"
+      },
+      {
+        "id": "airlock-door",
+        "name": "에어락 도어",
+        "sprite": [
+          ["808080", "808080", "808080", "808080"],
+          ["808080", "4a90d9", "4a90d9", "808080"],
+          ["808080", "4a90d9", "4a90d9", "808080"],
+          ["808080", "4a90d9", "4a90d9", "808080"],
+          ["808080", "ff4444", "ff4444", "808080"],
+          ["808080", "808080", "808080", "808080"]
+        ],
+        "width": 2,
+        "height": 3,
+        "zone": "mainOffice"
+      },
+      {
+        "id": "oxygen-tank",
+        "name": "산소 탱크",
+        "sprite": [
+          ["", "808080", ""],
+          ["808080", "c0c0c0", "808080"],
+          ["808080", "c0c0c0", "808080"],
+          ["808080", "c0c0c0", "808080"],
+          ["808080", "00cc66", "808080"],
+          ["", "808080", ""]
+        ],
+        "width": 1,
+        "height": 3,
+        "zone": "mainOffice"
+      },
+      {
+        "id": "satellite-dish",
+        "name": "위성 안테나",
+        "sprite": [
+          ["", "", "", "4a90d9", ""],
+          ["", "", "4a90d9", "", ""],
+          ["4a90d9", "4a90d9", "4a90d9", "4a90d9", "4a90d9"],
+          ["", "4a90d9", "4a90d9", "4a90d9", ""],
+          ["", "", "808080", "", ""],
+          ["", "", "808080", "", ""],
+          ["808080", "808080", "808080", "808080", "808080"]
+        ],
+        "width": 2,
+        "height": 3,
+        "zone": "mainOffice"
+      },
+      {
+        "id": "zero-g-chair",
+        "name": "무중력 의자",
+        "sprite": [
+          ["", "303050", "303050", ""],
+          ["303050", "4a90d9", "4a90d9", "303050"],
+          ["303050", "4a90d9", "4a90d9", "303050"],
+          ["", "303050", "303050", ""],
+          ["", "", "808080", ""]
+        ],
+        "width": 2,
+        "height": 2,
+        "zone": "mainOffice"
+      }
+    ],
+    "effects": [
+      {
+        "id": "launch-confetti",
+        "trigger": "onSessionComplete",
+        "type": "confetti",
+        "config": {
+          "colors": ["4a90d9", "00cc66", "ffaa00", "aa55cc", "00aadd"],
+          "count": 50,
+          "duration": 3.5
+        },
+        "enabled": true
+      },
+      {
+        "id": "alarm-shake",
+        "trigger": "onSessionError",
+        "type": "screen-shake",
+        "config": {
+          "intensity": 8.0,
+          "duration": 0.6
+        },
+        "enabled": true
+      }
+    ],
+    "bossLines": [
+      "휴스턴, 문제가 발생했다! 버그 리포트 올려!",
+      "산소가 부족해! 빨리 커밋해!",
+      "미션 컨트롤에서 코드 리뷰 요청이 왔다!"
+    ]
+  }
+}

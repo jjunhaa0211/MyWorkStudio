@@ -25,6 +25,8 @@ public class PluginHost: ObservableObject {
     @Published public var effects: [LoadedEffect] = []
     @Published public var furniture: [LoadedFurniture] = []
     @Published public var officePresets: [LoadedOfficePreset] = []
+    /// 마지막 플러그인 에러 (UI 알림용)
+    @Published public var lastPluginError: String?
 
     public struct LoadedPanel: Identifiable {
         public let id: String
@@ -126,6 +128,9 @@ public class PluginHost: ObservableObject {
                     PluginManager.shared.manifestCacheSet(pluginPath, manifest)
                 } catch {
                     CrashLogger.shared.warning("PluginHost: Failed to load manifest at \(manifestURL.path) — \(error.localizedDescription)")
+                    DispatchQueue.main.async { [weak self] in
+                        self?.lastPluginError = "Plugin manifest load failed: \(manifestURL.lastPathComponent) — \(error.localizedDescription)"
+                    }
                     continue
                 }
             }
@@ -2344,8 +2349,9 @@ public class PluginManager: ObservableObject {
                 ]
             )
 
-        // ── 타이핑 콤보 팩 ──
-        case "typing-combo-pack":
+        // typing-combo-pack removed
+
+        case "_removed_typing_combo_pack_":
             let pluginJSON = """
             {
               "name": "타이핑 콤보 팩",
@@ -2652,7 +2658,7 @@ public class PluginManager: ObservableObject {
                 "skinTone": "e8c4a0",
                 "shirtColor": "4ac6b7",
                 "pantsColor": "3291ff",
-                "hatType": "straw",
+                "hatType": "beanie",
                 "accessory": "sunglasses",
                 "species": "Human",
                 "jobRole": "developer"
@@ -2888,8 +2894,8 @@ public class PluginManager: ObservableObject {
                 "skinTone": "c4a882",
                 "shirtColor": "4b5320",
                 "pantsColor": "3b3b2e",
-                "hatType": "helmet",
-                "accessory": "scope",
+                "hatType": "cap",
+                "accessory": "sunglasses",
                 "species": "Human",
                 "jobRole": "developer"
               },
@@ -2901,8 +2907,8 @@ public class PluginManager: ObservableObject {
                 "skinTone": "e8c4a0",
                 "shirtColor": "ffffff",
                 "pantsColor": "4b5320",
-                "hatType": "medic",
-                "accessory": "cross",
+                "hatType": "hardhat",
+                "accessory": "scarf",
                 "species": "Human",
                 "jobRole": "qa"
               },
@@ -2915,7 +2921,7 @@ public class PluginManager: ObservableObject {
                 "shirtColor": "556b2f",
                 "pantsColor": "3b3b2e",
                 "hatType": "beret",
-                "accessory": "radio",
+                "accessory": "glasses",
                 "species": "Human",
                 "jobRole": "sre"
               }

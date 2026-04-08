@@ -19,6 +19,10 @@ public struct GitCommitNode: Identifiable, Equatable {
     public let refs: [GitRef]
     public var lane: Int = 0         // column for graph drawing
     public var activeLanes: Set<Int> = [] // which lanes are active at this row (for drawing vertical lines)
+    /// 자식 커밋들이 사용하는 레인 (브랜치 분기 곡선용)
+    public var childLanes: Set<Int> = []
+    /// 첫 번째 부모의 레인 (-1이면 부모 없음)
+    public var firstParentLane: Int = -1
 
     public struct GitRef: Equatable {
         public let name: String
@@ -1037,6 +1041,21 @@ public enum GitDataParser {
                 let removedIdx = activeLanes.count - 1
                 activeLanes.removeLast()
                 emptyLanes.removeAll { $0 == removedIdx }
+            }
+        }
+
+        // 첫 번째 부모 레인 + 자식 레인 계산
+        let laneMap = Dictionary(uniqueKeysWithValues: result.map { ($0.id, $0.lane) })
+        for i in 0..<result.count {
+            let commit = result[i]
+            if let firstParent = commit.parentHashes.first, let pLane = laneMap[firstParent] {
+                result[i].firstParentLane = pLane
+            }
+            // 자식 관계: 이 커밋을 부모로 가진 커밋들의 레인을 기록
+            for parentHash in commit.parentHashes {
+                if let parentIdx = result.firstIndex(where: { $0.id == parentHash }) {
+                    result[parentIdx].childLanes.insert(commit.lane)
+                }
             }
         }
 

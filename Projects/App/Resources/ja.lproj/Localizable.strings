@@ -2684,3 +2684,16 @@
 
 "office.action.terminal" = "ターミナルを開く";
 "office.action.role" = "役職変更";
+
+/* App Icon Settings */
+"settings.appicon" = "アプリアイコン";
+"settings.icon.classic" = "クラシック";
+"settings.icon.pixel" = "ピクセル";
+"settings.icon.ocean" = "オーシャン";
+"settings.icon.sunset" = "サンセット";
+"settings.icon.mint" = "ミント";
+"settings.icon.slate" = "スレート";
+"settings.icon.change.title" = "アプリアイコン変更";
+"settings.icon.restart" = "再起動";
+"settings.icon.change.message" = "アプリアイコンを変更するには再起動が必要です。";
+"button.cancel" = "キャンセル";

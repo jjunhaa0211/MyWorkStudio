@@ -1,0 +1,28 @@
+[
+  {
+    "id": "arcade_master",
+    "name": "아케이드 마스터",
+    "archetype": "모든 게임의 하이스코어를 보유한 레전드 개발자",
+    "hairColor": "ff6600",
+    "skinTone": "e8c4a0",
+    "shirtColor": "1a1a1a",
+    "pantsColor": "2a2a2a",
+    "hatType": "cap",
+    "accessory": "sunglasses",
+    "species": "Human",
+    "jobRole": "developer"
+  },
+  {
+    "id": "pixel_warrior",
+    "name": "픽셀 전사",
+    "archetype": "8비트 세계에서 온 버그 슬레이어",
+    "hairColor": "33cc33",
+    "skinTone": "d4a574",
+    "shirtColor": "9933ff",
+    "pantsColor": "1a1a1a",
+    "hatType": "helmet",
+    "accessory": "badge",
+    "species": "Robot",
+    "jobRole": "qa"
+  }
+]

@@ -90,29 +90,29 @@ extension SettingsView {
                 }
             }
 
-            settingsSection(title: "앱 아이콘", subtitle: appIconLabel(settings.appIconStyle)) {
+            settingsSection(title: NSLocalizedString("settings.appicon", comment: ""), subtitle: appIconLabel(settings.appIconStyle)) {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 72), spacing: 10)], spacing: 10) {
-                    appIconButton(style: "classic", label: "클래식", iconName: "AppIcon", color: Color(red: 0.8, green: 0.65, blue: 0.25))
-                    appIconButton(style: "pixel", label: "픽셀", iconName: "AppIconPixelPreview", color: Color(red: 0.35, green: 0.55, blue: 0.82))
-                    appIconButton(style: "ocean", label: "오션", iconName: "AppIconOceanPreview", color: Color(red: 0.12, green: 0.62, blue: 0.82))
-                    appIconButton(style: "sunset", label: "선셋", iconName: "AppIconSunsetPreview", color: Color(red: 0.88, green: 0.48, blue: 0.18))
-                    appIconButton(style: "mint", label: "민트", iconName: "AppIconMintPreview", color: Color(red: 0.18, green: 0.78, blue: 0.55))
-                    appIconButton(style: "slate", label: "슬레이트", iconName: "AppIconSlatePreview", color: Color(red: 0.38, green: 0.45, blue: 0.65))
+                    appIconButton(style: "classic", label: NSLocalizedString("settings.icon.classic", comment: ""), iconName: "AppIcon", color: Color(red: 0.8, green: 0.65, blue: 0.25))
+                    appIconButton(style: "pixel", label: NSLocalizedString("settings.icon.pixel", comment: ""), iconName: "AppIconPixelPreview", color: Color(red: 0.35, green: 0.55, blue: 0.82))
+                    appIconButton(style: "ocean", label: NSLocalizedString("settings.icon.ocean", comment: ""), iconName: "AppIconOceanPreview", color: Color(red: 0.12, green: 0.62, blue: 0.82))
+                    appIconButton(style: "sunset", label: NSLocalizedString("settings.icon.sunset", comment: ""), iconName: "AppIconSunsetPreview", color: Color(red: 0.88, green: 0.48, blue: 0.18))
+                    appIconButton(style: "mint", label: NSLocalizedString("settings.icon.mint", comment: ""), iconName: "AppIconMintPreview", color: Color(red: 0.18, green: 0.78, blue: 0.55))
+                    appIconButton(style: "slate", label: NSLocalizedString("settings.icon.slate", comment: ""), iconName: "AppIconSlatePreview", color: Color(red: 0.38, green: 0.45, blue: 0.65))
                 }
             }
-            .alert("앱 아이콘 변경", isPresented: Binding(
+            .alert(NSLocalizedString("settings.icon.change.title", comment: ""), isPresented: Binding(
                 get: { showIconChangeAlert },
                 set: { showIconChangeAlert = $0 }
             )) {
-                Button("재시작", role: .destructive) {
+                Button(NSLocalizedString("settings.icon.restart", comment: ""), role: .destructive) {
                     restartApp()
                 }
-                Button("취소", role: .cancel) {
+                Button(NSLocalizedString("button.cancel", comment: ""), role: .cancel) {
                     // revert
                     settings.appIconStyle = pendingIconStyle == "terminal" ? "classic" : "terminal"
                 }
             } message: {
-                Text("앱 아이콘을 변경하려면 앱을 재시작해야 합니다.")
+                Text(NSLocalizedString("settings.icon.change.message", comment: ""))
             }
 
             settingsSection(title: NSLocalizedString("theme.section.terminal", comment: ""), subtitle: settings.rawTerminalMode ? NSLocalizedString("theme.terminal.raw", comment: "") : NSLocalizedString("theme.terminal.doffice", comment: "")) {
@@ -161,10 +161,16 @@ extension SettingsView {
                             Text("GitHub").font(Theme.mono(9, weight: .bold))
                                 .appButtonSurface(tone: .accent, compact: true)
                         }.buttonStyle(.plain)
-                        Button(action: { UpdateChecker.shared.performUpdate() }) {
+                        Button(action: {
+                            UpdateChecker.shared.checkForUpdates()
+                            showUpdateSheet = true
+                        }) {
                             Text(NSLocalizedString("settings.appinfo.update", comment: "")).font(Theme.mono(9, weight: .bold))
                                 .appButtonSurface(tone: .green, compact: true)
                         }.buttonStyle(.plain)
+                        .sheet(isPresented: $showUpdateSheet) {
+                            UpdateSheet().dofficeSheetPresentation()
+                        }
                         Spacer()
                     }
                 }
@@ -174,12 +180,12 @@ extension SettingsView {
 
     private func appIconLabel(_ style: String) -> String {
         switch style {
-        case "classic": return "클래식"
-        case "pixel": return "픽셀"
-        case "ocean": return "오션"
-        case "sunset": return "선셋"
-        case "mint": return "민트"
-        case "slate": return "슬레이트"
+        case "classic": return NSLocalizedString("settings.icon.classic", comment: "")
+        case "pixel": return NSLocalizedString("settings.icon.pixel", comment: "")
+        case "ocean": return NSLocalizedString("settings.icon.ocean", comment: "")
+        case "sunset": return NSLocalizedString("settings.icon.sunset", comment: "")
+        case "mint": return NSLocalizedString("settings.icon.mint", comment: "")
+        case "slate": return NSLocalizedString("settings.icon.slate", comment: "")
         default: return style
         }
     }

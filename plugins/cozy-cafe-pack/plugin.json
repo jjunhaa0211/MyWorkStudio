@@ -1,0 +1,129 @@
+{
+  "name": "아늑한 카페 팩",
+  "version": "1.0.0",
+  "description": "카페에서 코딩하는 감성! 에스프레소 머신과 소파 코너에서 라떼 한 잔과 함께.",
+  "author": "Doffice",
+  "contributes": {
+    "characters": "characters.json",
+    "themes": [
+      {
+        "id": "cafe-warm",
+        "name": "카페 (따뜻한 오후)",
+        "isDark": false,
+        "accentHex": "8b5e3c",
+        "bgHex": "faf3e8",
+        "cardHex": "fff8f0",
+        "textHex": "3b2f2f",
+        "greenHex": "6b8e23",
+        "redHex": "c0392b",
+        "yellowHex": "d4a017",
+        "purpleHex": "7d4e57",
+        "cyanHex": "5f9ea0",
+        "useGradient": true,
+        "gradientStartHex": "d4a574",
+        "gradientEndHex": "faf3e8"
+      },
+      {
+        "id": "cafe-evening",
+        "name": "카페 (저녁 무드)",
+        "isDark": true,
+        "accentHex": "c68e5a",
+        "bgHex": "1a1210",
+        "cardHex": "2a201a",
+        "textHex": "e8d5c0",
+        "greenHex": "7a9a3a",
+        "redHex": "b03020",
+        "yellowHex": "c49020",
+        "purpleHex": "6a3a4a",
+        "cyanHex": "4a8a8a",
+        "useGradient": true,
+        "gradientStartHex": "2a1a10",
+        "gradientEndHex": "1a1210"
+      }
+    ],
+    "furniture": [
+      {
+        "id": "coffee-bar",
+        "name": "커피 바",
+        "sprite": [
+          ["8b5e3c", "8b5e3c", "8b5e3c", "8b5e3c", "8b5e3c", "8b5e3c"],
+          ["6b4226", "d4a574", "c68e5a", "d4a574", "c68e5a", "6b4226"],
+          ["6b4226", "6b4226", "6b4226", "6b4226", "6b4226", "6b4226"],
+          ["6b4226", "", "", "", "", "6b4226"],
+          ["6b4226", "", "", "", "", "6b4226"]
+        ],
+        "width": 3,
+        "height": 2,
+        "zone": "mainOffice"
+      },
+      {
+        "id": "espresso-machine",
+        "name": "에스프레소 머신",
+        "sprite": [
+          ["", "a0a0a0", "a0a0a0", ""],
+          ["808080", "c0c0c0", "c0c0c0", "808080"],
+          ["808080", "c0c0c0", "c0c0c0", "808080"],
+          ["808080", "", "", "808080"],
+          ["a0a0a0", "a0a0a0", "a0a0a0", "a0a0a0"]
+        ],
+        "width": 2,
+        "height": 2,
+        "zone": "mainOffice"
+      },
+      {
+        "id": "bookshelf-cafe",
+        "name": "카페 책장",
+        "sprite": [
+          ["6b4226", "6b4226", "6b4226", "6b4226", "6b4226"],
+          ["6b4226", "c0392b", "3291ff", "6b8e23", "6b4226"],
+          ["6b4226", "6b4226", "6b4226", "6b4226", "6b4226"],
+          ["6b4226", "d4a017", "8e4ec6", "c0392b", "6b4226"],
+          ["6b4226", "6b4226", "6b4226", "6b4226", "6b4226"],
+          ["6b4226", "3291ff", "6b8e23", "d4a017", "6b4226"],
+          ["6b4226", "6b4226", "6b4226", "6b4226", "6b4226"]
+        ],
+        "width": 2,
+        "height": 3,
+        "zone": "mainOffice"
+      },
+      {
+        "id": "sofa-corner",
+        "name": "소파 코너",
+        "sprite": [
+          ["7d4e57", "7d4e57", "7d4e57", "7d4e57", "7d4e57", "7d4e57"],
+          ["7d4e57", "a06070", "a06070", "a06070", "a06070", "7d4e57"],
+          ["7d4e57", "a06070", "a06070", "a06070", "a06070", "7d4e57"],
+          ["6b4226", "", "", "", "", "6b4226"]
+        ],
+        "width": 3,
+        "height": 1,
+        "zone": "mainOffice"
+      },
+      {
+        "id": "chalkboard-menu",
+        "name": "칠판 메뉴",
+        "sprite": [
+          ["6b4226", "6b4226", "6b4226", "6b4226", "6b4226"],
+          ["6b4226", "2a3a2a", "2a3a2a", "2a3a2a", "6b4226"],
+          ["6b4226", "2a3a2a", "ffffff", "2a3a2a", "6b4226"],
+          ["6b4226", "2a3a2a", "2a3a2a", "2a3a2a", "6b4226"],
+          ["6b4226", "2a3a2a", "ffffff", "2a3a2a", "6b4226"],
+          ["6b4226", "6b4226", "6b4226", "6b4226", "6b4226"]
+        ],
+        "width": 2,
+        "height": 2,
+        "zone": "mainOffice"
+      }
+    ],
+    "achievements": [
+      {
+        "id": "coffee-addict",
+        "name": "커피 중독자",
+        "description": "카페 테마에서 10시간 이상 코딩했습니다",
+        "icon": "cup.and.saucer.fill",
+        "rarity": "epic",
+        "xp": 300
+      }
+    ]
+  }
+}
