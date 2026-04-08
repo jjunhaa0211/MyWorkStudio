@@ -1365,8 +1365,20 @@ class PluginManager: ObservableObject {
             version = v
         }
 
+        // plugin.json의 contributes 필드 체크 (effects, furniture, themes 등)
+        let pluginJSON = base.appendingPathComponent("plugin.json")
+        var hasPluginContributes = false
+        if fm.fileExists(atPath: pluginJSON.path),
+           let data = try? Data(contentsOf: pluginJSON),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let contributes = json["contributes"] as? [String: Any],
+           !contributes.isEmpty {
+            hasPluginContributes = true
+            if version == nil, let v = json["version"] as? String { version = v }
+        }
+
         var warnings: [String] = []
-        let hasAnything = hasClaudeMD || hasHooks || hasSlashCommands || hasMCPServers || hasSettings || hasCharacters
+        let hasAnything = hasClaudeMD || hasHooks || hasSlashCommands || hasMCPServers || hasSettings || hasCharacters || hasPluginContributes
         if !hasAnything {
             warnings.append(NSLocalizedString("plugin.warn.empty", comment: ""))
         }
