@@ -17,6 +17,7 @@ struct OfficeSceneView: View {
     @State private var currentFPS: Double = OfficeConstants.fps
     @State private var tappedCharacterTabId: String?
     @State private var pluginPlacementNotice: String?
+    @State private var editPanelCollapsed = false
 
     private let map: OfficeMap
     /// Single consolidated timer — fires at max FPS, advance() throttles internally
@@ -503,9 +504,20 @@ struct OfficeSceneView: View {
 
     private var editPanel: some View {
         VStack(alignment: .trailing, spacing: 8) {
-            Text("LAYOUT EDIT")
-                .font(Theme.mono(9, weight: .bold))
-                .foregroundColor(Theme.textDim)
+            HStack(spacing: 6) {
+                Spacer()
+                Text("LAYOUT EDIT")
+                    .font(Theme.mono(9, weight: .bold))
+                    .foregroundColor(Theme.textDim)
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) { editPanelCollapsed.toggle() }
+                } label: {
+                    Image(systemName: editPanelCollapsed ? "chevron.down" : "chevron.up")
+                        .font(.system(size: Theme.iconSize(8), weight: .bold))
+                        .foregroundColor(Theme.textDim)
+                }
+                .buttonStyle(.plain)
+            }
 
             // 선택된 가구 정보 + 액션 버튼
             if let furniture = selectedFurniture {
@@ -570,6 +582,7 @@ struct OfficeSceneView: View {
                     .overlay(RoundedRectangle(cornerRadius: Theme.cornerMedium).stroke(Theme.green.opacity(0.24), lineWidth: 1))
             }
 
+            if !editPanelCollapsed {
             ScrollView(.vertical, showsIndicators: false) {
                 let gridColumns = [GridItem(.adaptive(minimum: 72, maximum: 90), spacing: 6)]
                 VStack(alignment: .trailing, spacing: 8) {
@@ -666,7 +679,8 @@ struct OfficeSceneView: View {
                     }
                 }
             }
-            .frame(maxHeight: 400)
+            .frame(maxHeight: 320)
+            } // end if !editPanelCollapsed
 
             HStack(spacing: 6) {
                 Button(NSLocalizedString("office.save", comment: "")) {

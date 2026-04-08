@@ -18,6 +18,7 @@ public struct OfficeSceneView: View {
     @State private var currentFPS: Double = OfficeConstants.fps
     @State private var tappedCharacterTabId: String?
     @State private var pluginPlacementNotice: String?
+    @State private var editPanelCollapsed = false
 
     private let map: OfficeMap
     /// Single consolidated timer — fires at max FPS, advance() throttles internally
@@ -92,6 +93,15 @@ public struct OfficeSceneView: View {
         }
 
         return pluginHost.furniture.first(where: { $0.decl.id == pluginFurnitureId })
+    }
+
+    private var sortedPluginFurniture: [PluginHost.LoadedFurniture] {
+        pluginHost.furniture.sorted {
+            if $0.pluginName == $1.pluginName {
+                return $0.decl.name.localizedStandardCompare($1.decl.name) == .orderedAscending
+            }
+            return $0.pluginName.localizedStandardCompare($1.pluginName) == .orderedAscending
+        }
     }
 
     public var body: some View {
@@ -522,9 +532,20 @@ public struct OfficeSceneView: View {
 
     private var editPanel: some View {
         VStack(alignment: .trailing, spacing: 8) {
-            Text("LAYOUT EDIT")
-                .font(Theme.mono(9, weight: .bold))
-                .foregroundColor(Theme.textDim)
+            HStack(spacing: 6) {
+                Spacer()
+                Text("LAYOUT EDIT")
+                    .font(Theme.mono(9, weight: .bold))
+                    .foregroundColor(Theme.textDim)
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) { editPanelCollapsed.toggle() }
+                } label: {
+                    Image(systemName: editPanelCollapsed ? "chevron.down" : "chevron.up")
+                        .font(.system(size: Theme.iconSize(8), weight: .bold))
+                        .foregroundColor(Theme.textDim)
+                }
+                .buttonStyle(.plain)
+            }
 
             // 선택된 가구 정보 + 액션 버튼
             if let furniture = selectedFurniture {
@@ -603,8 +624,10 @@ public struct OfficeSceneView: View {
                     .overlay(RoundedRectangle(cornerRadius: Theme.cornerMedium).stroke(Theme.green.opacity(0.24), lineWidth: 1))
             }
 
+            if !editPanelCollapsed {
             ScrollView(.vertical, showsIndicators: false) {
                 let gridColumns = [GridItem(.adaptive(minimum: 72, maximum: 90), spacing: 6)]
+                let pluginGridColumns = [GridItem(.adaptive(minimum: 96, maximum: 116), spacing: 10)]
                 VStack(alignment: .trailing, spacing: 8) {
                     // 기본 가구 카탈로그
                     VStack(alignment: .leading, spacing: 4) {
@@ -686,44 +709,70 @@ public struct OfficeSceneView: View {
 
                     // Plugin furniture
                     if !pluginHost.furniture.isEmpty {
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: 8) {
                             Text("PLUGIN FURNITURE")
                                 .font(Theme.mono(8, weight: .bold))
                                 .foregroundColor(Theme.purple)
                                 .frame(maxWidth: .infinity, alignment: .trailing)
 
-                            LazyVGrid(columns: gridColumns, spacing: 6) {
-                                ForEach(pluginHost.furniture) { item in
+                            LazyVGrid(columns: pluginGridColumns, spacing: 10) {
+                                ForEach(sortedPluginFurniture) { item in
                                     Button {
                                         placePluginFurniture(item)
                                     } label: {
-                                        VStack(spacing: 3) {
-                                            Canvas { ctx, canvasSize in
-                                                OfficeSpriteRenderer.drawDetailedFurniture(
-                                                    ctx, type: .plugin,
-                                                    x: 2, y: 2,
-                                                    w: canvasSize.width - 4,
-                                                    h: canvasSize.height - 4,
-                                                    dark: false, frame: 0,
-                                                    pluginFurnitureId: item.decl.id
-                                                )
+                                        VStack(spacing: 6) {
+                                            ZStack {
+                                                RoundedRectangle(cornerRadius: Theme.cornerLarge)
+                                                    .fill(Color.white.opacity(settings.isDarkMode ? 0.10 : 0.96))
+
+                                                RoundedRectangle(cornerRadius: Theme.cornerMedium)
+                                                    .fill(
+                                                        LinearGradient(
+                                                            colors: [
+                                                                Color.white.opacity(settings.isDarkMode ? 0.08 : 0.98),
+                                                                Theme.purple.opacity(settings.isDarkMode ? 0.10 : 0.06)
+                                                            ],
+                                                            startPoint: .top,
+                                                            endPoint: .bottom
+                                                        )
+                                                    )
+                                                    .padding(4)
+
+                                                Canvas { ctx, canvasSize in
+                                                    OfficeSpriteRenderer.drawPluginFurniturePreview(
+                                                        ctx,
+                                                        sprite: item.decl.sprite,
+                                                        in: CGRect(origin: .zero, size: canvasSize)
+                                                    )
+                                                }
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 4)
                                             }
-                                            .frame(width: 48, height: 48)
-                                            .background(RoundedRectangle(cornerRadius: Theme.cornerMedium).fill(Theme.bgSurface.opacity(0.6)))
-                                            .overlay(RoundedRectangle(cornerRadius: Theme.cornerMedium).stroke(Theme.purple.opacity(0.3), lineWidth: 1))
+                                            .frame(height: 74)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: Theme.cornerLarge)
+                                                    .stroke(Theme.purple.opacity(settings.isDarkMode ? 0.34 : 0.18), lineWidth: 1)
+                                            )
 
                                             Text(item.decl.name)
                                                 .font(Theme.mono(7, weight: .bold))
                                                 .foregroundColor(Theme.textPrimary)
                                                 .lineLimit(1)
                                             Text("\(item.decl.width)x\(item.decl.height)")
-                                                .font(Theme.mono(6))
-                                                .foregroundColor(Theme.purple)
+                                                .font(Theme.mono(6, weight: .bold))
+                                                .foregroundColor(Theme.purple.opacity(0.9))
                                         }
                                         .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 4)
-                                        .background(RoundedRectangle(cornerRadius: Theme.cornerLarge).fill(Theme.bgCard.opacity(0.6)))
-                                        .overlay(RoundedRectangle(cornerRadius: Theme.cornerLarge).stroke(Theme.purple.opacity(0.2), lineWidth: 1))
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 8)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: Theme.cornerXL)
+                                                .fill(Theme.bgCard.opacity(settings.isDarkMode ? 0.84 : 0.92))
+                                        )
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: Theme.cornerXL)
+                                                .stroke(Theme.purple.opacity(0.22), lineWidth: 1)
+                                        )
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -732,7 +781,8 @@ public struct OfficeSceneView: View {
                     }
                 }
             }
-            .frame(maxHeight: 400)
+            .frame(maxHeight: 320)
+            } // end if !editPanelCollapsed
 
             HStack(spacing: 6) {
                 Button(NSLocalizedString("office.save", comment: "")) {

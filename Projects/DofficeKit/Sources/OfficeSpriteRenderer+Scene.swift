@@ -140,49 +140,211 @@ extension OfficeSpriteRenderer {
 
     // MARK: - Plugin Furniture Sprite Renderer
 
+    private struct PluginFurnitureColor {
+        let red: CGFloat
+        let green: CGFloat
+        let blue: CGFloat
+
+        static let white = PluginFurnitureColor(red: 1, green: 1, blue: 1)
+        static let black = PluginFurnitureColor(red: 0, green: 0, blue: 0)
+
+        func swiftUIColor(opacity: Double = 1.0) -> Color {
+            Color(red: red, green: green, blue: blue, opacity: opacity)
+        }
+
+        func mixed(with other: PluginFurnitureColor, amount: CGFloat) -> PluginFurnitureColor {
+            let clamped = max(0, min(1, amount))
+            return PluginFurnitureColor(
+                red: red + (other.red - red) * clamped,
+                green: green + (other.green - green) * clamped,
+                blue: blue + (other.blue - blue) * clamped
+            )
+        }
+
+        func lighten(_ amount: CGFloat) -> PluginFurnitureColor {
+            mixed(with: .white, amount: amount)
+        }
+
+        func darken(_ amount: CGFloat) -> PluginFurnitureColor {
+            mixed(with: .black, amount: amount)
+        }
+    }
+
     private struct PluginFurniturePixel {
         let row: Int
         let col: Int
-        let color: Color
+        let color: PluginFurnitureColor
     }
 
     private struct PluginFurnitureSpriteCacheEntry {
         let rows: Int
         let cols: Int
         let pixels: [PluginFurniturePixel]
+        let occupied: Set<Int>
+        let minRow: Int
+        let maxRow: Int
+        let minCol: Int
+        let maxCol: Int
     }
 
-    private static var pluginFurnitureImageCache: [String: PluginFurnitureSpriteCacheEntry] = [:]
+    private static var pluginFurnitureSpriteCache: [String: PluginFurnitureSpriteCacheEntry] = [:]
 
     internal static func clearPluginFurnitureImageCache() {
-        pluginFurnitureImageCache.removeAll(keepingCapacity: true)
+        pluginFurnitureSpriteCache.removeAll(keepingCapacity: true)
     }
 
     private static func drawPluginFurniture(_ ctx: GraphicsContext, pluginId: String,
                                              x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat) {
         guard let sprite = pluginFurnitureSpriteEntry(for: pluginId) else { return }
+        drawPluginSprite(
+            ctx,
+            entry: sprite,
+            in: CGRect(x: x, y: y, width: w, height: h),
+            fitToContent: false,
+            showsGroundShadow: false
+        )
+    }
 
-        let pixelWidth = w / CGFloat(sprite.cols)
-        let pixelHeight = h / CGFloat(sprite.rows)
+    public static func drawPluginFurniturePreview(_ ctx: GraphicsContext, sprite: [[String]], in rect: CGRect) {
+        guard let entry = parsedPluginFurnitureSprite(from: sprite) else { return }
 
-        for pixel in sprite.pixels {
-            let rect = CGRect(
-                x: x + CGFloat(pixel.col) * pixelWidth,
-                y: y + CGFloat(pixel.row) * pixelHeight,
-                width: pixelWidth,
-                height: pixelHeight
+        let floorHeight = max(6, rect.height * 0.16)
+        let floorRect = CGRect(
+            x: rect.minX + rect.width * 0.14,
+            y: rect.maxY - floorHeight - 2,
+            width: rect.width * 0.72,
+            height: floorHeight
+        )
+        ctx.fill(
+            Path(ellipseIn: floorRect),
+            with: .color(Color.black.opacity(0.08))
+        )
+
+        let contentRect = rect.insetBy(dx: 6, dy: 6)
+        drawPluginSprite(
+            ctx,
+            entry: entry,
+            in: contentRect,
+            fitToContent: true,
+            showsGroundShadow: true
+        )
+    }
+
+    private static func drawPluginSprite(
+        _ ctx: GraphicsContext,
+        entry: PluginFurnitureSpriteCacheEntry,
+        in rect: CGRect,
+        fitToContent: Bool,
+        showsGroundShadow: Bool
+    ) {
+        let minRow = fitToContent ? entry.minRow : 0
+        let maxRow = fitToContent ? entry.maxRow : entry.rows - 1
+        let minCol = fitToContent ? entry.minCol : 0
+        let maxCol = fitToContent ? entry.maxCol : entry.cols - 1
+
+        let drawRows = max(1, maxRow - minRow + 1)
+        let drawCols = max(1, maxCol - minCol + 1)
+        let pixelSide = min(rect.width / CGFloat(drawCols), rect.height / CGFloat(drawRows))
+        guard pixelSide > 0 else { return }
+
+        let spriteWidth = CGFloat(drawCols) * pixelSide
+        let spriteHeight = CGFloat(drawRows) * pixelSide
+        let shadowLift = showsGroundShadow ? pixelSide * 0.18 : 0
+        let originX = rect.midX - spriteWidth / 2
+        let originY = rect.midY - spriteHeight / 2 - shadowLift
+
+        if showsGroundShadow {
+            let shadowRect = CGRect(
+                x: rect.midX - spriteWidth * 0.34,
+                y: originY + spriteHeight - pixelSide * 0.05,
+                width: spriteWidth * 0.68,
+                height: max(4, pixelSide * 0.55)
             )
-            ctx.fill(Path(rect), with: .color(pixel.color))
+            ctx.fill(Path(ellipseIn: shadowRect), with: .color(Color.black.opacity(0.12)))
+        }
+
+        let outline = max(0.35, pixelSide * 0.1)
+        let innerLight = max(0.4, pixelSide * 0.18)
+        let innerShade = max(0.45, pixelSide * 0.16)
+
+        for pixel in entry.pixels {
+            let localCol = fitToContent ? (pixel.col - minCol) : pixel.col
+            let localRow = fitToContent ? (pixel.row - minRow) : pixel.row
+            let rect = CGRect(
+                x: originX + CGFloat(localCol) * pixelSide,
+                y: originY + CGFloat(localRow) * pixelSide,
+                width: pixelSide,
+                height: pixelSide
+            )
+
+            let topEmpty = !hasPixel(entry, row: pixel.row - 1, col: pixel.col)
+            let bottomEmpty = !hasPixel(entry, row: pixel.row + 1, col: pixel.col)
+            let leftEmpty = !hasPixel(entry, row: pixel.row, col: pixel.col - 1)
+            let rightEmpty = !hasPixel(entry, row: pixel.row, col: pixel.col + 1)
+
+            let outlineColor = pixel.color.darken(0.48).swiftUIColor(opacity: 0.46)
+            if topEmpty {
+                ctx.fill(Path(CGRect(x: rect.minX, y: rect.minY - outline, width: rect.width, height: outline)), with: .color(outlineColor))
+            }
+            if bottomEmpty {
+                ctx.fill(Path(CGRect(x: rect.minX, y: rect.maxY, width: rect.width, height: outline)), with: .color(outlineColor))
+            }
+            if leftEmpty {
+                ctx.fill(Path(CGRect(x: rect.minX - outline, y: rect.minY, width: outline, height: rect.height)), with: .color(outlineColor))
+            }
+            if rightEmpty {
+                ctx.fill(Path(CGRect(x: rect.maxX, y: rect.minY, width: outline, height: rect.height)), with: .color(outlineColor))
+            }
+
+            ctx.fill(Path(rect), with: .color(pixel.color.swiftUIColor()))
+
+            let lightColor = pixel.color.lighten(0.24).swiftUIColor(opacity: 0.9)
+            let shadeColor = pixel.color.darken(0.24).swiftUIColor(opacity: 0.75)
+
+            if topEmpty {
+                ctx.fill(
+                    Path(CGRect(x: rect.minX + 0.25, y: rect.minY + 0.25, width: max(0, rect.width - 0.5), height: min(innerLight, rect.height * 0.32))),
+                    with: .color(lightColor)
+                )
+            }
+            if leftEmpty {
+                ctx.fill(
+                    Path(CGRect(x: rect.minX + 0.25, y: rect.minY + 0.25, width: min(innerLight, rect.width * 0.32), height: max(0, rect.height - 0.5))),
+                    with: .color(lightColor)
+                )
+            }
+            if bottomEmpty {
+                ctx.fill(
+                    Path(CGRect(x: rect.minX + 0.2, y: rect.maxY - min(innerShade, rect.height * 0.3), width: max(0, rect.width - 0.4), height: min(innerShade, rect.height * 0.3))),
+                    with: .color(shadeColor)
+                )
+            }
+            if rightEmpty {
+                ctx.fill(
+                    Path(CGRect(x: rect.maxX - min(innerShade, rect.width * 0.3), y: rect.minY + 0.2, width: min(innerShade, rect.width * 0.3), height: max(0, rect.height - 0.4))),
+                    with: .color(shadeColor)
+                )
+            }
         }
     }
 
+    private static func hasPixel(_ entry: PluginFurnitureSpriteCacheEntry, row: Int, col: Int) -> Bool {
+        guard row >= 0, col >= 0, row < entry.rows, col < entry.cols else { return false }
+        return entry.occupied.contains(row * entry.cols + col)
+    }
+
     private static func pluginFurnitureSpriteEntry(for pluginId: String) -> PluginFurnitureSpriteCacheEntry? {
-        if let cached = pluginFurnitureImageCache[pluginId] {
+        if let cached = pluginFurnitureSpriteCache[pluginId] {
             return cached
         }
 
         guard let loaded = PluginHost.shared.furniture.first(where: { $0.decl.id == pluginId }) else { return nil }
-        let sprite = loaded.decl.sprite
+        guard let cached = parsedPluginFurnitureSprite(from: loaded.decl.sprite) else { return nil }
+        pluginFurnitureSpriteCache[pluginId] = cached
+        return cached
+    }
+
+    private static func parsedPluginFurnitureSprite(from sprite: [[String]]) -> PluginFurnitureSpriteCacheEntry? {
         guard !sprite.isEmpty else { return nil }
 
         let rows = sprite.count
@@ -191,28 +353,47 @@ extension OfficeSpriteRenderer {
 
         var pixels: [PluginFurniturePixel] = []
         pixels.reserveCapacity(rows * cols)
+        var occupied = Set<Int>()
+        var minRow = rows
+        var maxRow = 0
+        var minCol = cols
+        var maxCol = 0
 
         for (r, row) in sprite.enumerated() {
             for (c, hex) in row.enumerated() {
                 guard !hex.isEmpty else { continue }
                 guard let color = color(from: hex) else { continue }
                 pixels.append(PluginFurniturePixel(row: r, col: c, color: color))
+                occupied.insert(r * cols + c)
+                minRow = min(minRow, r)
+                maxRow = max(maxRow, r)
+                minCol = min(minCol, c)
+                maxCol = max(maxCol, c)
             }
         }
 
-        let cached = PluginFurnitureSpriteCacheEntry(rows: rows, cols: cols, pixels: pixels)
-        pluginFurnitureImageCache[pluginId] = cached
-        return cached
+        guard !pixels.isEmpty else { return nil }
+
+        return PluginFurnitureSpriteCacheEntry(
+            rows: rows,
+            cols: cols,
+            pixels: pixels,
+            occupied: occupied,
+            minRow: minRow,
+            maxRow: maxRow,
+            minCol: minCol,
+            maxCol: maxCol
+        )
     }
 
-    private static func color(from hex: String) -> Color? {
+    private static func color(from hex: String) -> PluginFurnitureColor? {
         var hexVal = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         if hexVal.count == 3 { hexVal = hexVal.map { "\($0)\($0)" }.joined() }
 
         var int: UInt64 = 0
         guard Scanner(string: hexVal).scanHexInt64(&int), hexVal.count == 6 else { return nil }
 
-        return Color(
+        return PluginFurnitureColor(
             red: CGFloat((int >> 16) & 0xFF) / 255.0,
             green: CGFloat((int >> 8) & 0xFF) / 255.0,
             blue: CGFloat(int & 0xFF) / 255.0
