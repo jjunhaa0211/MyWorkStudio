@@ -301,7 +301,7 @@ public class UpdateChecker: ObservableObject {
         rm -rf "$BACKUP"
         if ! mv "$CURRENT" "$BACKUP"; then
             echo "[updater] 백업 실패 — 복원 불필요"
-            open "$CURRENT"
+            open -n "$CURRENT" || "${CURRENT}/Contents/MacOS/Doffice" &
             exit 1
         fi
 
@@ -310,7 +310,7 @@ public class UpdateChecker: ObservableObject {
             echo "[updater] 복사 실패 — 백업에서 복원"
             rm -rf "$CURRENT"
             mv "$BACKUP" "$CURRENT"
-            open "$CURRENT"
+            open -n "$CURRENT" || "${CURRENT}/Contents/MacOS/Doffice" &
             exit 1
         fi
 
@@ -322,7 +322,7 @@ public class UpdateChecker: ObservableObject {
             echo "[updater] 앱 번들 검증 실패 — 백업에서 복원"
             rm -rf "$CURRENT"
             mv "$BACKUP" "$CURRENT"
-            open "$CURRENT"
+            open -n "$CURRENT" || "${CURRENT}/Contents/MacOS/Doffice" &
             exit 1
         fi
 
@@ -330,7 +330,13 @@ public class UpdateChecker: ObservableObject {
         /System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister -f -R -trusted "$CURRENT" 2>/dev/null || true
 
         echo "[updater] 새 앱 실행"
-        open -n "$CURRENT"
+        # open -n 대신 바이너리 직접 실행 (LaunchServices가 다른 앱을 열 수 있으므로)
+        BINARY="${CURRENT}/Contents/MacOS/Doffice"
+        if [ -x "$BINARY" ]; then
+            "$BINARY" &
+        else
+            open -n "$CURRENT"
+        fi
 
         # 정리 (백업 + 임시 다운로드)
         sleep 3
