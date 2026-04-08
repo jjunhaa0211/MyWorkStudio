@@ -155,7 +155,8 @@ struct OfficeSceneView: View {
 
                 if settings.isEditMode {
                     editPanel
-                        .padding(14)
+                        .padding(10)
+                        .frame(width: 220, alignment: .topTrailing)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                 }
 
@@ -503,16 +504,16 @@ struct OfficeSceneView: View {
     }
 
     private var editPanel: some View {
-        VStack(alignment: .trailing, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
-                Spacer()
                 Text("LAYOUT EDIT")
                     .font(Theme.mono(9, weight: .bold))
                     .foregroundColor(Theme.textDim)
+                Spacer()
                 Button {
                     withAnimation(.easeInOut(duration: 0.15)) { editPanelCollapsed.toggle() }
                 } label: {
-                    Image(systemName: editPanelCollapsed ? "chevron.down" : "chevron.up")
+                    Image(systemName: editPanelCollapsed ? "chevron.right" : "chevron.left")
                         .font(.system(size: Theme.iconSize(8), weight: .bold))
                         .foregroundColor(Theme.textDim)
                 }
@@ -521,7 +522,7 @@ struct OfficeSceneView: View {
 
             // 선택된 가구 정보 + 액션 버튼
             if let furniture = selectedFurniture {
-                VStack(alignment: .trailing, spacing: 4) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(furniture.type.rawValue.uppercased())
                         .font(Theme.mono(9, weight: .bold))
                         .foregroundColor(Theme.yellow)

@@ -1000,6 +1000,8 @@
 "accessory.drag.hint" = "드래그로 가구 배치하기";
 "accessory.reset.placement" = "기본 배치로 초기화";
 "accessory.bg.theme" = "배경 테마";
+"accessory.theme.reset" = "기본 테마로 되돌리기";
+"accessory.presets" = "프리셋";
 
 /* Theme - Template pipeline display names */
 "template.pipeline.planner" = "기획자";

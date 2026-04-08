@@ -1008,6 +1008,8 @@
 "accessory.drag.hint" = "Drag to arrange furniture";
 "accessory.reset.placement" = "Reset to default layout";
 "accessory.bg.theme" = "Background Theme";
+"accessory.theme.reset" = "Reset to default theme";
+"accessory.presets" = "PRESETS";
 
 /* Theme - Template pipeline display names */
 "template.pipeline.planner" = "Planner";

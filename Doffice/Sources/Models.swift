@@ -57,6 +57,14 @@ enum ClaudeActivity: String {
     case error = "error"
 }
 
+enum AgentProvider: String, CaseIterable, Identifiable {
+    case claude, codex, gemini
+    var id: String { rawValue }
+    var displayName: String { rawValue.capitalized }
+    var defaultModel: ClaudeModel { .sonnet }
+    @discardableResult func refreshAvailability(force: Bool) -> Bool { true }
+}
+
 enum ClaudeModel: String, CaseIterable, Identifiable {
     case opus = "opus", sonnet = "sonnet", haiku = "haiku"
     var id: String { rawValue }
@@ -904,6 +912,7 @@ class TerminalTab: ObservableObject, Identifiable {
     var totalCost: Double = 0
     @Published var tokenLimit: Int = 45000
     @Published var isClaude: Bool = true
+    var provider: AgentProvider { isClaude ? .claude : .codex }
     @Published var isCompleted: Bool = false
     @Published var gitInfo = GitInfo()
     @Published var summary: SessionSummary?

@@ -142,8 +142,100 @@ struct AccessoryView: View {
                         bgThemeButton(theme)
                     }
                 }
+
+                if !pluginHost.themes.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("PLUGIN THEMES")
+                                .font(Theme.pixel)
+                                .foregroundColor(Theme.textDim)
+                                .tracking(1.5)
+                            Spacer()
+                            Text("\(pluginHost.themes.count)")
+                                .font(Theme.mono(8, weight: .bold))
+                                .foregroundColor(Theme.purple)
+                        }
+
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 2), spacing: 6) {
+                            ForEach(pluginHost.themes) { theme in
+                                pluginThemeCard(theme)
+                            }
+                        }
+
+                        // 플러그인 테마 사용 중일 때 기본 테마 복원 버튼
+                        if settings.themeMode == "custom" {
+                            Button(action: { resetToDefaultTheme() }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "arrow.uturn.backward")
+                                        .font(.system(size: Theme.iconSize(10)))
+                                        .foregroundColor(Theme.textDim)
+                                    Text(NSLocalizedString("accessory.theme.reset", comment: "Reset to default theme"))
+                                        .font(Theme.mono(9, weight: .medium))
+                                        .foregroundColor(Theme.textSecondary)
+                                    Spacer()
+                                }
+                                .padding(.vertical, 8).padding(.horizontal, 10)
+                                .background(RoundedRectangle(cornerRadius: 8).fill(Theme.bgSurface)
+                                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.border.opacity(0.3), lineWidth: 0.5)))
+                            }.buttonStyle(.plain)
+                        }
+                    }
+                }
             }
         }
+    }
+
+    // MARK: - 플러그인 테마 카드
+
+    private func pluginThemeCard(_ theme: PluginHost.LoadedTheme) -> some View {
+        let selected = isPluginThemeSelected(theme)
+        return Button(action: { pluginHost.applyTheme(theme) }) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(Color(hex: theme.decl.accentHex))
+                        .frame(width: 14, height: 14)
+                    Text(theme.decl.name)
+                        .font(Theme.mono(8, weight: .bold))
+                        .foregroundColor(Theme.textPrimary)
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                    if selected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: Theme.iconSize(8)))
+                            .foregroundColor(Theme.green)
+                    }
+                }
+
+                Text(theme.pluginName)
+                    .font(Theme.mono(7, weight: .bold))
+                    .foregroundColor(Theme.purple)
+                    .lineLimit(1)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(RoundedRectangle(cornerRadius: 4).fill(Theme.purple.opacity(0.1)))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(8)
+            .background(RoundedRectangle(cornerRadius: 8).fill(selected ? Theme.purple.opacity(0.08) : Theme.bgSurface))
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(selected ? Theme.purple.opacity(0.42) : Theme.border.opacity(0.24), lineWidth: selected ? 1.5 : 1))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func isPluginThemeSelected(_ theme: PluginHost.LoadedTheme) -> Bool {
+        let customTheme = settings.customTheme
+        return settings.themeMode == "custom"
+            && settings.isDarkMode == theme.decl.isDark
+            && customTheme.accentHex == theme.decl.accentHex
+            && customTheme.bgHex == theme.decl.bgHex
+    }
+
+    private func resetToDefaultTheme() {
+        withAnimation(.easeInOut(duration: 0.15)) {
+            settings.themeMode = settings.isDarkMode ? "dark" : "light"
+        }
+        settings.requestRefreshIfNeeded()
     }
 
     // MARK: - 가구 카드 (미리보기 포함)

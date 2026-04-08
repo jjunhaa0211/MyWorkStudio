@@ -906,37 +906,55 @@ struct GitPanelView: View {
     private func commitRow(_ commit: GitCommitNode) -> some View {
         let isSelected = selectedCommitId == commit.id
         let isHovered = hoveredCommitId == commit.id
-        let graphW = CGFloat(max(git.maxLaneCount, 1)) * 20 + 12
+        let graphW = CGFloat(max(git.maxLaneCount, 1)) * 18 + 16
+        let isMerge = commit.parentHashes.count > 1
 
         return HStack(alignment: .center, spacing: 0) {
+            // 그래프 컬럼
             graphColumn(commit: commit).frame(width: graphW, height: Self.commitRowHeight)
 
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                ForEach(commit.refs, id: \.name) { ref in refBadge(ref) }
+            // 메시지 + ref 뱃지
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    ForEach(commit.refs, id: \.name) { ref in refBadge(ref) }
+                }
+                .fixedSize(horizontal: true, vertical: false)
+
                 Text(commit.message)
-                    .font(Theme.mono(10, weight: isSelected ? .bold : .regular))
+                    .font(Theme.mono(11, weight: isSelected ? .semibold : .regular))
                     .foregroundColor(Theme.textPrimary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-                    .layoutPriority(1)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.leading, 6)
+            .padding(.leading, 8)
 
-            Text(commit.author)
-                .font(Theme.mono(8))
-                .foregroundColor(Theme.textSecondary)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .frame(width: 90, alignment: .leading)
+            // 저자
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(GitDataProvider.laneColors[abs(commit.author.hashValue) % 8])
+                    .frame(width: 6, height: 6)
+                Text(commit.author)
+                    .font(Theme.mono(9))
+                    .foregroundColor(Theme.textSecondary)
+                    .lineLimit(1)
+            }
+            .frame(width: 120, alignment: .leading)
 
+            // 해시
+            Text(commit.shortHash)
+                .font(Theme.mono(9))
+                .foregroundColor(Theme.textMuted)
+                .frame(width: 60, alignment: .leading)
+
+            // 날짜
             Text(Self.relativeDate(commit.date))
-                .font(Theme.mono(8))
+                .font(Theme.mono(9))
                 .foregroundColor(Theme.textDim)
-                .frame(width: 80, alignment: .trailing)
+                .frame(width: 75, alignment: .trailing)
                 .padding(.trailing, 10)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 2)
         .frame(minHeight: Self.commitRowHeight, alignment: .center)
         .background(
             isSelected ? Theme.accentBg(Theme.accent) :
@@ -944,13 +962,13 @@ struct GitPanelView: View {
             .clear
         )
         .overlay(alignment: .bottom) {
-            Rectangle().fill(Theme.borderSubtle).frame(height: 1)
+            Rectangle().fill(Theme.borderSubtle.opacity(0.5)).frame(height: 0.5)
         }
         .overlay(alignment: .leading) {
             if isSelected {
-                Rectangle().fill(Theme.accentBackground).frame(width: 2)
+                Rectangle().fill(Theme.accentBackground).frame(width: 3)
             } else if commit.refs.contains(where: { $0.type == .head }) {
-                Rectangle().fill(Theme.green).frame(width: 2)
+                Rectangle().fill(Theme.green).frame(width: 3)
             }
         }
         .contentShape(Rectangle())
@@ -1004,7 +1022,7 @@ struct GitPanelView: View {
 
     private func graphColumn(commit: GitCommitNode) -> some View {
         let laneColors = GitDataProvider.laneColors
-        let colW: CGFloat = 20
+        let colW: CGFloat = 18
         let activeLanes = commit.activeLanes
         let commitLane = commit.lane
         let parentHashes = commit.parentHashes
@@ -1018,24 +1036,27 @@ struct GitPanelView: View {
             let rowH = size.height
             let midY = rowH / 2
 
-            func laneX(_ lane: Int) -> CGFloat { CGFloat(lane) * colW + 10 }
+            func laneX(_ lane: Int) -> CGFloat { CGFloat(lane) * colW + 9 }
 
+            // 부드러운 라인 (glow + main + highlight 3단계)
             func strokeLine(_ path: Path, color: Color) {
-                ctx.stroke(path, with: .color(color.opacity(0.08)), lineWidth: 5)
-                ctx.stroke(path, with: .color(color.opacity(0.45)), lineWidth: 2)
+                ctx.stroke(path, with: .color(color.opacity(0.06)), lineWidth: 6)
+                ctx.stroke(path, with: .color(color.opacity(0.5)), lineWidth: 2)
             }
 
+            // S-커브 (부드러운 베지어)
             func strokeCurve(from: CGPoint, to: CGPoint, color: Color) {
                 let mp = Path { p in
                     p.move(to: from)
                     p.addCurve(to: to,
-                               control1: CGPoint(x: from.x, y: from.y + (to.y - from.y) * 0.5),
-                               control2: CGPoint(x: to.x, y: to.y - (to.y - from.y) * 0.5))
+                               control1: CGPoint(x: from.x, y: from.y + (to.y - from.y) * 0.6),
+                               control2: CGPoint(x: to.x, y: to.y - (to.y - from.y) * 0.6))
                 }
-                ctx.stroke(mp, with: .color(color.opacity(0.08)), lineWidth: 5)
-                ctx.stroke(mp, with: .color(color.opacity(0.45)), lineWidth: 2)
+                ctx.stroke(mp, with: .color(color.opacity(0.06)), lineWidth: 6)
+                ctx.stroke(mp, with: .color(color.opacity(0.5)), lineWidth: 2)
             }
 
+            // 1) 통과 레인 — 수직선
             for laneIdx in activeLanes where laneIdx != commitLane {
                 let x = laneX(laneIdx)
                 let color = laneColors[laneIdx % laneColors.count]
@@ -1045,6 +1066,7 @@ struct GitPanelView: View {
             let nodeX = laneX(commitLane)
             let nodeColor = laneColors[commitLane % laneColors.count]
 
+            // 2) 위쪽 연결 (자식 → 나)
             let hasChildOnSameLane = childLanes.contains(commitLane) || childLanes.isEmpty
             if hasChildOnSameLane {
                 strokeLine(Path { p in p.move(to: CGPoint(x: nodeX, y: 0)); p.addLine(to: CGPoint(x: nodeX, y: midY)) }, color: nodeColor)
@@ -1055,6 +1077,7 @@ struct GitPanelView: View {
                 strokeCurve(from: CGPoint(x: childX, y: 0), to: CGPoint(x: nodeX, y: midY), color: childColor)
             }
 
+            // 3) 아래쪽 연결 (나 → 부모)
             if !parentHashes.isEmpty {
                 if firstParentLane >= 0 && firstParentLane == commitLane {
                     strokeLine(Path { p in p.move(to: CGPoint(x: nodeX, y: midY)); p.addLine(to: CGPoint(x: nodeX, y: rowH)) }, color: nodeColor)
@@ -1067,6 +1090,7 @@ struct GitPanelView: View {
                 }
             }
 
+            // 4) 머지 부모 커브
             for pIdx in parentHashes.indices.dropFirst() {
                 if let parentLane = laneMap[parentHashes[pIdx]] {
                     let parentX = laneX(parentLane)
@@ -1075,9 +1099,12 @@ struct GitPanelView: View {
                 }
             }
 
-            let r: CGFloat = hasTag ? 5.5 : 4.5
+            // 5) 노드 렌더링
+            let r: CGFloat = hasTag ? 5.5 : isMerge ? 5 : 4
             let nodeRect = CGRect(x: nodeX - r, y: midY - r, width: r * 2, height: r * 2)
+
             if hasTag {
+                // 태그: 다이아몬드
                 let diamond = Path { p in
                     p.move(to: CGPoint(x: nodeX, y: midY - r))
                     p.addLine(to: CGPoint(x: nodeX + r, y: midY))
@@ -1086,16 +1113,23 @@ struct GitPanelView: View {
                     p.closeSubpath()
                 }
                 ctx.fill(diamond, with: .color(Color.yellow))
-                ctx.stroke(diamond, with: .color(Color.yellow.opacity(0.7)), lineWidth: 1.5)
+                ctx.stroke(diamond, with: .color(Color.yellow.opacity(0.5)), lineWidth: 1)
             } else {
-                let glowRect = CGRect(x: nodeX - r - 2, y: midY - r - 2, width: (r + 2) * 2, height: (r + 2) * 2)
-                ctx.fill(Path(ellipseIn: glowRect), with: .color(nodeColor.opacity(0.15)))
+                // 일반/머지 노드
+                let glowRect = CGRect(x: nodeX - r - 3, y: midY - r - 3, width: (r + 3) * 2, height: (r + 3) * 2)
+                ctx.fill(Path(ellipseIn: glowRect), with: .color(nodeColor.opacity(0.12)))
                 ctx.fill(Path(ellipseIn: nodeRect), with: .color(nodeColor))
-                let hlRect = CGRect(x: nodeX - r * 0.4, y: midY - r * 0.4, width: r * 0.8, height: r * 0.8)
-                ctx.fill(Path(ellipseIn: hlRect), with: .color(.white.opacity(0.3)))
+
+                // 하이라이트
+                let hlR = r * 0.35
+                let hlRect = CGRect(x: nodeX - hlR, y: midY - hlR - r * 0.2, width: hlR * 2, height: hlR * 2)
+                ctx.fill(Path(ellipseIn: hlRect), with: .color(.white.opacity(0.35)))
+
                 if isMerge {
-                    let ring = CGRect(x: nodeX - r - 2.5, y: midY - r - 2.5, width: (r + 2.5) * 2, height: (r + 2.5) * 2)
-                    ctx.stroke(Path(ellipseIn: ring), with: .color(nodeColor.opacity(0.7)), lineWidth: 1.5)
+                    // 머지 링
+                    let ringR = r + 2.5
+                    let ring = CGRect(x: nodeX - ringR, y: midY - ringR, width: ringR * 2, height: ringR * 2)
+                    ctx.stroke(Path(ellipseIn: ring), with: .color(nodeColor.opacity(0.5)), lineWidth: 1.5)
                 }
             }
         }
@@ -1113,14 +1147,23 @@ struct GitPanelView: View {
             }
         }()
 
-        return HStack(spacing: 3) {
-            Image(systemName: icon).font(.system(size: 7, weight: .semibold))
-            Text(ref.name).font(Theme.code(7, weight: .bold)).lineLimit(1)
+        return HStack(spacing: 2) {
+            Image(systemName: icon).font(.system(size: 7, weight: .bold))
+            Text(ref.name)
+                .font(Theme.code(8, weight: .semibold))
+                .lineLimit(1)
+                .truncationMode(.middle)
         }
         .foregroundColor(tint)
-        .padding(.horizontal, 5).padding(.vertical, 3)
-        .background(RoundedRectangle(cornerRadius: Theme.cornerSmall).fill(Theme.accentBg(tint)))
-        .overlay(RoundedRectangle(cornerRadius: Theme.cornerSmall).stroke(Theme.accentBorder(tint), lineWidth: 0.5))
+        .padding(.horizontal, 6).padding(.vertical, 2)
+        .background(
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(Theme.accentBg(tint))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .strokeBorder(Theme.accentBorder(tint), lineWidth: 0.5)
+        )
     }
 
     // ═══════════════════════════════════════════════════════

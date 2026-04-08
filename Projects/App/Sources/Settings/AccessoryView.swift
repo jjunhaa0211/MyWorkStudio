@@ -16,6 +16,15 @@ struct AccessoryView: View {
 
     private let accessoryTabs: [(String, String)] = [("sofa.fill", NSLocalizedString("accessory.tab.furniture", comment: "")), ("photo.fill", NSLocalizedString("accessory.tab.background", comment: ""))]
 
+    private var sortedPluginFurniture: [PluginHost.LoadedFurniture] {
+        pluginHost.furniture.sorted {
+            if $0.pluginName == $1.pluginName {
+                return $0.decl.name.localizedStandardCompare($1.decl.name) == .orderedAscending
+            }
+            return $0.pluginName.localizedStandardCompare($1.pluginName) == .orderedAscending
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             DSModalHeader(
@@ -62,13 +71,31 @@ struct AccessoryView: View {
     var accessoryTabContent: some View {
         ScrollView(.vertical, showsIndicators: true) {
             VStack(spacing: 16) {
-                // 가구 목록 (빌트인 + 플러그인 통합 그리드)
+                // 가구 목록 (빌트인)
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
                     ForEach(FurnitureItem.all) { item in
                         furnitureCard(item)
                     }
-                    ForEach(pluginHost.furniture) { item in
-                        pluginFurnitureCard(item)
+                }
+
+                if !sortedPluginFurniture.isEmpty {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Text("PLUGIN FURNITURE")
+                                .font(Theme.pixel)
+                                .foregroundColor(Theme.purple)
+                                .tracking(1.4)
+                            Spacer()
+                            Text("\(sortedPluginFurniture.count) ITEMS")
+                                .font(Theme.mono(7, weight: .bold))
+                                .foregroundColor(Theme.textDim)
+                        }
+
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 92, maximum: 108), spacing: 10)], spacing: 10) {
+                            ForEach(sortedPluginFurniture) { item in
+                                pluginFurnitureCard(item)
+                            }
+                        }
                     }
                 }
 
@@ -164,6 +191,24 @@ struct AccessoryView: View {
                                 pluginThemeCard(theme)
                             }
                         }
+
+                        // 플러그인 테마 사용 중일 때 기본 테마 복원 버튼
+                        if settings.themeMode == "custom" {
+                            Button(action: { resetToDefaultTheme() }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "arrow.uturn.backward")
+                                        .font(.system(size: Theme.iconSize(10)))
+                                        .foregroundColor(Theme.textDim)
+                                    Text(NSLocalizedString("accessory.theme.reset", comment: "Reset to default theme"))
+                                        .font(Theme.mono(9, weight: .medium))
+                                        .foregroundColor(Theme.textSecondary)
+                                    Spacer()
+                                }
+                                .padding(.vertical, 8).padding(.horizontal, 10)
+                                .background(RoundedRectangle(cornerRadius: 8).fill(Theme.bgSurface)
+                                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.border.opacity(0.3), lineWidth: 0.5)))
+                            }.buttonStyle(.plain)
+                        }
                     }
                 }
             }
@@ -241,51 +286,45 @@ struct AccessoryView: View {
 
     func pluginFurnitureCard(_ item: PluginHost.LoadedFurniture) -> some View {
         VStack(spacing: 6) {
-            // 스프라이트 미리보기 영역
             ZStack {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Theme.bgSurface)
-                    .frame(height: 50)
+                RoundedRectangle(cornerRadius: Theme.cornerLarge)
+                    .fill(Color.white.opacity(settings.isDarkMode ? 0.10 : 0.96))
 
                 Canvas { context, size in
-                    drawPluginSpritePreview(context: context, size: size, sprite: item.decl.sprite)
+                    OfficeSpriteRenderer.drawPluginFurniturePreview(
+                        context,
+                        sprite: item.decl.sprite,
+                        in: CGRect(origin: .zero, size: size)
+                    )
                 }
-                .frame(height: 50)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 4)
+                .frame(height: 72)
             }
+            .frame(height: 72)
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.cornerLarge)
+                    .stroke(Theme.purple.opacity(settings.isDarkMode ? 0.34 : 0.18), lineWidth: 1)
+            )
 
-            // 이름 (빌트인 가구와 동일한 레이아웃)
-            HStack(spacing: 3) {
-                Image(systemName: "puzzlepiece.fill")
-                    .font(.system(size: Theme.iconSize(8)))
-                    .foregroundColor(Theme.purple)
-                Text(item.decl.name)
-                    .font(Theme.mono(8, weight: .medium))
-                    .foregroundColor(Theme.textDim)
-                    .lineLimit(1)
-                Spacer(minLength: 0)
-            }
-        }
-        .padding(6)
-        .background(RoundedRectangle(cornerRadius: 8)
-            .stroke(Theme.border.opacity(0.2), lineWidth: 0.5))
-    }
+            Text(item.decl.name)
+                .font(Theme.mono(8, weight: .bold))
+                .foregroundColor(Theme.textPrimary)
+                .lineLimit(1)
 
-    func drawPluginSpritePreview(context: GraphicsContext, size: CGSize, sprite: [[String]]) {
-        guard !sprite.isEmpty, !sprite[0].isEmpty else { return }
-        let rows = sprite.count
-        let cols = sprite[0].count
-        let px = min(size.width / CGFloat(cols), size.height / CGFloat(rows))
-        let offX = (size.width - CGFloat(cols) * px) / 2
-        let offY = (size.height - CGFloat(rows) * px) / 2
-        for r in 0..<rows {
-            let row = sprite[r]
-            for c in 0..<min(cols, row.count) {
-                let hex = row[c]
-                guard !hex.isEmpty, hex != "transparent" else { continue }
-                let rect = CGRect(x: offX + CGFloat(c) * px, y: offY + CGFloat(r) * px, width: px, height: px)
-                context.fill(Path(rect), with: .color(Color(hex: hex)))
-            }
+            Text("\(item.decl.width)x\(item.decl.height)")
+                .font(Theme.mono(6, weight: .bold))
+                .foregroundColor(Theme.purple.opacity(0.9))
         }
+        .padding(8)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.cornerXL)
+                .fill(Theme.bgCard.opacity(settings.isDarkMode ? 0.84 : 0.92))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.cornerXL)
+                .stroke(Theme.purple.opacity(0.22), lineWidth: 1)
+        )
     }
 
     // MARK: - Helpers
@@ -427,6 +466,13 @@ struct AccessoryView: View {
             && settings.isDarkMode == theme.decl.isDark
             && customTheme.accentHex == theme.decl.accentHex
             && customTheme.bgHex == theme.decl.bgHex
+    }
+
+    func resetToDefaultTheme() {
+        withAnimation(.easeInOut(duration: 0.15)) {
+            settings.themeMode = settings.isDarkMode ? "dark" : "light"
+        }
+        settings.requestRefreshIfNeeded()
     }
 }
 

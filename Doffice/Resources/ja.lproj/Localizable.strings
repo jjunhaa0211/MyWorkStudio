@@ -1000,6 +1000,8 @@
 "accessory.drag.hint" = "ドラッグで家具を配置";
 "accessory.reset.placement" = "デフォルト配置にリセット";
 "accessory.bg.theme" = "背景テーマ";
+"accessory.theme.reset" = "デフォルトテーマに戻す";
+"accessory.presets" = "プリセット";
 
 /* Theme - Template pipeline display names */
 "template.pipeline.planner" = "企画者";

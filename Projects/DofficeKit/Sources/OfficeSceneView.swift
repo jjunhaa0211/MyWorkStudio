@@ -186,7 +186,8 @@ public struct OfficeSceneView: View {
                 if settings.isEditMode {
                     editPanel
                         .padding(10)
-                        .frame(maxWidth: .infinity, alignment: .topTrailing)
+                        .frame(width: 220, alignment: .topTrailing)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                 }
 
                 if isFollowing, let followId = store.followingCharacterId,
@@ -531,16 +532,16 @@ public struct OfficeSceneView: View {
     // MARK: - Edit Panel
 
     private var editPanel: some View {
-        VStack(alignment: .trailing, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
-                Spacer()
                 Text("LAYOUT EDIT")
                     .font(Theme.mono(9, weight: .bold))
                     .foregroundColor(Theme.textDim)
+                Spacer()
                 Button {
                     withAnimation(.easeInOut(duration: 0.15)) { editPanelCollapsed.toggle() }
                 } label: {
-                    Image(systemName: editPanelCollapsed ? "chevron.down" : "chevron.up")
+                    Image(systemName: editPanelCollapsed ? "chevron.right" : "chevron.left")
                         .font(.system(size: Theme.iconSize(8), weight: .bold))
                         .foregroundColor(Theme.textDim)
                 }
@@ -549,7 +550,7 @@ public struct OfficeSceneView: View {
 
             // 선택된 가구 정보 + 액션 버튼
             if let furniture = selectedFurniture {
-                VStack(alignment: .trailing, spacing: 4) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(furniture.type.rawValue.uppercased())
                         .font(Theme.mono(9, weight: .bold))
                         .foregroundColor(Theme.yellow)
@@ -626,22 +627,20 @@ public struct OfficeSceneView: View {
 
             if !editPanelCollapsed {
             ScrollView(.vertical, showsIndicators: false) {
-                let gridColumns = [GridItem(.adaptive(minimum: 72, maximum: 90), spacing: 6)]
-                let pluginGridColumns = [GridItem(.adaptive(minimum: 96, maximum: 116), spacing: 10)]
-                VStack(alignment: .trailing, spacing: 8) {
+                let gridColumns = [GridItem(.adaptive(minimum: 56, maximum: 70), spacing: 4)]
+                VStack(alignment: .leading, spacing: 8) {
                     // 기본 가구 카탈로그
                     VStack(alignment: .leading, spacing: 4) {
                         Text("FURNITURE")
                             .font(Theme.mono(8, weight: .bold))
                             .foregroundColor(Theme.orange)
-                            .frame(maxWidth: .infinity, alignment: .trailing)
 
-                        LazyVGrid(columns: gridColumns, spacing: 6) {
+                        LazyVGrid(columns: gridColumns, spacing: 4) {
                             ForEach(furnitureCatalog) { item in
                                 Button {
                                     placeStandardFurniture(item)
                                 } label: {
-                                    VStack(spacing: 3) {
+                                    VStack(spacing: 2) {
                                         Canvas { ctx, canvasSize in
                                             let furnitureType = item.type ?? .desk
                                             OfficeSpriteRenderer.drawDetailedFurniture(
@@ -652,22 +651,22 @@ public struct OfficeSceneView: View {
                                                 dark: false, frame: 0
                                             )
                                         }
-                                        .frame(width: 48, height: 48)
+                                        .frame(width: 40, height: 40)
                                         .background(RoundedRectangle(cornerRadius: Theme.cornerMedium).fill(Theme.bgSurface.opacity(0.6)))
                                         .overlay(RoundedRectangle(cornerRadius: Theme.cornerMedium).stroke(Theme.border.opacity(0.3), lineWidth: 1))
 
                                         Text(item.name)
-                                            .font(Theme.mono(7, weight: .bold))
+                                            .font(Theme.mono(6, weight: .bold))
                                             .foregroundColor(Theme.textPrimary)
                                             .lineLimit(1)
                                         Text("\(item.size.w)x\(item.size.h)")
-                                            .font(Theme.mono(6))
+                                            .font(Theme.mono(5))
                                             .foregroundColor(Theme.textDim)
                                     }
                                     .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 4)
-                                    .background(RoundedRectangle(cornerRadius: Theme.cornerLarge).fill(Theme.bgCard.opacity(0.6)))
-                                    .overlay(RoundedRectangle(cornerRadius: Theme.cornerLarge).stroke(Theme.green.opacity(0.2), lineWidth: 1))
+                                    .padding(.vertical, 3)
+                                    .background(RoundedRectangle(cornerRadius: Theme.cornerMedium).fill(Theme.bgCard.opacity(0.6)))
+                                    .overlay(RoundedRectangle(cornerRadius: Theme.cornerMedium).stroke(Theme.green.opacity(0.2), lineWidth: 1))
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -675,68 +674,54 @@ public struct OfficeSceneView: View {
                     }
 
                     if !pluginHost.officePresets.isEmpty {
-                        VStack(alignment: .trailing, spacing: 4) {
-                            Text("PLUGIN PRESETS")
-                                .font(Theme.mono(8, weight: .bold))
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("PRESETS")
+                                .font(Theme.mono(7, weight: .bold))
                                 .foregroundColor(Theme.cyan)
 
                             ForEach(pluginHost.officePresets) { preset in
-                                HStack(spacing: 6) {
-                                    VStack(alignment: .trailing, spacing: 1) {
-                                        Text(preset.decl.name)
-                                            .font(Theme.mono(8, weight: .bold))
-                                            .foregroundColor(Theme.textPrimary)
-                                            .lineLimit(1)
-                                        Text(preset.pluginName)
-                                            .font(Theme.mono(7))
+                                Button { applyPluginPreset(preset) } label: {
+                                    HStack(spacing: 4) {
+                                        VStack(alignment: .leading, spacing: 1) {
+                                            Text(preset.decl.name)
+                                                .font(Theme.mono(7, weight: .bold))
+                                                .foregroundColor(Theme.textPrimary)
+                                                .lineLimit(1)
+                                            Text(preset.pluginName)
+                                                .font(Theme.mono(6))
+                                                .foregroundColor(Theme.cyan)
+                                                .lineLimit(1)
+                                        }
+                                        Spacer()
+                                        Text("Apply")
+                                            .font(Theme.mono(7, weight: .bold))
                                             .foregroundColor(Theme.cyan)
-                                            .lineLimit(1)
                                     }
-                                    Button("Apply") {
-                                        applyPluginPreset(preset)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .font(Theme.mono(8, weight: .bold))
-                                    .foregroundColor(Theme.cyan)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 3)
-                                    .background(RoundedRectangle(cornerRadius: Theme.cornerMedium).fill(Theme.cyan.opacity(0.14)))
-                                    .overlay(RoundedRectangle(cornerRadius: Theme.cornerMedium).stroke(Theme.cyan.opacity(0.28), lineWidth: 1))
+                                    .padding(.horizontal, 6).padding(.vertical, 4)
+                                    .background(RoundedRectangle(cornerRadius: Theme.cornerMedium).fill(Theme.cyan.opacity(0.08)))
+                                    .overlay(RoundedRectangle(cornerRadius: Theme.cornerMedium).stroke(Theme.cyan.opacity(0.2), lineWidth: 1))
                                 }
+                                .buttonStyle(.plain)
                             }
                         }
                     }
 
                     // Plugin furniture
                     if !pluginHost.furniture.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("PLUGIN FURNITURE")
-                                .font(Theme.mono(8, weight: .bold))
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("PLUGIN")
+                                .font(Theme.mono(7, weight: .bold))
                                 .foregroundColor(Theme.purple)
-                                .frame(maxWidth: .infinity, alignment: .trailing)
 
-                            LazyVGrid(columns: pluginGridColumns, spacing: 10) {
+                            LazyVGrid(columns: gridColumns, spacing: 4) {
                                 ForEach(sortedPluginFurniture) { item in
                                     Button {
                                         placePluginFurniture(item)
                                     } label: {
-                                        VStack(spacing: 6) {
+                                        VStack(spacing: 2) {
                                             ZStack {
-                                                RoundedRectangle(cornerRadius: Theme.cornerLarge)
-                                                    .fill(Color.white.opacity(settings.isDarkMode ? 0.10 : 0.96))
-
                                                 RoundedRectangle(cornerRadius: Theme.cornerMedium)
-                                                    .fill(
-                                                        LinearGradient(
-                                                            colors: [
-                                                                Color.white.opacity(settings.isDarkMode ? 0.08 : 0.98),
-                                                                Theme.purple.opacity(settings.isDarkMode ? 0.10 : 0.06)
-                                                            ],
-                                                            startPoint: .top,
-                                                            endPoint: .bottom
-                                                        )
-                                                    )
-                                                    .padding(4)
+                                                    .fill(Color.white.opacity(settings.isDarkMode ? 0.08 : 0.96))
 
                                                 Canvas { ctx, canvasSize in
                                                     OfficeSpriteRenderer.drawPluginFurniturePreview(
@@ -745,34 +730,26 @@ public struct OfficeSceneView: View {
                                                         in: CGRect(origin: .zero, size: canvasSize)
                                                     )
                                                 }
-                                                .padding(.horizontal, 6)
-                                                .padding(.vertical, 4)
+                                                .padding(4)
                                             }
-                                            .frame(height: 74)
+                                            .frame(width: 40, height: 40)
                                             .overlay(
-                                                RoundedRectangle(cornerRadius: Theme.cornerLarge)
-                                                    .stroke(Theme.purple.opacity(settings.isDarkMode ? 0.34 : 0.18), lineWidth: 1)
+                                                RoundedRectangle(cornerRadius: Theme.cornerMedium)
+                                                    .stroke(Theme.purple.opacity(0.2), lineWidth: 1)
                                             )
 
                                             Text(item.decl.name)
-                                                .font(Theme.mono(7, weight: .bold))
+                                                .font(Theme.mono(6, weight: .bold))
                                                 .foregroundColor(Theme.textPrimary)
                                                 .lineLimit(1)
                                             Text("\(item.decl.width)x\(item.decl.height)")
-                                                .font(Theme.mono(6, weight: .bold))
+                                                .font(Theme.mono(5))
                                                 .foregroundColor(Theme.purple.opacity(0.9))
                                         }
                                         .frame(maxWidth: .infinity)
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 8)
-                                        .background(
-                                            RoundedRectangle(cornerRadius: Theme.cornerXL)
-                                                .fill(Theme.bgCard.opacity(settings.isDarkMode ? 0.84 : 0.92))
-                                        )
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: Theme.cornerXL)
-                                                .stroke(Theme.purple.opacity(0.22), lineWidth: 1)
-                                        )
+                                        .padding(.vertical, 3)
+                                        .background(RoundedRectangle(cornerRadius: Theme.cornerMedium).fill(Theme.bgCard.opacity(0.6)))
+                                        .overlay(RoundedRectangle(cornerRadius: Theme.cornerMedium).stroke(Theme.purple.opacity(0.15), lineWidth: 1))
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -781,7 +758,6 @@ public struct OfficeSceneView: View {
                     }
                 }
             }
-            .frame(maxHeight: 320)
             } // end if !editPanelCollapsed
 
             HStack(spacing: 6) {

@@ -880,63 +880,77 @@ enum GitDataParser {
 
     private static func assignLanes(_ commits: [GitCommitNode]) -> [GitCommitNode] {
         var result = commits
-        var activeLanes: [String?] = [] // SHA expected in each lane
+        var activeLanes: [String?] = []
+        var shaToLane: [String: Int] = [:]    // O(1) SHA → lane lookup
+        var emptyLanes: [Int] = []            // 재사용 가능한 빈 레인
 
         for i in 0..<result.count {
             let commit = result[i]
 
-            // Find lane where this commit was expected
-            var myLane = activeLanes.firstIndex(of: commit.id)
-
-            if myLane == nil {
-                if let emptyIdx = activeLanes.firstIndex(of: nil) {
-                    myLane = emptyIdx
-                } else {
-                    myLane = activeLanes.count
-                    activeLanes.append(nil)
-                }
+            // O(1) lookup: 이 커밋이 예상되는 레인 찾기
+            var myLane = shaToLane[commit.id]
+            if let lane = myLane {
+                shaToLane.removeValue(forKey: commit.id)
+            } else {
+                // 빈 레인 재사용 또는 새 레인 할당
+                myLane = emptyLanes.popLast() ?? activeLanes.count
+                if myLane! >= activeLanes.count { activeLanes.append(nil) }
             }
 
-            guard let lane = myLane else { continue }
+            let lane = myLane!
             result[i].lane = lane
 
-            // Record which lanes are active at this position (for graph drawing)
+            // 현재 행의 활성 레인 기록
             var activeSet = Set<Int>()
+            activeSet.reserveCapacity(activeLanes.count)
             for (idx, sha) in activeLanes.enumerated() {
                 if sha != nil { activeSet.insert(idx) }
             }
             activeSet.insert(lane)
             result[i].activeLanes = activeSet
 
-            // Update lanes: replace current lane with first parent, add others
+            // 부모 레인 업데이트
             if commit.parentHashes.isEmpty {
                 activeLanes[lane] = nil
+                emptyLanes.append(lane)
             } else {
+                // 첫 번째 부모는 현재 레인을 상속
+                if let oldSha = activeLanes[lane] { shaToLane.removeValue(forKey: oldSha) }
                 activeLanes[lane] = commit.parentHashes[0]
+                shaToLane[commit.parentHashes[0]] = lane
+
+                // 추가 부모(머지)는 새 레인 할당
                 for pIdx in commit.parentHashes.indices.dropFirst() {
                     let parentHash = commit.parentHashes[pIdx]
-                    if !activeLanes.contains(parentHash) {
-                        if let emptyIdx = activeLanes.firstIndex(of: nil) {
+                    if shaToLane[parentHash] == nil {
+                        if let emptyIdx = emptyLanes.popLast() {
                             activeLanes[emptyIdx] = parentHash
+                            shaToLane[parentHash] = emptyIdx
                         } else {
+                            shaToLane[parentHash] = activeLanes.count
                             activeLanes.append(parentHash)
                         }
                     }
                 }
             }
 
-            // Collapse trailing nils
-            while activeLanes.last == nil && activeLanes.count > 1 { activeLanes.removeLast() }
+            // 후행 nil 축소
+            while activeLanes.last == nil && activeLanes.count > 1 {
+                activeLanes.removeLast()
+                emptyLanes.removeAll { $0 >= activeLanes.count }
+            }
         }
 
+        // 부모/자식 레인 관계 계산
         let laneMap = Dictionary(uniqueKeysWithValues: result.map { ($0.id, $0.lane) })
+        let idxMap = Dictionary(uniqueKeysWithValues: result.enumerated().map { ($0.element.id, $0.offset) })
         for i in 0..<result.count {
             let commit = result[i]
             if let firstParent = commit.parentHashes.first, let pLane = laneMap[firstParent] {
                 result[i].firstParentLane = pLane
             }
             for parentHash in commit.parentHashes {
-                if let parentIdx = result.firstIndex(where: { $0.id == parentHash }) {
+                if let parentIdx = idxMap[parentHash] {
                     result[parentIdx].childLanes.insert(commit.lane)
                 }
             }
