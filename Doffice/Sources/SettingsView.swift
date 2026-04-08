@@ -32,6 +32,7 @@ struct SettingsView: View {
     @State private var customFontName: String = ""
     @State private var customFontSize: Double = 11.0
     @State private var showImportError = false
+    @State private var showUpdateSheet = false
 
     // Custom Theme - Background colors
     @State private var customBgColor: Color = Color(hex: "000000")
@@ -396,10 +397,16 @@ struct SettingsView: View {
                             Text("GitHub").font(Theme.mono(9, weight: .bold))
                                 .appButtonSurface(tone: .accent, compact: true)
                         }.buttonStyle(.plain)
-                        Button(action: { UpdateChecker.shared.performUpdate() }) {
+                        Button(action: {
+                            UpdateChecker.shared.checkForUpdates()
+                            showUpdateSheet = true
+                        }) {
                             Text(NSLocalizedString("settings.appinfo.update", comment: "")).font(Theme.mono(9, weight: .bold))
                                 .appButtonSurface(tone: .green, compact: true)
                         }.buttonStyle(.plain)
+                        .sheet(isPresented: $showUpdateSheet) {
+                            UpdateSheet()
+                        }
                         Spacer()
                     }
                 }
