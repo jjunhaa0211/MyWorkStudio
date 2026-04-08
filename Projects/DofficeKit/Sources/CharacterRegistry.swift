@@ -8,7 +8,7 @@ import DesignSystem
 
 public class CharacterRegistry: ObservableObject {
     public static let shared = CharacterRegistry()
-    public static let maxHiredCount = 12
+    public static let maxHiredCount = 30
 
     @Published public var allCharacters: [WorkerCharacter] = [] {
         didSet { rebuildIndex() }

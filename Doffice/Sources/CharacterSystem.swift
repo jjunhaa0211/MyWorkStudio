@@ -251,7 +251,7 @@ struct WorkerCharacter: Identifiable, Codable, Equatable {
 
 class CharacterRegistry: ObservableObject {
     static let shared = CharacterRegistry()
-    static let maxHiredCount = 12
+    static let maxHiredCount = 30
 
     @Published var allCharacters: [WorkerCharacter] = []
     @Published private(set) var manuallyUnlockedCharacterIDs: Set<String> = []
