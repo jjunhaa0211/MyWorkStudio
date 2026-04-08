@@ -14,7 +14,7 @@ extension OfficeSpriteRenderer {
             let fy = CGFloat(furniture.position.row) * 16
             let fw = CGFloat(furniture.size.w) * 16
             let fh = CGFloat(furniture.size.h) * 16
-            Self.drawDetailedFurniture(ctx, type: furniture.type, x: fx, y: fy, w: fw, h: fh, dark: dark, frame: frame)
+            Self.drawDetailedFurniture(ctx, type: furniture.type, x: fx, y: fy, w: fw, h: fh, dark: dark, frame: frame, pluginFurnitureId: furniture.pluginFurnitureId)
         }
     }
 
@@ -51,7 +51,8 @@ extension OfficeSpriteRenderer {
                 zY: f.zY,
                 kind: .furniture(ZFurnitureInfo(
                     type: f.type, x: fx, y: fy, w: fw, h: fh,
-                    dark: dark, frame: frame, chromeImage: chromeImg
+                    dark: dark, frame: frame, chromeImage: chromeImg,
+                    pluginFurnitureId: f.pluginFurnitureId
                 ))
             ))
         }
@@ -80,7 +81,8 @@ extension OfficeSpriteRenderer {
             switch drawable.kind {
             case .furniture(let info):
                 Self.drawDetailedFurniture(ctx, type: info.type, x: info.x, y: info.y,
-                                           w: info.w, h: info.h, dark: info.dark, frame: info.frame)
+                                           w: info.w, h: info.h, dark: info.dark, frame: info.frame,
+                                           pluginFurnitureId: info.pluginFurnitureId)
                 if info.type == .monitor, let img = info.chromeImage {
                     let screenX = info.x + 2.5
                     let screenY = info.y + 1.5
@@ -103,7 +105,14 @@ extension OfficeSpriteRenderer {
 
     internal static func drawDetailedFurniture(_ ctx: GraphicsContext, type: FurnitureType,
                                                x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat,
-                                               dark: Bool, frame: Int) {
+                                               dark: Bool, frame: Int,
+                                               pluginFurnitureId: String? = nil) {
+        if type == .plugin {
+            guard let pluginId = pluginFurnitureId,
+                  PluginHost.shared.furniture.contains(where: { $0.decl.id == pluginId && !$0.decl.sprite.isEmpty }) else {
+                return
+            }
+        }
         drawFurnitureAmbientShadow(ctx, type: type, x: x, y: y, w: w, h: h, dark: dark)
         switch type {
         case .desk:      drawDesk(ctx, x: x, y: y, w: w, h: h, dark: dark)
@@ -122,7 +131,62 @@ extension OfficeSpriteRenderer {
         case .rug:       drawRug(ctx, x: x, y: y, w: w, h: h, dark: dark)
         case .pictureFrame: drawPictureFrame(ctx, x: x, y: y, w: w, h: h, dark: dark)
         case .clock:     drawClock(ctx, x: x, y: y, w: w, h: h, dark: dark, frame: frame)
+        case .plugin:
+            if let pluginId = pluginFurnitureId {
+                drawPluginFurniture(ctx, pluginId: pluginId, x: x, y: y, w: w, h: h)
+            }
         }
+    }
+
+    // MARK: - Plugin Furniture Sprite Renderer
+
+    private static var pluginFurnitureImageCache: [String: CGImage] = [:]
+
+    private static func drawPluginFurniture(_ ctx: GraphicsContext, pluginId: String,
+                                             x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat) {
+        if let cached = pluginFurnitureImageCache[pluginId] {
+            ctx.draw(Image(decorative: cached, scale: 1),
+                     in: CGRect(x: x, y: y, width: w, height: h))
+            return
+        }
+
+        guard let loaded = PluginHost.shared.furniture.first(where: { $0.decl.id == pluginId }) else { return }
+        let sprite = loaded.decl.sprite
+        guard !sprite.isEmpty else { return }
+
+        let rows = sprite.count
+        let cols = sprite.map(\.count).max() ?? 0
+        guard rows > 0 && cols > 0 else { return }
+
+        let pixelSize = 4
+        let imgW = cols * pixelSize
+        let imgH = rows * pixelSize
+
+        guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+              let bitmapCtx = CGContext(data: nil, width: imgW, height: imgH,
+                                        bitsPerComponent: 8, bytesPerRow: imgW * 4,
+                                        space: colorSpace,
+                                        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return }
+
+        for (r, row) in sprite.enumerated() {
+            for (c, hex) in row.enumerated() {
+                guard !hex.isEmpty else { continue }
+                var hexVal = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+                if hexVal.count == 3 { hexVal = hexVal.map { "\($0)\($0)" }.joined() }
+                var int: UInt64 = 0
+                guard Scanner(string: hexVal).scanHexInt64(&int), hexVal.count == 6 else { continue }
+                let red = CGFloat((int >> 16) & 0xFF) / 255.0
+                let green = CGFloat((int >> 8) & 0xFF) / 255.0
+                let blue = CGFloat(int & 0xFF) / 255.0
+                bitmapCtx.setFillColor(red: red, green: green, blue: blue, alpha: 1.0)
+                bitmapCtx.fill(CGRect(x: c * pixelSize, y: r * pixelSize, width: pixelSize, height: pixelSize))
+            }
+        }
+
+        guard let cgImage = bitmapCtx.makeImage() else { return }
+        pluginFurnitureImageCache[pluginId] = cgImage
+        ctx.draw(Image(decorative: cgImage, scale: 1),
+                 in: CGRect(x: x, y: y, width: w, height: h))
     }
 
     internal static func drawFurnitureAmbientShadow(
@@ -162,6 +226,11 @@ extension OfficeSpriteRenderer {
                 with: .color(Color.black.opacity(alphaBase * 0.16))
             )
         case .chair, .plant, .coffeeMachine, .waterCooler, .printer, .trashBin, .lamp:
+            ctx.fill(
+                Path(ellipseIn: CGRect(x: x + w * 0.12, y: y + h - 2.4, width: w * 0.76, height: max(2.4, h * 0.14))),
+                with: .color(Color.black.opacity(alphaBase))
+            )
+        case .plugin:
             ctx.fill(
                 Path(ellipseIn: CGRect(x: x + w * 0.12, y: y + h - 2.4, width: w * 0.76, height: max(2.4, h * 0.14))),
                 with: .color(Color.black.opacity(alphaBase))

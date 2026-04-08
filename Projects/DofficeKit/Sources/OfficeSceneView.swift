@@ -467,6 +467,31 @@ public struct OfficeSceneView: View {
                     .foregroundColor(Theme.textSecondary)
             }
 
+            // Plugin furniture
+            if !PluginHost.shared.furniture.isEmpty {
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("PLUGIN FURNITURE")
+                        .font(Theme.mono(8, weight: .bold))
+                        .foregroundColor(Theme.purple)
+                    ForEach(PluginHost.shared.furniture) { item in
+                        HStack(spacing: 6) {
+                            Text(item.decl.name)
+                                .font(Theme.mono(8, weight: .bold))
+                                .foregroundColor(Theme.textPrimary)
+                                .lineLimit(1)
+                            Button("Place") {
+                                placePluginFurniture(item)
+                            }
+                            .buttonStyle(.plain)
+                            .font(Theme.mono(8, weight: .bold))
+                            .foregroundColor(Theme.green)
+                            .padding(.horizontal, 6).padding(.vertical, 3)
+                            .background(RoundedRectangle(cornerRadius: Theme.cornerMedium).fill(Theme.green.opacity(0.14)))
+                        }
+                    }
+                }
+            }
+
             HStack(spacing: 6) {
                 Button(NSLocalizedString("office.save", comment: "")) {
                     store.saveCurrentLayout()
@@ -687,6 +712,54 @@ public struct OfficeSceneView: View {
         store.followingCharacterId = tabId
         selectedFurnitureId = nil
         tappedCharacterTabId = tabId
+    }
+
+    private func placePluginFurniture(_ item: PluginHost.LoadedFurniture) {
+        let decl = item.decl
+        let zone: OfficeZone = {
+            switch decl.zone ?? "mainOffice" {
+            case "pantry": return .pantry
+            case "meetingRoom": return .meetingRoom
+            default: return .mainOffice
+            }
+        }()
+
+        let maxRow = map.rows - decl.height
+        let maxCol = map.cols - decl.width
+        guard maxRow >= 1 && maxCol >= 1 else { return }
+        var pos: TileCoord?
+        for row in 1..<maxRow {
+            for col in 1..<maxCol {
+                var ok = true
+                for dr in 0..<decl.height {
+                    for dc in 0..<decl.width {
+                        guard row + dr < map.rows && col + dc < map.cols else { ok = false; break }
+                        if !map.tiles[row + dr][col + dc].isWalkable { ok = false; break }
+                    }
+                    if !ok { break }
+                }
+                guard ok else { continue }
+                let collides = map.furniture.contains { e in
+                    guard e.type != .rug else { return false }
+                    return col < e.position.col + e.size.w && col + decl.width > e.position.col &&
+                           row < e.position.row + e.size.h && row + decl.height > e.position.row
+                }
+                if !collides { pos = TileCoord(col: col, row: row); break }
+            }
+            if pos != nil { break }
+        }
+        guard let position = pos else { return }
+        let fp = FurniturePlacement(
+            id: "plugin_\(item.pluginName)_\(decl.id)_\(Int(Date().timeIntervalSince1970))",
+            type: .plugin, position: position,
+            size: TileSize(w: decl.width, h: decl.height),
+            zone: zone, pluginFurnitureId: decl.id
+        )
+        map.furniture.append(fp)
+        map.rebuildWalkability()
+        selectedFurnitureId = fp.id
+        store.refreshLayout(with: manager.userVisibleTabs)
+        store.saveCurrentLayout()
     }
 
     private func hitTestCharacter(at point: CGPoint) -> String? {

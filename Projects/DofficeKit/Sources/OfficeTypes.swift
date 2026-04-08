@@ -129,6 +129,7 @@ public enum FurnitureType: String, Codable, CaseIterable {
     case desk, chair, monitor, bookshelf, plant, coffeeMachine
     case sofa, roundTable, whiteboard, waterCooler, printer
     case trashBin, lamp, rug, pictureFrame, clock
+    case plugin
 }
 
 public struct TileSize: Codable, Hashable {
@@ -148,13 +149,15 @@ public struct FurniturePlacement: Identifiable, Codable, Hashable {
     public let size: TileSize
     public var zone: OfficeZone
     public var mirrored: Bool = false
+    public var pluginFurnitureId: String?
 
-    public init(id: String, type: FurnitureType, position: TileCoord, size: TileSize, zone: OfficeZone, mirrored: Bool = false) {
+    public init(id: String, type: FurnitureType, position: TileCoord, size: TileSize, zone: OfficeZone, mirrored: Bool = false, pluginFurnitureId: String? = nil) {
         self.id = id
         self.type = type
         self.position = position
         self.size = size
         self.zone = zone
+        self.pluginFurnitureId = pluginFurnitureId
         self.mirrored = mirrored
     }
 
@@ -323,10 +326,12 @@ public struct ZFurnitureInfo {
     public let dark: Bool
     public let frame: Int
     public let chromeImage: CGImage?
+    public let pluginFurnitureId: String?
 
-    public init(type: FurnitureType, x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat, dark: Bool, frame: Int, chromeImage: CGImage?) {
+    public init(type: FurnitureType, x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat, dark: Bool, frame: Int, chromeImage: CGImage?, pluginFurnitureId: String? = nil) {
         self.type = type; self.x = x; self.y = y; self.w = w; self.h = h
         self.dark = dark; self.frame = frame; self.chromeImage = chromeImage
+        self.pluginFurnitureId = pluginFurnitureId
     }
 }
 
