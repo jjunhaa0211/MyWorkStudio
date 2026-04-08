@@ -489,7 +489,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.junha.doffice.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Doffice.app/Contents/MacOS/Doffice";
 			};
 			name = Release;
@@ -518,7 +518,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.junha.doffice;
 				PRODUCT_NAME = Doffice;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
 		};
@@ -546,7 +546,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.junha.doffice;
 				PRODUCT_NAME = Doffice;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 			};
 			name = Release;
 		};
@@ -617,7 +617,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.junha.doffice.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Doffice.app/Contents/MacOS/Doffice";
 			};
 			name = Debug;

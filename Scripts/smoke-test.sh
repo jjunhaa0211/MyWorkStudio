@@ -1,4 +1,8 @@
 #!/bin/zsh
+#
+# smoke-test.sh — Local full-pipeline test runner.
+# CI uses individual steps in .github/workflows/build.yml instead.
+# For source sync check, run Scripts/sync-check.sh separately.
 
 set -euo pipefail
 
@@ -19,30 +23,8 @@ if command -v tuist >/dev/null 2>&1; then
   fi
 fi
 
-echo "[smoke] 0.5/5 Legacy ↔ Modular source sync check"
-# Critical shared files that must stay in sync between Projects/ and Doffice/
-SYNC_PAIRS=(
-  "Projects/DofficeKit/Sources/DofficeServer.swift:Doffice/Sources/DofficeServer.swift"
-  "Projects/DofficeKit/Sources/SessionStore.swift:Doffice/Sources/SessionStore.swift"
-  "Projects/DofficeKit/Sources/CrashLogger.swift:Doffice/Sources/CrashLogger.swift"
-  "Projects/DofficeKit/Sources/VT100Terminal.swift:Doffice/Sources/VT100Terminal.swift"
-)
-SYNC_DRIFT=0
-for pair in "${SYNC_PAIRS[@]}"; do
-  IFS=: read -r modular legacy <<< "$pair"
-  if [[ -f "$ROOT_DIR/$modular" && -f "$ROOT_DIR/$legacy" ]]; then
-    # Compare function signatures and key patterns (not exact diff, since access modifiers differ)
-    MOD_FUNCS=$(grep -cE '^\s*(public |private )?func ' "$ROOT_DIR/$modular" 2>/dev/null || echo 0)
-    LEG_FUNCS=$(grep -cE '^\s*(public |private )?func ' "$ROOT_DIR/$legacy" 2>/dev/null || echo 0)
-    if [[ "$MOD_FUNCS" != "$LEG_FUNCS" ]]; then
-      echo "  ⚠️  Function count drift: $modular ($MOD_FUNCS) vs $legacy ($LEG_FUNCS)"
-      SYNC_DRIFT=1
-    fi
-  fi
-done
-if [[ "$SYNC_DRIFT" -eq 1 ]]; then
-  echo "  ⚠️  Source sync drift detected — review before release (non-blocking)"
-fi
+echo "[smoke] 0.5/5 Source sync check"
+"$ROOT_DIR/Scripts/sync-check.sh" || true
 
 echo "[smoke] 1/5 DesignSystem tests"
 xcodebuild test \
