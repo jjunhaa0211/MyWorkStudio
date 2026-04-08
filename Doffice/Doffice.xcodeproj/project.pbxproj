@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		07A2B801437FFDA42534AA17 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AADE3B5D98B955B0C80A5DE3 /* Cocoa.framework */; };
 		0C4B4F039608CD5C74531CC5 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F3828283C36F01A4EA307E /* SettingsView.swift */; };
+		0CA5AF1F17C8684B5B4B34FE /* CharacterPixelRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC844CF34B44C5CB857FFF12 /* CharacterPixelRenderer.swift */; };
 		273023032BF912399A803AEC /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F35199C3D3E258D53AF607EA /* XCTest.framework */; };
 		28ABC1238F8EE87369BBC7EF /* AuditLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19D1AE3CB99EAC879DE06BC9 /* AuditLog.swift */; };
 		3CB39BC52F73FB3E0004E716 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = DEP001 /* SwiftTerm */; };
@@ -130,6 +131,7 @@
 		D10001 /* Doffice.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Doffice.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E10001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		E10002 /* DofficeApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DofficeApp.entitlements; sourceTree = "<group>"; };
+		EC844CF34B44C5CB857FFF12 /* CharacterPixelRenderer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CharacterPixelRenderer.swift; sourceTree = "<group>"; };
 		F35199C3D3E258D53AF607EA /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = System/Library/Frameworks/XCTest.framework; sourceTree = "<group>"; };
 		V10001_EN /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		V10001_JA /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/Localizable.strings; sourceTree = "<group>"; };
@@ -239,6 +241,7 @@
 				79F3828283C36F01A4EA307E /* SettingsView.swift */,
 				7C2A0CE1E54AD3EA20C170C2 /* AccessoryView.swift */,
 				4BBFE11226A4BCA2F1840024 /* DSComponents.swift */,
+				EC844CF34B44C5CB857FFF12 /* CharacterPixelRenderer.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -435,6 +438,7 @@
 				0C4B4F039608CD5C74531CC5 /* SettingsView.swift in Sources */,
 				66DA2090B5936E1AA59DAAEA /* AccessoryView.swift in Sources */,
 				A37C7BAA3F0D1D94691A5DF7 /* DSComponents.swift in Sources */,
+				0CA5AF1F17C8684B5B4B34FE /* CharacterPixelRenderer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

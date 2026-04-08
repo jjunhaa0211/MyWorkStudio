@@ -202,12 +202,19 @@ struct OfficeSceneView: View {
 
     private func selectionPanel(tab: TerminalTab) -> some View {
         let status = tab.statusPresentation
+        let rosterCharacter = tab.characterId.flatMap { registry.character(with: $0) }
         return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 8) {
-                Circle()
-                    .fill(tab.workerColor)
-                    .padding(.top, 4)
-                    .frame(width: 10, height: 10)
+                if let char = rosterCharacter {
+                    CharacterMiniAvatar(character: char, pixelScale: 1.4, bgOpacity: 0.15)
+                        .frame(width: 30, height: 36)
+                        .id(char.id)
+                } else {
+                    Circle()
+                        .fill(tab.workerColor)
+                        .padding(.top, 4)
+                        .frame(width: 10, height: 10)
+                }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(tab.workerName)
                         .font(Theme.mono(11, weight: .bold))
@@ -664,10 +671,15 @@ struct OfficeSceneView: View {
         }
 
         guard let tabId = hitTestCharacter(at: scenePoint) else { return }
-        // 캐릭터를 탭하면 선택 + 팔로우 시작
+        // 캐릭터를 탭하면 선택 + 팔로우 시작 + 싱글 터미널 뷰로 전환
         manager.selectTab(tabId)
         store.followingCharacterId = tabId
         selectedFurnitureId = nil
+        NotificationCenter.default.post(
+            name: .dofficeFocusCharacterTab,
+            object: nil,
+            userInfo: ["tabId": tabId]
+        )
     }
 
     private func hitTestCharacter(at point: CGPoint) -> String? {

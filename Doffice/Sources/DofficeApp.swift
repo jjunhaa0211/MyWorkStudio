@@ -79,6 +79,7 @@ extension Notification.Name {
     static let dofficeOpenSSH = Notification.Name("dofficeOpenSSH")
     static let dofficeDiagnosticReport = Notification.Name("dofficeDiagnosticReport")
     static let dofficeCopyConversation = Notification.Name("dofficeCopyConversation")
+    static let dofficeFocusCharacterTab = Notification.Name("dofficeFocusCharacterTab")
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate {

@@ -1030,66 +1030,170 @@ struct DailyRewardOverlay: View {
 
 struct SessionLockOverlay: View {
     @ObservedObject private var settings = AppSettings.shared
+    @ObservedObject private var registry = CharacterRegistry.shared
     @State private var pinInput = ""
     @State private var wrongPin = false
+    @State private var pulseScale: CGFloat = 1.0
+
+    private var guardCharacter: WorkerCharacter? {
+        registry.hiredCharacters.first
+    }
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.85)
+            Color.black.opacity(0.7)
                 .ignoresSafeArea()
+                .background(
+                    LockBlurView()
+                        .ignoresSafeArea()
+                )
 
-            VStack(spacing: 20) {
-                Image(systemName: "lock.shield.fill")
-                    .font(.system(size: 40))
-                    .foregroundColor(Theme.yellow)
+            VStack(spacing: 0) {
+                Spacer()
+
+                ZStack {
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [Theme.yellow.opacity(0.15), .clear],
+                                center: .center,
+                                startRadius: 20,
+                                endRadius: 80
+                            )
+                        )
+                        .frame(width: 160, height: 160)
+                        .scaleEffect(pulseScale)
+
+                    if let char = guardCharacter {
+                        VStack(spacing: 0) {
+                            CharacterMiniAvatar(character: char, pixelScale: 3.0, bgOpacity: 0)
+                                .frame(width: 56, height: 70)
+                            Text(char.name)
+                                .font(Theme.mono(9, weight: .bold))
+                                .foregroundColor(Color(hex: char.shirtColor))
+                                .padding(.top, 4)
+                        }
+                    } else {
+                        Image(systemName: "lock.shield.fill")
+                            .font(.system(size: 48, weight: .medium))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [Theme.yellow, Theme.orange],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                            .shadow(color: Theme.yellow.opacity(0.3), radius: 8)
+                    }
+
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(Theme.yellow)
+                        .padding(6)
+                        .background(
+                            Circle()
+                                .fill(Theme.bgCard)
+                                .shadow(color: .black.opacity(0.3), radius: 3)
+                        )
+                        .offset(x: 30, y: guardCharacter != nil ? 20 : 16)
+                }
+                .padding(.bottom, 20)
 
                 Text(NSLocalizedString("main.session.locked", comment: ""))
-                    .font(Theme.mono(16, weight: .bold))
-                    .foregroundColor(Theme.textPrimary)
+                    .font(Theme.mono(18, weight: .black))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [Theme.textPrimary, Theme.textSecondary],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
 
                 Text(NSLocalizedString("main.session.still.running", comment: ""))
                     .font(Theme.mono(10))
                     .foregroundColor(Theme.textDim)
+                    .padding(.top, 4)
+                    .padding(.bottom, 24)
 
-                if !settings.lockPIN.isEmpty {
-                    SecureField(NSLocalizedString("main.pin.input", comment: ""), text: $pinInput)
-                        .font(Theme.monoNormal)
-                        .textFieldStyle(.plain)
-                        .frame(width: 160)
-                        .padding(10)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(Theme.bgSurface))
-                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(wrongPin ? Theme.red : Theme.border, lineWidth: 1))
-                        .multilineTextAlignment(.center)
-                        .onSubmit {
-                            if pinInput == settings.lockPIN {
-                                settings.isLocked = false
-                                pinInput = ""
-                                wrongPin = false
-                            } else {
-                                wrongPin = true
-                                pinInput = ""
+                VStack(spacing: 12) {
+                    if !settings.lockPIN.isEmpty {
+                        SecureField(NSLocalizedString("main.pin.input", comment: ""), text: $pinInput)
+                            .font(Theme.mono(13))
+                            .textFieldStyle(.plain)
+                            .frame(width: 180)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .multilineTextAlignment(.center)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Theme.bgSurface.opacity(0.8))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(wrongPin ? Theme.red : Theme.border.opacity(0.5), lineWidth: wrongPin ? 1.5 : 1)
+                            )
+                            .onSubmit {
+                                if pinInput == settings.lockPIN {
+                                    settings.isLocked = false
+                                    pinInput = ""
+                                    wrongPin = false
+                                } else {
+                                    wrongPin = true
+                                    pinInput = ""
+                                }
                             }
-                        }
 
-                    if wrongPin {
-                        Text(NSLocalizedString("main.pin.wrong", comment: ""))
-                            .font(Theme.mono(9, weight: .bold))
+                        if wrongPin {
+                            HStack(spacing: 4) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 10))
+                                Text(NSLocalizedString("main.pin.wrong", comment: ""))
+                                    .font(Theme.mono(9, weight: .bold))
+                            }
                             .foregroundColor(Theme.red)
+                        }
+                    } else {
+                        Button(action: { settings.isLocked = false }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "lock.open.fill")
+                                    .font(.system(size: 11, weight: .bold))
+                                Text(NSLocalizedString("main.unlock", comment: ""))
+                                    .font(Theme.mono(12, weight: .bold))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(Theme.accent)
+                                    .shadow(color: Theme.accent.opacity(0.3), radius: 6, y: 3)
+                            )
+                        }
+                        .buttonStyle(.plain)
                     }
-                } else {
-                    Button(NSLocalizedString("main.unlock", comment: "")) {
-                        settings.isLocked = false
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 20).padding(.vertical, 10)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(Theme.accentBackground))
-                    .foregroundColor(Theme.textOnAccent)
-                    .font(Theme.mono(11, weight: .bold))
                 }
+
+                Spacer()
             }
             .padding(40)
         }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
+                pulseScale = 1.08
+            }
+        }
     }
+}
+
+private struct LockBlurView: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .hudWindow
+        view.blendingMode = .behindWindow
+        view.state = .active
+        return view
+    }
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1432,6 +1536,12 @@ private struct NotificationHandlersModifier: ViewModifier {
             }
             .onReceive(NotificationCenter.default.publisher(for: .dofficeToggleTerminal)) { _ in
                 withAnimation(chromeAnimation) { viewModeRaw = viewModeRaw == 2 ? 0 : 2 }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .dofficeFocusCharacterTab)) { notif in
+                if let tabId = notif.userInfo?["tabId"] as? String {
+                    manager.selectTab(tabId)
+                    withAnimation(chromeAnimation) { viewModeRaw = 0 }
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: .dofficeClaudeNotInstalled)) { _ in
                 showClaudeNotInstalledAlert = true

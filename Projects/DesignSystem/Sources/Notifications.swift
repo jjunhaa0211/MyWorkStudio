@@ -25,4 +25,5 @@ public extension Notification.Name {
     static let dofficeToggleBrowser = Notification.Name("dofficeToggleBrowser")
     static let dofficeDiagnosticReport = Notification.Name("dofficeDiagnosticReport")
     static let dofficeCopyConversation = Notification.Name("dofficeCopyConversation")
+    static let dofficeFocusCharacterTab = Notification.Name("dofficeFocusCharacterTab")
 }
