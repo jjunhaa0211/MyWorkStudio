@@ -2676,3 +2676,6 @@
 "settings.token.protection.on" = "일간/주간 한도 초과 시 자동 차단";
 "settings.token.protection.toggle" = "토큰 보호 활성화";
 "sidebar.report.loading" = "로딩 중...";
+
+"char.hire.locked.title" = "도전과제 필요";
+"char.hire.locked.message" = "이 캐릭터를 고용하려면 \"%@\" 도전과제를 달성해야 합니다.";

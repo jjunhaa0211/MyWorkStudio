@@ -2658,3 +2658,6 @@
 "theme.alert.font.change.msg" = "フォントサイズを変更するとアプリが再起動します。\nセッションは自動保存されます。";
 "theme.alert.theme.change" = "テーマ変更";
 "theme.alert.theme.change.msg" = "テーマを変更するとアプリが再起動します。\nセッションは自動保存されます。";
+
+"char.hire.locked.title" = "実績が必要";
+"char.hire.locked.message" = "このキャラクターを雇用するには「%@」実績が必要です。";

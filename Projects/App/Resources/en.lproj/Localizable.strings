@@ -2678,3 +2678,6 @@
 "settings.token.protection.on" = "Auto-block when daily/weekly limits exceeded";
 "settings.token.protection.toggle" = "Enable Token Protection";
 "sidebar.report.loading" = "Loading...";
+
+"char.hire.locked.title" = "Achievement Required";
+"char.hire.locked.message" = "You need the \"%@\" achievement to hire this character.";

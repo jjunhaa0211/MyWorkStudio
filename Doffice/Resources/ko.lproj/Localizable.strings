@@ -2656,3 +2656,6 @@
 "theme.alert.font.change.msg" = "글꼴 크기를 변경하면 앱이 재시작됩니다.\n현재 세션은 자동 저장됩니다.";
 "theme.alert.theme.change" = "테마 변경";
 "theme.alert.theme.change.msg" = "테마를 변경하면 앱이 재시작됩니다.\n현재 세션은 자동 저장됩니다.";
+
+"char.hire.locked.title" = "도전과제 필요";
+"char.hire.locked.message" = "이 캐릭터를 고용하려면 \"%@\" 도전과제를 달성해야 합니다.";

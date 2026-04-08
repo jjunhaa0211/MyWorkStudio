@@ -228,7 +228,11 @@ public class CharacterRegistry: ObservableObject {
         guard let idx = index(for: id) else { return }
         // 도전과제 잠금 체크
         if let req = allCharacters[idx].requiredAchievement {
-            guard AchievementManager.shared.achievements.first(where: { $0.id == req })?.unlocked == true else { return }
+            guard AchievementManager.shared.achievements.first(where: { $0.id == req })?.unlocked == true else {
+                let achievementName = AchievementManager.shared.achievements.first(where: { $0.id == req })?.name ?? req
+                notifyAchievementRequired(achievementName)
+                return
+            }
         }
         guard allCharacters[idx].isHired || canHire(id) else {
             notifyHiringCapReached()
@@ -378,6 +382,17 @@ public class CharacterRegistry: ObservableObject {
 
     public func nextAvailable() -> WorkerCharacter? {
         availableCharacters.first
+    }
+
+    private func notifyAchievementRequired(_ achievementName: String) {
+        NotificationCenter.default.post(
+            name: .dofficeRoleNotice,
+            object: nil,
+            userInfo: [
+                "title": NSLocalizedString("char.hire.locked.title", comment: ""),
+                "message": String(format: NSLocalizedString("char.hire.locked.message", comment: ""), achievementName)
+            ]
+        )
     }
 
     private func notifyHiringCapReached() {

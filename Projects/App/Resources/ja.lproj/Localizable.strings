@@ -2678,3 +2678,6 @@
 "settings.token.protection.on" = "日次/週次上限超過時に自動ブロック";
 "settings.token.protection.toggle" = "トークン保護を有効化";
 "sidebar.report.loading" = "読み込み中...";
+
+"char.hire.locked.title" = "実績が必要";
+"char.hire.locked.message" = "このキャラクターを雇用するには「%@」実績が必要です。";

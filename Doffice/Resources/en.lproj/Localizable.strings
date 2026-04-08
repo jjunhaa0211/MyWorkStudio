@@ -2658,3 +2658,6 @@
 "theme.alert.font.change.msg" = "Changing the font size will restart the app.\nYour sessions will be saved automatically.";
 "theme.alert.theme.change" = "Change Theme";
 "theme.alert.theme.change.msg" = "Changing the theme will restart the app.\nYour sessions will be saved automatically.";
+
+"char.hire.locked.title" = "Achievement Required";
+"char.hire.locked.message" = "You need the \"%@\" achievement to hire this character.";

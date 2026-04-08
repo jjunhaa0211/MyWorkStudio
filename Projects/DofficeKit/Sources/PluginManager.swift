@@ -23,6 +23,8 @@ public class PluginHost: ObservableObject {
     @Published public var achievements: [PluginManifest.AchievementDecl] = []
     @Published public var bossLines: [String] = []
     @Published public var effects: [LoadedEffect] = []
+    @Published public var furniture: [LoadedFurniture] = []
+    @Published public var officePresets: [LoadedOfficePreset] = []
 
     public struct LoadedPanel: Identifiable {
         public let id: String
@@ -68,6 +70,18 @@ public class PluginHost: ObservableObject {
         public let enabled: Bool
     }
 
+    public struct LoadedFurniture: Identifiable {
+        public let id: String
+        public let pluginName: String
+        public let decl: PluginManifest.FurnitureDecl
+    }
+
+    public struct LoadedOfficePreset: Identifiable {
+        public let id: String
+        public let pluginName: String
+        public let decl: PluginManifest.OfficePresetDecl
+    }
+
     // MARK: - 이벤트 발행
 
     public func fireEvent(_ event: PluginEventType, context: [String: Any] = [:]) {
@@ -93,6 +107,8 @@ public class PluginHost: ObservableObject {
         var newEffects: [LoadedEffect] = []
         var newAchievements: [PluginManifest.AchievementDecl] = []
         var newBossLines: [String] = []
+        var newFurniture: [LoadedFurniture] = []
+        var newOfficePresets: [LoadedOfficePreset] = []
 
         for pluginPath in PluginManager.shared.activePluginPaths {
             let baseURL = URL(fileURLWithPath: pluginPath)
@@ -187,6 +203,28 @@ public class PluginHost: ObservableObject {
                 newBossLines.append(contentsOf: lines)
             }
 
+            // 가구
+            if let furnitureDecls = contributes.furniture {
+                for decl in furnitureDecls {
+                    newFurniture.append(LoadedFurniture(
+                        id: "\(pluginName)::\(decl.id)",
+                        pluginName: pluginName,
+                        decl: decl
+                    ))
+                }
+            }
+
+            // 오피스 프리셋
+            if let presetDecls = contributes.officePresets {
+                for decl in presetDecls {
+                    newOfficePresets.append(LoadedOfficePreset(
+                        id: "\(pluginName)::\(decl.id)",
+                        pluginName: pluginName,
+                        decl: decl
+                    ))
+                }
+            }
+
             // 이펙트
             if let effectDecls = contributes.effects {
                 for decl in effectDecls {
@@ -214,6 +252,8 @@ public class PluginHost: ObservableObject {
             self.statusBarItems = newStatusBars.filter { !disabled.contains($0.id) }
             self.themes = newThemes.filter { !disabled.contains($0.id) }
             self.effects = newEffects.filter { !disabled.contains($0.id) }
+            self.furniture = newFurniture.filter { !disabled.contains($0.id) }
+            self.officePresets = newOfficePresets.filter { !disabled.contains($0.id) }
             // Note: achievements use raw AchievementDecl with local IDs (not "pluginName::id"),
             // so they cannot be matched against disabledExtensions which stores composite IDs.
             self.achievements = newAchievements
