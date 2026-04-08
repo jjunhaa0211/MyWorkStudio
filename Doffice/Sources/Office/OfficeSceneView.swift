@@ -15,6 +15,7 @@ struct OfficeSceneView: View {
     @State private var draggingAnchorId: String?
     @State private var dragFurnitureOffset = TileCoord(col: 0, row: 0)
     @State private var currentFPS: Double = OfficeConstants.fps
+    @State private var tappedCharacterTabId: String?
 
     private let map: OfficeMap
     /// Single consolidated timer — fires at max FPS, advance() throttles internally
@@ -161,6 +162,16 @@ struct OfficeSceneView: View {
                         .padding(14)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 }
+
+                // 캐릭터 탭 시 액션 메뉴
+                if let tabId = tappedCharacterTabId,
+                   let tab = manager.userVisibleTabs.first(where: { $0.id == tabId }) {
+                    characterActionPopover(tab: tab)
+                        .padding(10)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .zIndex(10)
+                }
             }
         }
         .background(viewportBackground)
@@ -196,6 +207,101 @@ struct OfficeSceneView: View {
             selectedFurnitureId = nil
             draggingAnchorId = nil
         }
+    }
+
+    // MARK: - Character Action Popover
+
+    @ViewBuilder
+    private func characterActionPopover(tab: TerminalTab) -> some View {
+        let rosterChar = tab.characterId.flatMap { registry.character(with: $0) }
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                if let char = rosterChar {
+                    CharacterMiniAvatar(character: char, pixelScale: 2.0, bgOpacity: 0)
+                        .frame(width: 32, height: 38)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(rosterChar?.name ?? tab.workerName)
+                        .font(Theme.mono(11, weight: .bold))
+                        .foregroundColor(Theme.textPrimary)
+                    Text(rosterChar?.localizedArchetype ?? tab.projectName)
+                        .font(Theme.mono(8))
+                        .foregroundColor(Theme.textDim)
+                }
+                Spacer()
+                Button(action: { withAnimation(.easeOut(duration: 0.15)) { tappedCharacterTabId = nil } }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(Theme.textDim)
+                        .frame(width: 22, height: 22)
+                        .background(Circle().fill(Theme.bgSurface))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 10)
+
+            Rectangle().fill(Theme.border).frame(height: 1)
+
+            VStack(spacing: 4) {
+                actionButton(NSLocalizedString("office.action.terminal", comment: ""), icon: "terminal", tint: Theme.accent) {
+                    tappedCharacterTabId = nil
+                    NotificationCenter.default.post(name: .dofficeFocusCharacterTab, object: nil, userInfo: ["tabId": tab.id])
+                }
+
+                if let char = rosterChar {
+                    Menu {
+                        ForEach(WorkerJob.allCases, id: \.self) { role in
+                            Button(action: { registry.setJobRole(role, for: char.id) }) {
+                                HStack {
+                                    Text(role.icon)
+                                    Text(role.displayName)
+                                    if char.jobRole == role { Image(systemName: "checkmark") }
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "person.text.rectangle").font(.system(size: 9))
+                            Text(NSLocalizedString("office.action.role", comment: "")).font(Theme.mono(9, weight: .medium))
+                            Spacer()
+                            Text("\(char.jobRole.icon) \(char.jobRole.displayName)").font(Theme.mono(8)).foregroundColor(Theme.textDim)
+                        }
+                        .foregroundColor(Theme.cyan)
+                        .padding(.horizontal, 10).padding(.vertical, 7)
+                        .background(RoundedRectangle(cornerRadius: 6).fill(Theme.cyan.opacity(0.06)))
+                    }
+
+                    actionButton(
+                        char.isOnVacation ? NSLocalizedString("char.return.to.work", comment: "") : NSLocalizedString("char.vacation", comment: ""),
+                        icon: char.isOnVacation ? "figure.walk.arrival" : "beach.umbrella",
+                        tint: char.isOnVacation ? Theme.green : Theme.orange
+                    ) { registry.setVacation(!char.isOnVacation, for: char.id) }
+
+                    actionButton(NSLocalizedString("char.fire", comment: ""), icon: "person.fill.xmark", tint: Theme.red) {
+                        registry.fire(char.id)
+                        withAnimation(.easeOut(duration: 0.15)) { tappedCharacterTabId = nil }
+                    }
+                }
+            }
+            .padding(8)
+        }
+        .frame(width: 240)
+        .background(RoundedRectangle(cornerRadius: 12).fill(Theme.bgCard).shadow(color: .black.opacity(0.2), radius: 16, x: 0, y: 8))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.border, lineWidth: 1))
+    }
+
+    private func actionButton(_ title: String, icon: String, tint: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: icon).font(.system(size: 9))
+                Text(title).font(Theme.mono(9, weight: .medium))
+                Spacer()
+            }
+            .foregroundColor(tint)
+            .padding(.horizontal, 10).padding(.vertical, 7)
+            .background(RoundedRectangle(cornerRadius: 6).fill(tint.opacity(0.06)))
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Overlay Panels
@@ -671,15 +777,11 @@ struct OfficeSceneView: View {
         }
 
         guard let tabId = hitTestCharacter(at: scenePoint) else { return }
-        // 캐릭터를 탭하면 선택 + 팔로우 시작 + 싱글 터미널 뷰로 전환
+        // 캐릭터를 탭하면 선택 + 팔로우 + 메뉴 표시
         manager.selectTab(tabId)
         store.followingCharacterId = tabId
         selectedFurnitureId = nil
-        NotificationCenter.default.post(
-            name: .dofficeFocusCharacterTab,
-            object: nil,
-            userInfo: ["tabId": tabId]
-        )
+        tappedCharacterTabId = tabId
     }
 
     private func hitTestCharacter(at point: CGPoint) -> String? {

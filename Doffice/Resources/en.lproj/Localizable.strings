@@ -2661,3 +2661,6 @@
 
 "char.hire.locked.title" = "Achievement Required";
 "char.hire.locked.message" = "You need the \"%@\" achievement to hire this character.";
+
+"office.action.terminal" = "Open Terminal";
+"office.action.role" = "Change Role";

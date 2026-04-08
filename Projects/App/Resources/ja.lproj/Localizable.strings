@@ -2681,3 +2681,6 @@
 
 "char.hire.locked.title" = "実績が必要";
 "char.hire.locked.message" = "このキャラクターを雇用するには「%@」実績が必要です。";
+
+"office.action.terminal" = "ターミナルを開く";
+"office.action.role" = "役職変更";

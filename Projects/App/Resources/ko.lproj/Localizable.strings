@@ -2679,3 +2679,6 @@
 
 "char.hire.locked.title" = "도전과제 필요";
 "char.hire.locked.message" = "이 캐릭터를 고용하려면 \"%@\" 도전과제를 달성해야 합니다.";
+
+"office.action.terminal" = "터미널 열기";
+"office.action.role" = "직무 변경";
