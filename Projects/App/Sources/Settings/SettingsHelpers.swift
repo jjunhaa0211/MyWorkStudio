@@ -630,7 +630,6 @@ extension SettingsView {
     }
 
     // ── Secret Key ──
-    enum SecretKeyResult { case none, success, wrong }
 
     static let normalizedSecretKey = "i dont like snatch"
 

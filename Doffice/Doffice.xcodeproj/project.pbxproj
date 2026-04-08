@@ -14,10 +14,11 @@
 		28ABC1238F8EE87369BBC7EF /* AuditLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19D1AE3CB99EAC879DE06BC9 /* AuditLog.swift */; };
 		3CB39BC52F73FB3E0004E716 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = DEP001 /* SwiftTerm */; };
 		66DA2090B5936E1AA59DAAEA /* AccessoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C2A0CE1E54AD3EA20C170C2 /* AccessoryView.swift */; };
+		74FC9D77F299145A094C7166 /* MainViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE96A9C28EFF0BDAA230815A /* MainViewModel.swift */; };
 		85454FCE4B59F099EC99D2D8 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5AA1D689F74AEB1DFBFF1BF /* AppSettings.swift */; };
 		8EAB07DCD8A5717B584AE381 /* SessionPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B57D61AE58AAA182FF626C15 /* SessionPersistenceTests.swift */; };
 		9141A180C2CDC4F91C87AA78 /* UpdateChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01FB8028B43E80A3835392CA /* UpdateChecker.swift */; };
-		A10001 /* DofficeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001 /* DofficeApp.swift */; };
+		92586C2500611F7B9FD80B43 /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32510C4BCE570C9606BB080 /* SettingsViewModel.swift */; };
 		A10002 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10002 /* Models.swift */; };
 		A10003 /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10003 /* SessionManager.swift */; };
 		A10004 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10004 /* MainView.swift */; };
@@ -60,7 +61,10 @@
 		A50008 /* TmuxSessionBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50008 /* TmuxSessionBridge.swift */; };
 		A60001 /* CrashLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60001 /* CrashLogger.swift */; };
 		A60002 /* DiagnosticReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60002 /* DiagnosticReport.swift */; };
+		BF9F3749E4D6A5FC315C0E52 /* EventStreamViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 628E4DC0DE1277AB32E4847F /* EventStreamViewModel.swift */; };
+		C1F4C7420CE3B97B0A1A7F8F /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 712F44BE601859DAE7C527E1 /* Constants.swift */; };
 		CORETEST01 /* CoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CORETEST02 /* CoreTests.swift */; };
+		D304EC69C084CB4BAEA444BB /* SidebarViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23A9A3EFDA7C07002C91F6B9 /* SidebarViewModel.swift */; };
 		DABD99DB56A43993BD71CB63 /* SensitiveFileShield.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCDF8262B8C09E5CB418BA0D /* SensitiveFileShield.swift */; };
 		FC234AD686A13A3048D439D8 /* DangerousCommandDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C60E443524B7F6AE927F898 /* DangerousCommandDetector.swift */; };
 /* End PBXBuildFile section */
@@ -78,8 +82,11 @@
 /* Begin PBXFileReference section */
 		01FB8028B43E80A3835392CA /* UpdateChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateChecker.swift; sourceTree = "<group>"; };
 		19D1AE3CB99EAC879DE06BC9 /* AuditLog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuditLog.swift; sourceTree = "<group>"; };
+		23A9A3EFDA7C07002C91F6B9 /* SidebarViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SidebarViewModel.swift; sourceTree = "<group>"; };
 		4B6C4A9868E571719C427D24 /* DofficeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DofficeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		4BBFE11226A4BCA2F1840024 /* DSComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DSComponents.swift; sourceTree = "<group>"; };
+		628E4DC0DE1277AB32E4847F /* EventStreamViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EventStreamViewModel.swift; sourceTree = "<group>"; };
+		712F44BE601859DAE7C527E1 /* Constants.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
 		79F3828283C36F01A4EA307E /* SettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		7C2A0CE1E54AD3EA20C170C2 /* AccessoryView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccessoryView.swift; sourceTree = "<group>"; };
 		9C60E443524B7F6AE927F898 /* DangerousCommandDetector.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DangerousCommandDetector.swift; sourceTree = "<group>"; };
@@ -127,6 +134,8 @@
 		B60001 /* CrashLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrashLogger.swift; sourceTree = "<group>"; };
 		B60002 /* DiagnosticReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticReport.swift; sourceTree = "<group>"; };
 		BCDF8262B8C09E5CB418BA0D /* SensitiveFileShield.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SensitiveFileShield.swift; sourceTree = "<group>"; };
+		BE96A9C28EFF0BDAA230815A /* MainViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainViewModel.swift; sourceTree = "<group>"; };
+		C32510C4BCE570C9606BB080 /* SettingsViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
 		CORETEST02 /* CoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CoreTests.swift; sourceTree = "<group>"; };
 		D10001 /* Doffice.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Doffice.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E10001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -168,6 +177,18 @@
 				AADE3B5D98B955B0C80A5DE3 /* Cocoa.framework */,
 			);
 			name = "OS X";
+			sourceTree = "<group>";
+		};
+		7122DEEA495D0CC6B6C6115B /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				BE96A9C28EFF0BDAA230815A /* MainViewModel.swift */,
+				C32510C4BCE570C9606BB080 /* SettingsViewModel.swift */,
+				23A9A3EFDA7C07002C91F6B9 /* SidebarViewModel.swift */,
+				628E4DC0DE1277AB32E4847F /* EventStreamViewModel.swift */,
+			);
+			name = ViewModels;
+			path = ViewModels;
 			sourceTree = "<group>";
 		};
 		DC004879538E95F2F14C1262 /* Tests */ = {
@@ -242,6 +263,8 @@
 				7C2A0CE1E54AD3EA20C170C2 /* AccessoryView.swift */,
 				4BBFE11226A4BCA2F1840024 /* DSComponents.swift */,
 				EC844CF34B44C5CB857FFF12 /* CharacterPixelRenderer.swift */,
+				7122DEEA495D0CC6B6C6115B /* ViewModels */,
+				712F44BE601859DAE7C527E1 /* Constants.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -392,7 +415,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A10001 /* DofficeApp.swift in Sources */,
 				A10008 /* Theme.swift in Sources */,
 				A10002 /* Models.swift in Sources */,
 				A10003 /* SessionManager.swift in Sources */,
@@ -439,6 +461,11 @@
 				66DA2090B5936E1AA59DAAEA /* AccessoryView.swift in Sources */,
 				A37C7BAA3F0D1D94691A5DF7 /* DSComponents.swift in Sources */,
 				0CA5AF1F17C8684B5B4B34FE /* CharacterPixelRenderer.swift in Sources */,
+				C1F4C7420CE3B97B0A1A7F8F /* Constants.swift in Sources */,
+				74FC9D77F299145A094C7166 /* MainViewModel.swift in Sources */,
+				92586C2500611F7B9FD80B43 /* SettingsViewModel.swift in Sources */,
+				D304EC69C084CB4BAEA444BB /* SidebarViewModel.swift in Sources */,
+				BF9F3749E4D6A5FC315C0E52 /* EventStreamViewModel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

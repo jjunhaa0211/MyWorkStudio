@@ -2,6 +2,8 @@ import SwiftUI
 import DesignSystem
 import DofficeKit
 
+enum SecretKeyResult { case none, success, wrong }
+
 // MARK: - Theme Color Defaults
 
 /// 다크/라이트 모드별 기본 색상 hex 값

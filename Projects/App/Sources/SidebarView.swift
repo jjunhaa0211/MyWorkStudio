@@ -104,7 +104,7 @@ enum SidebarSortOption: String, CaseIterable, Identifiable {
 struct SidebarView: View {
     @EnvironmentObject var manager: SessionManager
     @StateObject private var settings = AppSettings.shared
-    @StateObject private var vm = SidebarViewModel()
+    @StateObject var vm = SidebarViewModel()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let forceCompact: Bool
     @AppStorage("viewMode") private var appViewModeRaw: Int = 1
@@ -346,7 +346,7 @@ struct SidebarView: View {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: Theme.chromeIconSize(9), weight: .semibold))
                     .foregroundColor(Theme.textDim)
-                TextField(NSLocalizedString("search", comment: ""), text: $searchQuery)
+                TextField(NSLocalizedString("search", comment: ""), text: $vm.searchQuery)
                     .textFieldStyle(.plain)
                     .font(Theme.chrome(10))
                     .foregroundColor(Theme.textPrimary)
@@ -415,11 +415,6 @@ struct SidebarView: View {
         }
         .appPanelStyle(padding: 10, radius: 12, fill: Theme.bgCard.opacity(0.98), strokeOpacity: 0.2, shadow: false)
     }
-
-    @State var showCharacterSheet = false
-    @State var showAchievementSheet = false
-    @State var showAccessorySheet = false
-    @State var showReportSheet = false
 
     var sidebarAnimation: Animation {
         reduceMotion ? .linear(duration: 0.01) : .easeInOut(duration: 0.16)
