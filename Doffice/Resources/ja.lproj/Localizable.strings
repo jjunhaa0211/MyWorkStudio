@@ -2195,6 +2195,7 @@
 "session.limit.max" = "社員は最大%d名まで推奨です。現在これ以上新しいターミナルに配置できません。";
 "session.limit.no.available" = "今すぐ投入可能な社員がいません。現在の作業が終わってから再試行してください。";
 "session.limit.partial" = "現在すぐ配置可能な社員は%d名だけです。要求した%d個すべてを同時に作成できません。";
+"session.auto.hire" = "全員が忙しいため、新しい開発者「%@」を自動雇用しました！";
 "session.limit.title" = "ターミナル追加制限";
 
 /* Workflow - Handoff labels */

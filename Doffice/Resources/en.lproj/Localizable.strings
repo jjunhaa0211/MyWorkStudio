@@ -2195,6 +2195,7 @@
 "session.limit.max" = "Up to %d workers are recommended. No more can be assigned to new terminals right now.";
 "session.limit.no.available" = "No workers available right now. Please try again after current tasks finish.";
 "session.limit.partial" = "Only %d workers are available right now. Cannot create all %d requested at once.";
+"session.auto.hire" = "All workers busy — auto-hired new developer '%@'!";
 "session.limit.title" = "Terminal limit";
 
 /* Workflow - Handoff labels */

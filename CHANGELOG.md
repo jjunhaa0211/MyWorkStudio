@@ -2,6 +2,13 @@
 
 All notable changes to Doffice are documented here.
 
+## [0.0.56] - 2026-04-09
+
+### Fixed
+- Release CI no longer fails on localization drift caused by missing legacy `session.auto.hire` strings
+- Homebrew tap workflow now skips cleanly with a warning when `HOMEBREW_TAP_TOKEN` is not configured
+- Legacy `Doffice` localization files are back in sync with `Projects/App`
+
 ## [0.0.52] - 2026-04-08
 
 ### Added

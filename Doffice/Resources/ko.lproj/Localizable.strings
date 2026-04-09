@@ -2197,6 +2197,7 @@
 "session.limit.max" = "직원은 최대 %d명까지 권장합니다. 지금은 더 이상 새 터미널에 배정할 수 없습니다.";
 "session.limit.no.available" = "지금 바로 투입 가능한 직원이 없습니다. 현재 작업이 끝난 뒤 다시 시도해주세요.";
 "session.limit.partial" = "현재 바로 배정 가능한 직원은 %d명뿐입니다. 요청한 %d개 전체를 동시에 만들 수 없습니다.";
+"session.auto.hire" = "모든 직원이 바빠서 새 개발자 '%@'을(를) 자동 고용했습니다!";
 "session.limit.title" = "터미널 추가 제한";
 
 /* Workflow - Handoff labels */
