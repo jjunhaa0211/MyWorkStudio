@@ -14,7 +14,7 @@ make build-app         # xcodebuild
 make open-app          # 빌드된 앱 실행
 
 # 테스트
-./Scripts/smoke-test.sh   # 5단계 전체 테스트 파이프라인
+./Scripts/smoke-test.sh   # 4단계 전체 테스트 파이프라인
 xcodebuild test -workspace Doffice.xcworkspace -scheme DesignSystem -destination 'platform=macOS'
 xcodebuild test -workspace Doffice.xcworkspace -scheme DofficeKit -destination 'platform=macOS'
 ```
@@ -33,12 +33,8 @@ Projects/
     ├── CatalogSources/ # 프리뷰 카탈로그 앱
     └── Tests/
 
-Doffice/               # Legacy 프로젝트 (병렬 구조, 동일 코드)
-├── Sources/
-└── Tests/
+Doffice/               # DEPRECATED — 수정하지 마세요. 모든 개발은 Projects/에서 진행.
 ```
-
-**두 소스 트리가 병렬로 존재합니다.** `Projects/` (Tuist modular)와 `Doffice/` (legacy xcodeproj). 코드 수정 시 양쪽 모두 반영해야 합니다.
 
 ## Module Dependencies
 

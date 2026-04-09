@@ -33,11 +33,6 @@ jobs:
       - name: Generate Project
         run: mise exec -- tuist generate --no-open || true
 
-      - name: Source Sync Check (Projects/ ↔ Doffice/)
-        run: |
-          chmod +x ./Scripts/sync-check.sh
-          ./Scripts/sync-check.sh
-
       - name: Localization Key Sync Check
         run: |
           chmod +x ./Scripts/l10n-check.sh
@@ -60,15 +55,6 @@ jobs:
             -destination 'platform=macOS' \
             -configuration Debug \
             -derivedDataPath "$PWD/build-dofficekit"
-
-      - name: Legacy Doffice Tests
-        run: |
-          xcodebuild test \
-            -project Doffice/Doffice.xcodeproj \
-            -scheme Doffice \
-            -destination 'platform=macOS' \
-            -configuration Debug \
-            -derivedDataPath "$PWD/build-legacy"
 
       - name: Release Build
         run: |
