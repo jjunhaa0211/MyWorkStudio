@@ -209,6 +209,7 @@ public enum OfficeCharacterState: Equatable {
     case wanderPause         // 돌아다니다 멈춤
     case onBreak             // 팬트리에서 쉬기
     case seatRest            // 자리에서 쉬기
+    case patrolling          // 다중 세션 순회 (비개발자 병렬 작업)
 }
 
 public enum OfficeSocialMode: Equatable {
@@ -271,6 +272,12 @@ public struct OfficeCharacter {
     public var socialPartnerKey: String? = nil
     public var socialFocusTile: TileCoord? = nil
     public var recentBreakTargets: [TileCoord] = []
+
+    // 다중 세션 순회 (비개발자 병렬 작업)
+    public var patrolSeatIds: [String] = []   // 순회할 좌석 ID 목록
+    public var patrolIndex: Int = 0            // 현재 순회 인덱스
+    public var patrolTimer: Double = 0         // 현재 책상 대기 시간
+    public var patrolDuration: Double = 4.0    // 각 책상 대기 시간 (3~5초)
 
     public var tileCoord: TileCoord { TileCoord(col: tileCol, row: tileRow) }
 

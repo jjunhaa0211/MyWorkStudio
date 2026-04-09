@@ -212,6 +212,10 @@ public class AppSettings: ObservableObject {
     @AppStorage("allowParallelSubagents") public var allowParallelSubagents: Bool = false {
         didSet { notifyIfNeeded() }
     }
+    /// 비개발자 역할(리뷰어, QA 등)이 여러 세션을 동시에 담당할 수 있는지 여부
+    @AppStorage("allowMultiRole") public var allowMultiRole: Bool = true {
+        didSet { notifyIfNeeded() }
+    }
     @AppStorage("terminalSidebarLightweight") public var terminalSidebarLightweight: Bool = true {
         didSet { notifyIfNeeded() }
     }

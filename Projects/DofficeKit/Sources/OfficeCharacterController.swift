@@ -379,6 +379,67 @@ public class OfficeCharacterController: ObservableObject {
 
             characters[characterKey] = character
         }
+
+        // 비개발자 다중 세션 순회 감지
+        updatePatrolAssignments(tabs: tabs)
+    }
+
+    /// 비개발자가 여러 세션에 배정된 경우 순회 좌석 목록을 설정
+    private func updatePatrolAssignments(tabs: [TerminalTab]) {
+        guard AppSettings.shared.allowMultiRole else {
+            // 다중 역할 OFF → 모든 순회 초기화
+            for (id, var ch) in characters where !ch.patrolSeatIds.isEmpty {
+                ch.patrolSeatIds = []
+                characters[id] = ch
+            }
+            return
+        }
+
+        // characterId → 해당 캐릭터에 배정된 탭들의 seatId 수집
+        var characterSeatMap: [String: [String]] = [:]
+        for tab in tabs {
+            guard let characterId = tab.characterId,
+                  !tab.isCompleted,
+                  !tab.workerJob.isExclusiveSession else { continue }
+            let key = officeCharacterKey(for: tab)
+            // 해당 캐릭터가 앉아있는 좌석 찾기
+            if let ch = characters[key], let seatId = ch.seatId {
+                characterSeatMap[characterId, default: []].append(seatId)
+            }
+        }
+
+        // 같은 characterId를 가진 다른 탭들의 좌석도 수집
+        let tabsByCharacter = Dictionary(grouping: tabs.filter {
+            $0.characterId != nil && !$0.isCompleted && !$0.workerJob.isExclusiveSession
+        }, by: { $0.characterId! })
+
+        for (characterId, assignedTabs) in tabsByCharacter {
+            let seatIds = assignedTabs.compactMap { tab -> String? in
+                let groupKey = seatGroupKey(for: tab)
+                return seatAssignmentsByGroup[groupKey]
+            }
+            let uniqueSeatIds = Array(Set(seatIds))
+
+            // 이 캐릭터의 오피스 캐릭터 키 찾기 (첫 번째 탭 기준)
+            guard let firstTab = assignedTabs.first else { continue }
+            let key = officeCharacterKey(for: firstTab)
+            guard var ch = characters[key] else { continue }
+
+            if uniqueSeatIds.count > 1 {
+                if ch.patrolSeatIds != uniqueSeatIds {
+                    ch.patrolSeatIds = uniqueSeatIds
+                    ch.patrolIndex = 0
+                    ch.patrolDuration = Double.random(in: 3...5)
+                    if ch.state != .patrolling && ch.state != .walkingTo(ch.targetTile ?? ch.tileCoord) {
+                        ch.state = .patrolling
+                        ch.patrolTimer = ch.patrolDuration
+                    }
+                }
+            } else {
+                ch.patrolSeatIds = []
+            }
+            characters[key] = ch
+        }
     }
 
     // MARK: - State Transitions
@@ -553,6 +614,33 @@ public class OfficeCharacterController: ObservableObject {
                     ch.wanderLimit = wanderMoveLimit()
                 }
 
+            case .patrolling:
+                // 비개발자 다중 세션 순회: 책상에서 typing → 다음 책상으로 이동
+                ch.patrolTimer -= deltaTime
+                if ch.patrolTimer <= 0 && ch.patrolSeatIds.count > 1 {
+                    // 다음 책상으로 이동
+                    ch.patrolIndex = (ch.patrolIndex + 1) % ch.patrolSeatIds.count
+                    let nextSeatId = ch.patrolSeatIds[ch.patrolIndex]
+                    if let seat = map.seats.first(where: { $0.id == nextSeatId }) {
+                        let target = seat.position
+                        if beginMovement(&ch, to: target, purpose: .seat) {
+                            // 이동 시작 성공 — 도착 후 다시 patrolling으로 전환됨
+                        } else {
+                            // 경로를 못 찾으면 타이머 리셋
+                            ch.patrolTimer = ch.patrolDuration
+                        }
+                    } else {
+                        ch.patrolTimer = ch.patrolDuration
+                    }
+                } else {
+                    // typing 애니메이션
+                    ch.frameTimer += deltaTime
+                    if ch.frameTimer >= 0.3 {
+                        ch.frameTimer -= 0.3
+                        ch.frame = ch.frame == 0 ? 1 : 0
+                    }
+                }
+
             default:
                 break
             }
@@ -623,7 +711,12 @@ public class OfficeCharacterController: ObservableObject {
         case .seat:
             if let seat = seat(for: ch) {
                 ch.dir = seat.facing
-                if ch.isActive {
+                if !ch.patrolSeatIds.isEmpty && ch.patrolSeatIds.count > 1 {
+                    // 다중 세션 순회 → patrolling 상태로 전환
+                    ch.state = .patrolling
+                    ch.patrolTimer = ch.patrolDuration
+                    ch.frame = 0
+                } else if ch.isActive {
                     ch.state = state(for: ch.activity)
                 } else {
                     ch.state = .seatRest

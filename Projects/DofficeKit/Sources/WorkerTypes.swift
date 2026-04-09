@@ -130,6 +130,11 @@ public enum WorkerJob: String, Codable, CaseIterable, Identifiable {
     public var takesManualCodingSessions: Bool {
         self == .developer
     }
+
+    /// 1:1 세션 전용 역할인지 여부. 개발자만 한 세션에 전담.
+    public var isExclusiveSession: Bool {
+        self == .developer
+    }
 }
 
 public struct WorkerCharacter: Identifiable, Codable, Equatable {

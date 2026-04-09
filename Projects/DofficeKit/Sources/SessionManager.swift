@@ -325,9 +325,14 @@ public class SessionManager: ObservableObject, SessionProviding {
     }
 
     func occupiedCharacterIds() -> Set<String> {
-        Set(
+        let allowMulti = AppSettings.shared.allowMultiRole
+        return Set(
             tabs.compactMap { tab in
                 guard let characterId = tab.characterId else { return nil }
+                // 비개발자 + 다중 역할 허용 시 → 점유하지 않음 (여러 세션 병렬 가능)
+                if allowMulti, !tab.workerJob.isExclusiveSession {
+                    return nil
+                }
                 if tab.automationSourceTabId != nil {
                     return tab.isProcessing ? characterId : nil
                 }
@@ -340,7 +345,7 @@ public class SessionManager: ObservableObject, SessionProviding {
         let registry = CharacterRegistry.shared
         let occupiedIds = occupiedCharacterIds()
 
-        // 고용된 개발자 중 비어있는 캐릭터만 반환
+        // 개발자 역할 캐릭터만 수동 세션에 배정 (1:1 전담)
         let hiredDevelopers = registry.hiredCharacters(for: .developer).filter {
             !$0.isOnVacation && !occupiedIds.contains($0.id)
         }
@@ -348,15 +353,7 @@ public class SessionManager: ObservableObject, SessionProviding {
             return hired
         }
 
-        // 개발자 역할이 아닌 고용된 캐릭터 중에서도 찾기
-        let hiredAny = registry.hiredCharacters.filter {
-            !$0.isOnVacation && !occupiedIds.contains($0.id)
-        }
-        if let hired = hiredAny.randomElement() {
-            return hired
-        }
-
-        // 모든 고용 캐릭터가 바쁘면 → 미고용 캐릭터 중 자동 고용
+        // 개발자가 전부 바쁘면 → 미고용 캐릭터 중 자동 고용
         guard registry.hiredCharacters.count < CharacterRegistry.maxHiredCount else {
             return nil
         }
@@ -369,6 +366,8 @@ public class SessionManager: ObservableObject, SessionProviding {
         }
 
         registry.hire(candidate.id)
+        // 새로 고용된 캐릭터만 개발자 역할 부여
+        registry.setJobRole(.developer, for: candidate.id)
 
         // 자동 고용 토스트 알림
         let hiredName = registry.character(with: candidate.id)?.name ?? candidate.name
