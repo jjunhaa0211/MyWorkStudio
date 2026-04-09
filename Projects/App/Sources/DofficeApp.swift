@@ -127,18 +127,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // CLI 설치 확인 (백그라운드에서 실행 — 메인 스레드 블로킹 방지)
         DispatchQueue.global(qos: .userInitiated).async {
-            ClaudeInstallChecker.shared.check()
-            CodexInstallChecker.shared.check()
+            for provider in AgentProvider.allCases {
+                provider.installChecker.check(force: true)
+            }
             DispatchQueue.main.async {
-                if ClaudeInstallChecker.shared.isInstalled {
-                    print("[도피스] Claude Code \(ClaudeInstallChecker.shared.version) found at \(ClaudeInstallChecker.shared.path)")
-                } else {
-                    print("[도피스] ⚠️ Claude Code not installed")
-                }
-                if CodexInstallChecker.shared.isInstalled {
-                    print("[도피스] Codex \(CodexInstallChecker.shared.version) found at \(CodexInstallChecker.shared.path)")
-                } else {
-                    print("[도피스] ⚠️ Codex not installed")
+                for provider in AgentProvider.allCases {
+                    let checker = provider.installChecker
+                    if checker.isInstalled {
+                        print("[도피스] \(provider.displayName) \(checker.version) found at \(checker.path)")
+                    } else {
+                        print("[도피스] ⚠️ \(provider.displayName) not installed")
+                    }
                 }
             }
         }

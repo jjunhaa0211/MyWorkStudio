@@ -10,7 +10,7 @@ public struct EventBlockView: View {
     @StateObject private var settings = AppSettings.shared
     public let compact: Bool
     public var onResendPrompt: ((String) -> Void)?
-    @State private var thoughtCollapsed = true
+    @State private var thoughtCollapsed = false
     @State private var showCopied = false
 
     public var body: some View {

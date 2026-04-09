@@ -103,7 +103,7 @@ extension OfficeSpriteRenderer {
     // MARK: - Detailed Furniture Drawing
     // ═══════════════════════════════════════════════════
 
-    internal static func drawDetailedFurniture(_ ctx: GraphicsContext, type: FurnitureType,
+    public static func drawDetailedFurniture(_ ctx: GraphicsContext, type: FurnitureType,
                                                x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat,
                                                dark: Bool, frame: Int,
                                                pluginFurnitureId: String? = nil) {

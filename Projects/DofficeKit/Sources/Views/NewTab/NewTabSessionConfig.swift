@@ -161,15 +161,17 @@ extension NewTabSheet {
                 optionGroup(title: "Agent") {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 8)], spacing: 8) {
                         ForEach(AgentProvider.allCases) { provider in
+                            let installed = provider.installChecker.isInstalled
                             selectionChip(
-                                title: provider.displayName,
-                                subtitle: providerSubtitle(provider),
+                                title: provider.displayName + (installed ? "" : " (미설치)"),
+                                subtitle: installed ? providerSubtitle(provider) : provider.installCommand,
                                 symbol: providerSymbol(provider),
-                                tint: providerChipTint(provider),
+                                tint: installed ? providerChipTint(provider) : Theme.textMuted,
                                 selected: selectedProvider == provider
                             ) {
                                 selectProvider(provider)
                             }
+                            .opacity(installed ? 1.0 : 0.5)
                         }
                     }
                 }

@@ -11,9 +11,15 @@ extension EventStreamView {
             HStack(spacing: 0) {
                 settingGroup("Agent") {
                     ForEach(AgentProvider.allCases) { provider in
-                        settingChip(provider.displayName, isSelected: tab.provider == provider, color: providerColor(provider)) {
+                        let installed = provider.installChecker.isInstalled
+                        settingChip(
+                            provider.displayName + (installed ? "" : " ✗"),
+                            isSelected: tab.provider == provider,
+                            color: installed ? providerColor(provider) : Theme.textMuted
+                        ) {
                             selectProvider(provider)
                         }
+                        .opacity(installed ? 1.0 : 0.5)
                     }
                 }
 
