@@ -940,11 +940,11 @@ public class AchievementManager: ObservableObject {
             "lastLoginRewardDate": lastLoginRewardDate,
             "loginStreak": loginStreak,
         ]
-        UserDefaults.standard.set(data, forKey: saveKey)
+        PersistenceService.shared.set(data, forKey: saveKey)
     }
 
     private func loadState() {
-        guard let data = UserDefaults.standard.dictionary(forKey: saveKey) else { return }
+        guard let data = PersistenceService.shared.dictionary(forKey: saveKey) else { return }
         totalXP = data["totalXP"] as? Int ?? 0
         commandCount = data["commandCount"] as? Int ?? 0
         totalSessions = data["totalSessions"] as? Int ?? 0

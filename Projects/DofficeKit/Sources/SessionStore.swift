@@ -339,7 +339,7 @@ public class SessionStore {
 
         guard postNotification else { return }
         DispatchQueue.main.async {
-            NotificationCenter.default.post(name: .dofficeSessionStoreDidChange, object: nil)
+            EventBus.shared.post(.sessionStoreDidChange)
         }
     }
 

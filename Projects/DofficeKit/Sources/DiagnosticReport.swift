@@ -136,7 +136,7 @@ public final class DiagnosticReport {
         ]
         var lines = ["App Settings", ""]
         for key in keys {
-            let value = UserDefaults.standard.object(forKey: key)
+            let value = PersistenceService.shared.object(forKey: key)
             lines.append("\(key) = \(value ?? "nil" as Any)")
         }
         return lines.joined(separator: "\n")

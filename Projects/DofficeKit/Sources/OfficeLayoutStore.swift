@@ -23,7 +23,7 @@ public final class OfficeLayoutStore {
     public static let shared = OfficeLayoutStore()
 
     private let keyPrefix = "doffice.office.layout"
-    private let defaults = UserDefaults.standard
+    private let defaults = PersistenceService.shared
 
     private func key(for preset: OfficePreset) -> String {
         "\(keyPrefix).\(preset.rawValue).v1"

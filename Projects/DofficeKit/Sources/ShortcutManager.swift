@@ -332,12 +332,12 @@ public class ShortcutManager: ObservableObject {
             dict[action.rawValue] = shortcut
         }
         if let data = try? JSONEncoder().encode(dict) {
-            UserDefaults.standard.set(data, forKey: storageKey)
+            PersistenceService.shared.set(data, forKey: storageKey)
         }
     }
 
     private func loadFromStorage() {
-        guard let data = UserDefaults.standard.data(forKey: storageKey),
+        guard let data = PersistenceService.shared.data(forKey: storageKey),
               let dict = try? JSONDecoder().decode([String: KeyShortcut?].self, from: data) else {
             return
         }

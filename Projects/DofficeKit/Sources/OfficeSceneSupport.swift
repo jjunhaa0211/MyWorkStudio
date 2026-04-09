@@ -463,8 +463,7 @@ public final class OfficeSceneStore: ObservableObject {
         objectWillChange.send()
     }
 
-    @MainActor
-    public func prepareBackgroundSnapshot(theme: BackgroundTheme, dark: Bool) {
+        @MainActor public func prepareBackgroundSnapshot(theme: BackgroundTheme, dark: Bool) {
         let signature = staticBackgroundSignature(theme: theme, dark: dark)
         if backgroundSnapshotSignature == signature, backgroundSnapshot != nil { return }
         if isPreparingBackgroundSnapshot { return }
@@ -489,8 +488,7 @@ public final class OfficeSceneStore: ObservableObject {
         backgroundSnapshotSignature = signature
     }
 
-    @MainActor
-    public func refreshChromeScreenshots(for tabs: [TerminalTab], activeTabId: String? = nil) async {
+        public func refreshChromeScreenshots(for tabs: [TerminalTab], activeTabId: String? = nil) async {
         let chromeTabs = tabs.filter {
             $0.enableChrome && ($0.isProcessing || $0.id == activeTabId)
         }

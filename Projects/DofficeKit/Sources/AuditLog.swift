@@ -100,11 +100,11 @@ public class AuditLog: ObservableObject {
 
     @Published public var entries: [AuditEntry] = []
     @Published public var enabled: Bool {
-        didSet { UserDefaults.standard.set(enabled, forKey: "auditLogEnabled") }
+        didSet { PersistenceService.shared.set(enabled, forKey: "auditLogEnabled") }
     }
 
     private init() {
-        self.enabled = UserDefaults.standard.object(forKey: "auditLogEnabled") as? Bool ?? true
+        self.enabled = PersistenceService.shared.object(forKey: "auditLogEnabled") as? Bool ?? true
         load()
     }
 
@@ -143,7 +143,7 @@ public class AuditLog: ObservableObject {
         let key = saveKey
         let workItem = DispatchWorkItem {
             if let data = try? JSONEncoder().encode(snapshot) {
-                UserDefaults.standard.set(data, forKey: key)
+                PersistenceService.shared.set(data, forKey: key)
             }
         }
         saveWorkItem = workItem
@@ -151,7 +151,7 @@ public class AuditLog: ObservableObject {
     }
 
     private func load() {
-        guard let data = UserDefaults.standard.data(forKey: saveKey),
+        guard let data = PersistenceService.shared.data(forKey: saveKey),
               let loaded = try? JSONDecoder().decode([AuditEntry].self, from: data) else { return }
         entries = loaded
     }

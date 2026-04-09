@@ -180,14 +180,14 @@ public class PluginMessageHandler: NSObject, WKScriptMessageHandler {
         case "readPluginStorage":
             if let key = body["key"] as? String {
                 let storageKey = "plugin.\(pluginName).\(key)"
-                let value = UserDefaults.standard.string(forKey: storageKey) ?? ""
+                let value = PersistenceService.shared.string(forKey: storageKey) ?? ""
                 respondToWebView(message.webView, callbackId: body["callbackId"] as? String, data: ["value": value])
             }
 
         case "writePluginStorage":
             if let key = body["key"] as? String, let value = body["value"] as? String {
                 let storageKey = "plugin.\(pluginName).\(key)"
-                UserDefaults.standard.set(value, forKey: storageKey)
+                PersistenceService.shared.set(value, forKey: storageKey)
                 respondToWebView(message.webView, callbackId: body["callbackId"] as? String, data: ["success": true])
             }
 

@@ -160,12 +160,12 @@ public class BrowserManager: ObservableObject {
 
     private func saveBookmarks() {
         if let data = try? JSONEncoder().encode(bookmarks) {
-            UserDefaults.standard.set(data, forKey: bookmarksKey)
+            PersistenceService.shared.set(data, forKey: bookmarksKey)
         }
     }
 
     private func loadBookmarks() {
-        guard let data = UserDefaults.standard.data(forKey: bookmarksKey),
+        guard let data = PersistenceService.shared.data(forKey: bookmarksKey),
               let decoded = try? JSONDecoder().decode([BrowserBookmark].self, from: data) else { return }
         bookmarks = decoded
     }

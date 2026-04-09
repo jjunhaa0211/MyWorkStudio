@@ -307,7 +307,7 @@ public class TokenTracker: ObservableObject {
         let key = saveKey
         let workItem = DispatchWorkItem {
             if let data = try? JSONEncoder().encode(snapshot) {
-                UserDefaults.standard.set(data, forKey: key)
+                PersistenceService.shared.set(data, forKey: key)
             }
         }
         saveWorkItem = workItem
@@ -315,7 +315,7 @@ public class TokenTracker: ObservableObject {
     }
 
     private func load() {
-        guard let data = UserDefaults.standard.data(forKey: saveKey),
+        guard let data = PersistenceService.shared.data(forKey: saveKey),
               let loaded = try? JSONDecoder().decode([DayRecord].self, from: data) else { return }
         // 최근 30일만 유지
         let cal = Calendar.current
@@ -332,7 +332,7 @@ public class TokenTracker: ObservableObject {
     public func clearAllEntries() {
         history.removeAll()
         saveWorkItem?.cancel()
-        UserDefaults.standard.removeObject(forKey: saveKey)
+        PersistenceService.shared.removeObject(forKey: saveKey)
     }
 
     public func applyRecommendedMinimumLimits() {

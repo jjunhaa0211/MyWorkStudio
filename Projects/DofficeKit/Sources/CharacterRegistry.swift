@@ -6,7 +6,7 @@ import DesignSystem
 
 // MARK: - Character Registry (전체 캐릭터 목록)
 
-public class CharacterRegistry: ObservableObject {
+public class CharacterRegistry: ObservableObject, CharacterRegistryProviding {
     public static let shared = CharacterRegistry()
     public static let maxHiredCount = 30
 
@@ -194,7 +194,7 @@ public class CharacterRegistry: ObservableObject {
     }
 
     private func loadOrCreate() {
-        if let data = UserDefaults.standard.data(forKey: saveKey),
+        if let data = PersistenceService.shared.data(forKey: saveKey),
            let saved = try? JSONDecoder().decode([WorkerCharacter].self, from: data) {
             allCharacters = saved
             let defaultMap = Dictionary(uniqueKeysWithValues: Self.defaultCharacters.map { ($0.id, $0) })
@@ -220,7 +220,7 @@ public class CharacterRegistry: ObservableObject {
 
     public func save() {
         if let data = try? JSONEncoder().encode(allCharacters) {
-            UserDefaults.standard.set(data, forKey: saveKey)
+            PersistenceService.shared.set(data, forKey: saveKey)
         }
     }
 
@@ -412,7 +412,7 @@ public class CharacterRegistry: ObservableObject {
     }
 
     private func loadManualUnlocks() {
-        guard let data = UserDefaults.standard.data(forKey: manualUnlockKey),
+        guard let data = PersistenceService.shared.data(forKey: manualUnlockKey),
               let decoded = try? JSONDecoder().decode([String].self, from: data) else {
             manuallyUnlockedCharacterIDs = []
             return
@@ -422,12 +422,12 @@ public class CharacterRegistry: ObservableObject {
 
     private func saveManualUnlocks() {
         if manuallyUnlockedCharacterIDs.isEmpty {
-            UserDefaults.standard.removeObject(forKey: manualUnlockKey)
+            PersistenceService.shared.removeObject(forKey: manualUnlockKey)
             return
         }
         let sortedIDs = manuallyUnlockedCharacterIDs.sorted()
         if let data = try? JSONEncoder().encode(sortedIDs) {
-            UserDefaults.standard.set(data, forKey: manualUnlockKey)
+            PersistenceService.shared.set(data, forKey: manualUnlockKey)
         }
     }
 

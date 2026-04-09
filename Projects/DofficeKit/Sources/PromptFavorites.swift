@@ -91,11 +91,11 @@ public class PromptFavorites: ObservableObject {
 
     private func save() {
         guard let data = try? JSONEncoder().encode(favorites) else { return }
-        UserDefaults.standard.set(data, forKey: storageKey)
+        PersistenceService.shared.set(data, forKey: storageKey)
     }
 
     private func load() {
-        guard let data = UserDefaults.standard.data(forKey: storageKey),
+        guard let data = PersistenceService.shared.data(forKey: storageKey),
               let decoded = try? JSONDecoder().decode([Favorite].self, from: data) else { return }
         favorites = decoded
     }

@@ -42,14 +42,14 @@ public final class CustomPresetStore: ObservableObject {
     }
 
     private func load() {
-        guard let data = UserDefaults.standard.data(forKey: key),
+        guard let data = PersistenceService.shared.data(forKey: key),
               let decoded = try? JSONDecoder().decode([CustomSessionPreset].self, from: data) else { return }
         presets = decoded
     }
 
     private func persist() {
         if let data = try? JSONEncoder().encode(presets) {
-            UserDefaults.standard.set(data, forKey: key)
+            PersistenceService.shared.set(data, forKey: key)
         }
     }
 }

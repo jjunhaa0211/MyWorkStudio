@@ -3,7 +3,7 @@ import Darwin
 import AppKit
 import DesignSystem
 
-public class SessionManager: ObservableObject {
+public class SessionManager: ObservableObject, SessionProviding {
     public static let shared = SessionManager()
 
     // Centralized process detection strings (edit here to add new CLI tools)
@@ -25,7 +25,7 @@ public class SessionManager: ObservableObject {
     @Published public var groups: [SessionGroup] = []
     @Published public var selectedGroupPath: String? = nil {  // nil = 전체 보기
         didSet {
-            UserDefaults.standard.set(selectedGroupPath ?? "", forKey: "doffice.selectedGroupPath")
+            PersistenceService.shared.set(selectedGroupPath ?? "", forKey: "doffice.selectedGroupPath")
         }
     }
     @Published public var focusSingleTab: Bool = false       // 개별 워커 포커스
@@ -143,7 +143,7 @@ public class SessionManager: ObservableObject {
         scheduleAvailableReportCountRefresh()
 
         // Restore persisted selectedGroupPath
-        let storedPath = UserDefaults.standard.string(forKey: "doffice.selectedGroupPath") ?? ""
+        let storedPath = PersistenceService.shared.string(forKey: "doffice.selectedGroupPath") ?? ""
         if !storedPath.isEmpty {
             selectedGroupPath = storedPath
         }

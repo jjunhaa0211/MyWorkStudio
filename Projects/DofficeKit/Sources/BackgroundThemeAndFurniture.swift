@@ -102,7 +102,7 @@ public enum BackgroundTheme: String, CaseIterable, Identifiable {
     }
 
     public var isUnlocked: Bool {
-        if UserDefaults.standard.bool(forKey: "allContentUnlocked") { return true }
+        if PersistenceService.shared.bool(forKey: "allContentUnlocked") { return true }
         guard let level = requiredLevel else { return true }
         return AchievementManager.shared.currentLevel.level >= level
     }
@@ -140,7 +140,7 @@ public struct FurnitureItem: Identifiable {
 
     public var isUnlocked: Bool {
         // 시크릿키로 전체 해금된 경우
-        if UserDefaults.standard.bool(forKey: "allContentUnlocked") { return true }
+        if PersistenceService.shared.bool(forKey: "allContentUnlocked") { return true }
         if let level = requiredLevel {
             let currentLevel = AchievementManager.shared.currentLevel.level
             if currentLevel < level { return false }

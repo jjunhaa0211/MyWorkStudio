@@ -10,19 +10,19 @@ public class SensitiveFileShield: ObservableObject {
     public static let shared = SensitiveFileShield()
 
     @Published public var enabled: Bool {
-        didSet { UserDefaults.standard.set(enabled, forKey: "sensitiveFileShieldEnabled") }
+        didSet { PersistenceService.shared.set(enabled, forKey: "sensitiveFileShieldEnabled") }
     }
     @Published public var patterns: [String] {
         didSet {
             if let data = try? JSONEncoder().encode(patterns) {
-                UserDefaults.standard.set(data, forKey: "sensitiveFilePatterns")
+                PersistenceService.shared.set(data, forKey: "sensitiveFilePatterns")
             }
         }
     }
     @Published public var whitelist: [String] {
         didSet {
             if let data = try? JSONEncoder().encode(whitelist) {
-                UserDefaults.standard.set(data, forKey: "sensitiveFileWhitelist")
+                PersistenceService.shared.set(data, forKey: "sensitiveFileWhitelist")
             }
         }
     }
@@ -46,14 +46,14 @@ public class SensitiveFileShield: ObservableObject {
     private var whitelistCacheSignature: Int = 0
 
     private init() {
-        self.enabled = UserDefaults.standard.object(forKey: "sensitiveFileShieldEnabled") as? Bool ?? true
-        if let data = UserDefaults.standard.data(forKey: "sensitiveFilePatterns"),
+        self.enabled = PersistenceService.shared.object(forKey: "sensitiveFileShieldEnabled") as? Bool ?? true
+        if let data = PersistenceService.shared.data(forKey: "sensitiveFilePatterns"),
            let p = try? JSONDecoder().decode([String].self, from: data) {
             self.patterns = p
         } else {
             self.patterns = Self.defaultPatterns
         }
-        if let data = UserDefaults.standard.data(forKey: "sensitiveFileWhitelist"),
+        if let data = PersistenceService.shared.data(forKey: "sensitiveFileWhitelist"),
            let w = try? JSONDecoder().decode([String].self, from: data) {
             self.whitelist = w
         } else {

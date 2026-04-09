@@ -129,7 +129,7 @@ public class UpdateChecker: ObservableObject {
                 }
 
                 // 바이너리 버전 불일치로 이미 건너뛴 태그인지 확인
-                let skippedTag = UserDefaults.standard.string(forKey: Self.skippedTagKey) ?? ""
+                let skippedTag = PersistenceService.shared.string(forKey: Self.skippedTagKey) ?? ""
                 if version == skippedTag {
                     self.state = .noUpdate
                     print("[도피스] 이미 확인된 태그(바이너리 버전 불일치): v\(version)")
@@ -214,8 +214,8 @@ public class UpdateChecker: ObservableObject {
                        !self.isNewer(downloadedVersion, than: self.currentVersion) {
                         print("[도피스] 다운로드된 앱 버전(\(downloadedVersion))이 현재(\(self.currentVersion))와 동일 — 이 태그 건너뜀")
                         // 이 태그만 건너뛰도록 기록 (다음 새 릴리스는 정상 처리)
-                        UserDefaults.standard.set(self.latestVersion, forKey: Self.skippedTagKey)
-                        UserDefaults.standard.synchronize()
+                        PersistenceService.shared.set(self.latestVersion, forKey: Self.skippedTagKey)
+                        PersistenceService.shared.synchronize()
                         self.state = .noUpdate
                         try? FileManager.default.removeItem(at: appURL.deletingLastPathComponent())
                         return
@@ -295,8 +295,8 @@ public class UpdateChecker: ObservableObject {
         state = .installing
 
         // 실제 설치 시 건너뛴 태그 기록 초기화
-        UserDefaults.standard.removeObject(forKey: Self.skippedTagKey)
-        UserDefaults.standard.synchronize()
+        PersistenceService.shared.removeObject(forKey: Self.skippedTagKey)
+        PersistenceService.shared.synchronize()
 
         let currentAppURL = Bundle.main.bundleURL
         let pid = ProcessInfo.processInfo.processIdentifier

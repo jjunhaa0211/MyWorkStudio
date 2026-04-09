@@ -35,12 +35,12 @@ public class DangerousCommandDetector: ObservableObject {
     public static let shared = DangerousCommandDetector()
 
     @Published public var enabled: Bool {
-        didSet { UserDefaults.standard.set(enabled, forKey: "dangerousCommandDetectionEnabled") }
+        didSet { PersistenceService.shared.set(enabled, forKey: "dangerousCommandDetectionEnabled") }
     }
     @Published public var customPatterns: [String] {
         didSet {
             if let data = try? JSONEncoder().encode(customPatterns) {
-                UserDefaults.standard.set(data, forKey: "customDangerousPatterns")
+                PersistenceService.shared.set(data, forKey: "customDangerousPatterns")
             }
         }
     }
@@ -70,8 +70,8 @@ public class DangerousCommandDetector: ObservableObject {
     private var cacheSignature: Int = 0
 
     private init() {
-        self.enabled = UserDefaults.standard.object(forKey: "dangerousCommandDetectionEnabled") as? Bool ?? true
-        if let data = UserDefaults.standard.data(forKey: "customDangerousPatterns"),
+        self.enabled = PersistenceService.shared.object(forKey: "dangerousCommandDetectionEnabled") as? Bool ?? true
+        if let data = PersistenceService.shared.data(forKey: "customDangerousPatterns"),
            let patterns = try? JSONDecoder().decode([String].self, from: data) {
             self.customPatterns = patterns
         } else {
