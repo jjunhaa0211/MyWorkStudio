@@ -4,6 +4,25 @@ import DesignSystem
 extension TerminalTab {
     // MARK: - Block Management
 
+    private func usesActiveResponsePresentationStyle(for type: StreamBlock.BlockType) -> Bool {
+        switch type {
+        case .thought, .toolUse, .toolOutput, .toolError, .toolEnd, .text, .fileChange, .completion, .error:
+            return true
+        case .sessionStart, .status, .userPrompt:
+            return false
+        }
+    }
+
+    private func effectivePresentationStyle(
+        for type: StreamBlock.BlockType,
+        explicitStyle: StreamBlock.PresentationStyle?
+    ) -> StreamBlock.PresentationStyle {
+        if let explicitStyle {
+            return explicitStyle
+        }
+        return usesActiveResponsePresentationStyle(for: type) ? activeResponsePresentationStyle : .normal
+    }
+
     private func shouldMergeBlock(existing: StreamBlock.BlockType, new: StreamBlock.BlockType) -> Bool {
         switch (existing, new) {
         case (.toolOutput, .toolOutput), (.toolError, .toolError):
@@ -14,7 +33,11 @@ extension TerminalTab {
     }
 
     @discardableResult
-    public func appendBlock(_ type: StreamBlock.BlockType, content: String = "") -> StreamBlock {
+    public func appendBlock(
+        _ type: StreamBlock.BlockType,
+        content: String = "",
+        presentationStyle: StreamBlock.PresentationStyle? = nil
+    ) -> StreamBlock {
         // toolEnd가 오면 직전 toolUse 블록을 완료 처리
         if case .toolEnd = type {
             if let toolIdx = blocks.lastIndex(where: {
@@ -34,7 +57,11 @@ extension TerminalTab {
             notifyBlocksChanged()
             return blocks[lastIndex]
         }
-        let block = StreamBlock(type: type, content: content)
+        let block = StreamBlock(
+            type: type,
+            content: content,
+            presentationStyle: effectivePresentationStyle(for: type, explicitStyle: presentationStyle)
+        )
         blocks.append(block)
         trimBlocksIfNeeded()
         notifyBlocksChanged()
@@ -158,6 +185,48 @@ extension TerminalTab {
 
     public func clearBlocks() { blocks.removeAll(); notifyBlocksChanged() }
 
+    func enqueuePrompt(
+        _ prompt: String,
+        permissionOverride: PermissionMode? = nil,
+        bypassWorkflowRouting: Bool = false,
+        presentationStyle: StreamBlock.PresentationStyle = .normal,
+        appendUserBlock: Bool = true
+    ) {
+        queuedPromptRequests.append(
+            QueuedPromptRequest(
+                prompt: prompt,
+                permissionOverride: permissionOverride,
+                bypassWorkflowRouting: bypassWorkflowRouting,
+                presentationStyle: presentationStyle,
+                appendUserBlock: appendUserBlock
+            )
+        )
+    }
+
+    func dispatchQueuedPromptIfPossible(after delay: TimeInterval = 0.1) {
+        guard !isProcessing, currentProcess == nil, !queuedPromptRequests.isEmpty else { return }
+
+        let request = queuedPromptRequests.removeFirst()
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self = self else { return }
+            guard !self.isProcessing, self.currentProcess == nil else {
+                self.queuedPromptRequests.insert(request, at: 0)
+                return
+            }
+            self.sendPrompt(
+                request.prompt,
+                permissionOverride: request.permissionOverride,
+                bypassWorkflowRouting: request.bypassWorkflowRouting,
+                presentationStyle: request.presentationStyle,
+                appendUserBlock: request.appendUserBlock
+            )
+        }
+    }
+
+    func clearPromptDecorations() {
+        activeResponsePresentationStyle = .normal
+    }
+
     // MARK: - 프롬프트 히스토리 (되돌리기)
 
     func finalizePromptHistory() {
@@ -275,10 +344,21 @@ extension TerminalTab {
 
     /// 프로바이더 전환 시 상태를 안전하게 리셋합니다.
     public func switchProvider(to provider: AgentProvider) {
+        currentOutPipe?.fileHandleForReading.readabilityHandler = nil
+        currentErrPipe?.fileHandleForReading.readabilityHandler = nil
+        currentOutPipe = nil
+        currentErrPipe = nil
+        currentProcess?.terminate()
+        currentProcess = nil
         isProcessing = false
         claudeActivity = .idle
         selectedModel = provider.defaultModel
         isClaude = provider == .claude
+        pendingApproval = nil
+        sessionId = nil
+        sessionProvider = nil
+        queuedPromptRequests.removeAll()
+        clearPromptDecorations()
     }
 
 }

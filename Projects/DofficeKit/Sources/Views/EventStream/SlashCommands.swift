@@ -258,17 +258,40 @@ extension EventStreamView {
             tab.appendBlock(.status(message: text))
         },
         SlashCommand("usage", NSLocalizedString("slash.cmd.usage", comment: ""), category: NSLocalizedString("slash.category.display", comment: "")) { tab, _, _ in
-            let checkingBlock = tab.appendBlock(.status(message: NSLocalizedString("slash.status.usage.checking", comment: "")))
-            DispatchQueue.global(qos: .userInitiated).async { [weak tab] in
-                let result = ClaudeUsageFetcher.fetch()
-                DispatchQueue.main.async {
-                    guard let tab = tab else { return }
-                    // "조회 중" 블록 제거
-                    if let idx = tab.blocks.firstIndex(where: { $0.id == checkingBlock.id }) {
-                        tab.blocks.remove(at: idx)
+            if tab.provider == .claude {
+                let checkingBlock = tab.appendBlock(.status(message: NSLocalizedString("slash.status.usage.checking", comment: "")))
+                DispatchQueue.global(qos: .userInitiated).async { [weak tab] in
+                    let result = ClaudeUsageFetcher.fetch()
+                    DispatchQueue.main.async {
+                        guard let tab = tab else { return }
+                        if let idx = tab.blocks.firstIndex(where: { $0.id == checkingBlock.id }) {
+                            tab.blocks.remove(at: idx)
+                        }
+                        tab.appendBlock(.status(message: result))
                     }
-                    tab.appendBlock(.status(message: result))
                 }
+            } else {
+                // Gemini/Codex: 로컬 세션 토큰 통계 표시
+                let tracker = TokenTracker.shared
+                let providerName = tab.provider.displayName
+                let text = [
+                    "📊 \(providerName) 세션 사용량",
+                    "══════════════════════════════════════",
+                    "",
+                    "🔢 세션 토큰: \(tracker.formatTokens(tab.tokensUsed)) (입력: \(tracker.formatTokens(tab.inputTokensUsed)) / 출력: \(tracker.formatTokens(tab.outputTokensUsed)))",
+                    "💰 세션 비용: $\(String(format: "%.4f", tab.totalCost))",
+                    "📝 완료된 프롬프트: \(tab.completedPromptCount)회",
+                    "🔧 명령 실행: \(tab.commandCount)회 (에러: \(tab.errorCount))",
+                    "",
+                    "📅 오늘 토큰: \(tracker.formatTokens(tracker.todayTokens))",
+                    "📅 이번 주 토큰: \(tracker.formatTokens(tracker.weekTokens))",
+                    "💰 오늘 비용: $\(String(format: "%.4f", tracker.todayCost))",
+                    "💰 이번 주 비용: $\(String(format: "%.4f", tracker.weekCost))",
+                    "",
+                    "ℹ️ \(providerName)은 CLI 사용량 조회를 지원하지 않아 로컬 통계를 표시합니다.",
+                    "══════════════════════════════════════",
+                ].joined(separator: "\n")
+                tab.appendBlock(.status(message: text))
             }
         },
         SlashCommand("config", NSLocalizedString("slash.cmd.config", comment: ""), category: NSLocalizedString("slash.category.display", comment: "")) { tab, _, _ in
@@ -465,6 +488,27 @@ extension EventStreamView {
                 return
             }
             tab.startSleepWork(task: task, tokenBudget: budget)
+        },
+        SlashCommand("btw", "사이드 질문 (Claude 전용)", usage: "<질문>", category: NSLocalizedString("slash.category.general", comment: "")) { tab, _, args in
+            guard tab.provider == .claude else {
+                tab.appendBlock(.status(message: "⚠️ /btw는 Claude 모드에서만 사용할 수 있습니다."))
+                return
+            }
+            let question = args.joined(separator: " ")
+            guard !question.isEmpty else {
+                tab.appendBlock(.status(message: "💡 사용법: /btw <질문>\n진행 중인 작업에 대해 사이드로 질문할 수 있습니다."))
+                return
+            }
+            // 자동 추가된 "/btw ..." userPrompt 블록을 secret 스타일 블록으로 교체
+            if let lastIdx = tab.blocks.indices.last,
+               case .userPrompt = tab.blocks[lastIdx].blockType {
+                tab.blocks[lastIdx].presentationStyle = .secret
+            }
+            tab.sendPrompt(
+                question,
+                presentationStyle: .secret,
+                appendUserBlock: false
+            )
         },
         SlashCommand("search", NSLocalizedString("slash.cmd.search", comment: ""), usage: "<검색어>", category: NSLocalizedString("slash.category.display", comment: "")) { tab, manager, args in
             let query = args.joined(separator: " ").trimmingCharacters(in: .whitespaces)

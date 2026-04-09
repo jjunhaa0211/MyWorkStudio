@@ -80,7 +80,13 @@ extension TerminalTab {
 
     // MARK: - Send Prompt (stream-json 이벤트 스트림)
 
-    public func sendPrompt(_ prompt: String, permissionOverride: PermissionMode? = nil, bypassWorkflowRouting: Bool = false) {
+    public func sendPrompt(
+        _ prompt: String,
+        permissionOverride: PermissionMode? = nil,
+        bypassWorkflowRouting: Bool = false,
+        presentationStyle: StreamBlock.PresentationStyle = .normal,
+        appendUserBlock: Bool = true
+    ) {
         guard !prompt.isEmpty else { return }
         PluginHost.shared.fireEvent(.onPromptSubmit)
 
@@ -115,6 +121,9 @@ extension TerminalTab {
             }
         }
 
+        // Apply presentation style for this prompt cycle
+        activeResponsePresentationStyle = presentationStyle
+
         // 이전 프로세스 및 취소 상태 정리
         cancelledProcessIds.removeAll()
         if let prev = currentProcess, prev.isRunning {
@@ -146,7 +155,9 @@ extension TerminalTab {
             sessionProvider = nil
         }
 
-        appendBlock(.userPrompt, content: prompt)
+        if appendUserBlock {
+            appendBlock(.userPrompt, content: prompt, presentationStyle: presentationStyle)
+        }
         timeline.append(TimelineEvent(timestamp: Date(), type: .prompt, detail: String(prompt.prefix(50)) + (prompt.count > 50 ? "..." : "")))
         trimTimelineIfNeeded()
         initialPrompt = nil
@@ -221,8 +232,8 @@ extension TerminalTab {
             if !self.sessionName.isEmpty {
                 cmd += " --name \(self.shellEscape(self.sessionName))"
             }
-            // 시스템 프롬프트
-            if !self.systemPrompt.isEmpty {
+            // 시스템 프롬프트 — 세션 재개 시에는 이미 컨텍스트에 포함되어 있으므로 첫 호출에만 전달
+            if !self.systemPrompt.isEmpty && self.sessionId == nil {
                 cmd += " --append-system-prompt \(self.shellEscape(self.systemPrompt))"
             }
             // 예산 제한

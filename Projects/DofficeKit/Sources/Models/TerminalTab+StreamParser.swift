@@ -516,6 +516,7 @@ extension TerminalTab {
             finalizePromptHistory()
             generateSummary()
             seenToolUseIds.removeAll()
+            clearPromptDecorations()
             if let denial = pendingPermissionDenial {
                 presentPermissionApprovalIfNeeded(denial)
             }
