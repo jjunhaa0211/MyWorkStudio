@@ -286,19 +286,19 @@ public final class NewSessionPreferencesStore: ObservableObject {
 
     private func load() {
         let decoder = JSONDecoder()
-        if let data = UserDefaults.standard.data(forKey: favoritesKey),
+        if let data = PersistenceService.shared.data(forKey: favoritesKey),
            let decoded = try? decoder.decode([NewSessionProjectRecord].self, from: data) {
             favoriteProjects = decoded
         }
-        if let data = UserDefaults.standard.data(forKey: recentsKey),
+        if let data = PersistenceService.shared.data(forKey: recentsKey),
            let decoded = try? decoder.decode([NewSessionProjectRecord].self, from: data) {
             recentProjects = decoded
         }
-        if let data = UserDefaults.standard.data(forKey: lastDraftKey),
+        if let data = PersistenceService.shared.data(forKey: lastDraftKey),
            let decoded = try? decoder.decode(NewSessionDraftSnapshot.self, from: data) {
             lastDraft = decoded
         }
-        if let storedPaths = UserDefaults.standard.array(forKey: trustedProjectPathsKey) as? [String] {
+        if let storedPaths = PersistenceService.shared.array(forKey: trustedProjectPathsKey) as? [String] {
             trustedProjectPaths = storedPaths
                 .map(normalizeProjectPath)
                 .filter { !$0.isEmpty }
@@ -308,26 +308,26 @@ public final class NewSessionPreferencesStore: ObservableObject {
     private func saveFavorites() {
         let encoder = JSONEncoder()
         if let data = try? encoder.encode(favoriteProjects) {
-            UserDefaults.standard.set(data, forKey: favoritesKey)
+            PersistenceService.shared.set(data, forKey: favoritesKey)
         }
     }
 
     private func saveRecents() {
         let encoder = JSONEncoder()
         if let data = try? encoder.encode(recentProjects) {
-            UserDefaults.standard.set(data, forKey: recentsKey)
+            PersistenceService.shared.set(data, forKey: recentsKey)
         }
     }
 
     private func saveLastDraft() {
         let encoder = JSONEncoder()
         if let draft = lastDraft, let data = try? encoder.encode(draft) {
-            UserDefaults.standard.set(data, forKey: lastDraftKey)
+            PersistenceService.shared.set(data, forKey: lastDraftKey)
         }
     }
 
     private func saveTrustedProjectPaths() {
-        UserDefaults.standard.set(trustedProjectPaths, forKey: trustedProjectPathsKey)
+        PersistenceService.shared.set(trustedProjectPaths, forKey: trustedProjectPathsKey)
     }
 }
 
