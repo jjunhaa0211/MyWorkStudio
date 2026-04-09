@@ -10,8 +10,11 @@ public struct EventBlockView: View {
     @StateObject private var settings = AppSettings.shared
     public let compact: Bool
     public var onResendPrompt: ((String) -> Void)?
+    public var onRevert: (() -> Void)?
+    public var hasFileChanges: Bool = false
     @State private var thoughtCollapsed = false
     @State private var showCopied = false
+    @State private var showRevertConfirm = false
 
     public var body: some View {
         switch block.blockType {
@@ -61,24 +64,44 @@ public struct EventBlockView: View {
 
     // MARK: - User Prompt
 
+    private var isSecret: Bool { block.presentationStyle == .secret }
+
     private var userPromptBlock: some View {
-        VStack(alignment: .trailing, spacing: 4) {
+        let secretColors: [Color] = [Theme.purple, Theme.purple.opacity(0.7)]
+        let normalColors: [Color] = [Theme.accent, Theme.accent.opacity(0.78)]
+        let bgColors = isSecret ? secretColors : normalColors
+        let shadowColor = isSecret ? Theme.purple.opacity(0.25) : Theme.accent.opacity(0.18)
+
+        return VStack(alignment: .trailing, spacing: 4) {
             HStack(alignment: .bottom, spacing: 0) {
                 Spacer(minLength: compact ? 40 : 72)
-                Text(block.content)
-                    .font(Theme.mono(compact ? 11 : 13))
-                    .foregroundStyle(.white)
-                    .padding(.vertical, 10).padding(.horizontal, 14)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(
-                                LinearGradient(
-                                    colors: [Theme.accent, Theme.accent.opacity(0.78)],
-                                    startPoint: .topLeading, endPoint: .bottomTrailing
-                                )
+                HStack(spacing: 6) {
+                    if isSecret {
+                        Image(systemName: "eye.slash.fill")
+                            .font(.system(size: Theme.iconSize(compact ? 9 : 10)))
+                            .foregroundStyle(.white.opacity(0.7))
+                    }
+                    Text(block.content)
+                        .font(Theme.mono(compact ? 11 : 13))
+                        .foregroundStyle(.white)
+                }
+                .padding(.vertical, 10).padding(.horizontal, 14)
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: bgColors,
+                                startPoint: .topLeading, endPoint: .bottomTrailing
                             )
-                            .shadow(color: Theme.accent.opacity(0.18), radius: 6, x: 0, y: 3)
-                    )
+                        )
+                        .shadow(color: shadowColor, radius: 6, x: 0, y: 3)
+                )
+                .overlay(
+                    isSecret
+                        ? RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(Theme.purple.opacity(0.4), lineWidth: 1)
+                        : nil
+                )
             }
 
             HStack(spacing: 8) {
@@ -116,11 +139,20 @@ public struct EventBlockView: View {
     // MARK: - AI Thought
 
     private var thoughtBlock: some View {
-        HStack(alignment: .top, spacing: 0) {
+        let accentColor = isSecret ? Theme.purple : Theme.purple
+        let barColors: [Color] = isSecret
+            ? [Theme.purple.opacity(0.8), Theme.purple.opacity(0.4)]
+            : [Theme.purple.opacity(0.6), Theme.accent.opacity(0.4)]
+        let bgFill = isSecret ? Theme.purple.opacity(0.08) : Theme.bgSurface.opacity(0.45)
+        let borderColor = isSecret ? Theme.purple.opacity(0.3) : Theme.border.opacity(0.3)
+        let headerLabel = isSecret ? "BTW" : NSLocalizedString("block.thinking", value: "Thinking", comment: "")
+        let headerIcon = isSecret ? "eye.slash.fill" : "brain"
+
+        return HStack(alignment: .top, spacing: 0) {
             RoundedRectangle(cornerRadius: 1.5)
                 .fill(
                     LinearGradient(
-                        colors: [Theme.purple.opacity(0.6), Theme.accent.opacity(0.4)],
+                        colors: barColors,
                         startPoint: .top, endPoint: .bottom
                     )
                 )
@@ -132,12 +164,12 @@ public struct EventBlockView: View {
                     withAnimation(.easeInOut(duration: 0.15)) { thoughtCollapsed.toggle() }
                 } label: {
                     HStack(spacing: 5) {
-                        Image(systemName: "brain")
+                        Image(systemName: headerIcon)
                             .font(.system(size: Theme.iconSize(9)))
-                            .foregroundColor(Theme.purple)
-                        Text(NSLocalizedString("block.thinking", value: "Thinking", comment: ""))
+                            .foregroundColor(accentColor)
+                        Text(headerLabel)
                             .font(Theme.mono(compact ? 9 : 10, weight: .bold))
-                            .foregroundColor(Theme.purple)
+                            .foregroundColor(accentColor)
                         Image(systemName: thoughtCollapsed ? "chevron.right" : "chevron.down")
                             .font(.system(size: Theme.iconSize(7), weight: .bold))
                             .foregroundColor(Theme.textDim)
@@ -147,6 +179,9 @@ public struct EventBlockView: View {
                                 .font(Theme.mono(8))
                                 .foregroundColor(Theme.textMuted)
                         }
+                        Text(block.timestamp, style: .time)
+                            .font(Theme.mono(7))
+                            .foregroundColor(Theme.textMuted.opacity(0.6))
                     }
                 }
                 .buttonStyle(.plain)
@@ -161,12 +196,18 @@ public struct EventBlockView: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Theme.bgSurface.opacity(0.45))
+                .fill(bgFill)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(Theme.border.opacity(0.3), lineWidth: 0.5)
+                        .strokeBorder(borderColor, lineWidth: isSecret ? 1 : 0.5)
                 )
         )
+        .overlay(alignment: .topTrailing) {
+            if !thoughtCollapsed && block.content.count > 20 {
+                copyButton(text: block.content)
+                    .padding(.top, 6).padding(.trailing, compact ? 44 : 76)
+            }
+        }
         .padding(.trailing, compact ? 40 : 72)
         .padding(.vertical, 2)
     }
@@ -377,6 +418,15 @@ public struct EventBlockView: View {
                     quickActionButton(label: NSLocalizedString("block.action.fix", value: "수정", comment: ""), icon: "wrench", color: Theme.orange) {
                         onResend("에러가 있으면 수정해줘")
                     }
+                    quickActionButton(label: NSLocalizedString("block.action.retry", value: "재시도", comment: ""), icon: "arrow.counterclockwise", color: Theme.red) {
+                        onResend("방금 요청을 다시 시도해줘")
+                    }
+
+                    if hasFileChanges, onRevert != nil {
+                        quickActionButton(label: NSLocalizedString("block.action.revert", value: "되돌리기", comment: ""), icon: "arrow.uturn.backward", color: Theme.orange) {
+                            showRevertConfirm = true
+                        }
+                    }
                 }
                 .padding(.top, 4)
             }
@@ -397,6 +447,14 @@ public struct EventBlockView: View {
                 )
         )
         .padding(.top, 6)
+        .alert(NSLocalizedString("history.revert.confirm.title", comment: ""), isPresented: $showRevertConfirm) {
+            Button(NSLocalizedString("cancel", comment: ""), role: .cancel) {}
+            Button(NSLocalizedString("history.revert.action", comment: ""), role: .destructive) {
+                onRevert?()
+            }
+        } message: {
+            Text(NSLocalizedString("history.revert.confirm.message", comment: ""))
+        }
     }
 
     private func quickActionButton(label: String, icon: String, color: Color, action: @escaping () -> Void) -> some View {
@@ -450,9 +508,37 @@ public struct EventBlockView: View {
 
     private var textBlock: some View {
         VStack(alignment: .leading, spacing: 0) {
+            if isSecret {
+                HStack(spacing: 4) {
+                    Image(systemName: "eye.slash.fill")
+                        .font(.system(size: Theme.iconSize(8)))
+                        .foregroundColor(Theme.purple.opacity(0.6))
+                    Text("BTW")
+                        .font(Theme.mono(compact ? 8 : 9, weight: .bold))
+                        .foregroundColor(Theme.purple.opacity(0.6))
+                }
+                .padding(.bottom, 4)
+            }
             MarkdownTextView(text: block.content, compact: compact)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .textSelection(.enabled)
+        }
+        .padding(isSecret ? 10 : 0)
+        .background(
+            isSecret
+                ? RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Theme.purple.opacity(0.06))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .strokeBorder(Theme.purple.opacity(0.2), lineWidth: 0.5)
+                    )
+                : nil
+        )
+        .overlay(alignment: .bottomTrailing) {
+            Text(block.timestamp, style: .time)
+                .font(Theme.mono(7))
+                .foregroundColor(Theme.textMuted.opacity(0.5))
+                .padding(.trailing, 4).padding(.bottom, 2)
         }
         .overlay(alignment: .topTrailing) {
             if block.content.count > 20 {

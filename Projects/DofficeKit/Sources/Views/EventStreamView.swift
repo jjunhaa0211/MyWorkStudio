@@ -8,6 +8,7 @@ import DesignSystem
 
 public struct EventStreamView: View {
     @EnvironmentObject var manager: SessionManager
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject var tab: TerminalTab
     @StateObject var settings = AppSettings.shared
     @StateObject private var vm = EventStreamViewModel()
@@ -71,13 +72,28 @@ public struct EventStreamView: View {
         get { vm.unavailableProviderAlert }
         nonmutating set { vm.unavailableProviderAlert = newValue }
     }
+    @State private var scrollViewportHeight: CGFloat = 0
+    @State private var preservedNearBottom = true
+    @State private var viewportRestoreWorkItem: DispatchWorkItem?
+    @State private var isStreamEndVisible = true
+    @State private var unreadBlockCount = 0
 
     // ═══════════════════════════════════════════
     var matchingCommands: [SlashCommand] {
         guard isCommandMode, !hasTypedArgs else { return [] }
         let typed = String(inputText.dropFirst()).lowercased().trimmingCharacters(in: .whitespaces)
-        if typed.isEmpty { return Self.allSlashCommands }
-        return Self.allSlashCommands.filter { $0.name.hasPrefix(typed) }
+        let provider = tab.provider
+        let filtered = Self.allSlashCommands.filter { cmd in
+            // /btw는 Claude 전용
+            if cmd.name == "btw" && provider != .claude { return false }
+            return true
+        }
+        if typed.isEmpty { return filtered }
+        return filtered.filter { $0.name.hasPrefix(typed) }
+    }
+
+    private var panelAnimation: Animation {
+        reduceMotion ? .linear(duration: 0.01) : .easeInOut(duration: 0.16)
     }
 
     public var body: some View {
@@ -133,70 +149,127 @@ public struct EventStreamView: View {
             if !compact { statusBar }
 
             // [Feature 6] 필터 바
-            if showFilterBar && !compact { filterBar }
+            if showFilterBar && !compact {
+                filterBar
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
 
             // Main content
             HStack(spacing: 0) {
                 // Event stream
                 ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 2) {
-                            ForEach(filteredBlocks) { block in
-                                EventBlockView(block: block, compact: compact, onResendPrompt: { text in
-                                    inputText = text
-                                })
-                                    .id(block.id)
-                                    .textSelection(.enabled)
-                            }
+                    GeometryReader { viewport in
+                        let viewportSize = viewport.size
 
-                            if tab.isProcessing {
-                                ProcessingIndicator(
-                                    activity: tab.claudeActivity,
-                                    workerColor: tab.workerColor,
-                                    workerName: tab.workerName,
-                                    roleBadge: tab.workerJob.shortLabel,
-                                    roleColor: vm.toolColor(for: tab.workerJob)
-                                )
-                                .id("processing")
-                            } else if let stage = tab.activeAutomationStage {
-                                // 자동화 역할이 진행 중일 때 해당 역할의 상태 표시
-                                ProcessingIndicator(
-                                    activity: .thinking,
-                                    workerColor: vm.toolColor(for: stage.role),
-                                    workerName: stage.workerName,
-                                    roleBadge: stage.role.shortLabel,
-                                    roleColor: vm.toolColor(for: stage.role)
-                                )
-                                .id("automationProcessing")
-                            }
+                        ScrollView {
+                            LazyVStack(alignment: .leading, spacing: 2) {
+                                ForEach(filteredBlocks) { block in
+                                    EventBlockView(
+                                        block: block,
+                                        compact: compact,
+                                        onResendPrompt: { text in inputText = text },
+                                        onRevert: revertAction(for: block),
+                                        hasFileChanges: hasFileChanges(for: block)
+                                    )
+                                        .id(blockAnchorID(block))
+                                        .textSelection(.enabled)
+                                }
 
-                            Color.clear.frame(height: 1).id("streamEnd")
+                                if tab.isProcessing {
+                                    ProcessingIndicator(
+                                        activity: tab.claudeActivity,
+                                        workerColor: tab.workerColor,
+                                        workerName: tab.workerName,
+                                        roleBadge: tab.workerJob.shortLabel,
+                                        roleColor: vm.toolColor(for: tab.workerJob)
+                                    )
+                                    .id("processing")
+                                } else if let stage = tab.activeAutomationStage {
+                                    ProcessingIndicator(
+                                        activity: .thinking,
+                                        workerColor: vm.toolColor(for: stage.role),
+                                        workerName: stage.workerName,
+                                        roleBadge: stage.role.shortLabel,
+                                        roleColor: vm.toolColor(for: stage.role)
+                                    )
+                                    .id("automationProcessing")
+                                }
+
+                                Color.clear
+                                    .frame(height: 1)
+                                    .id("streamEnd")
+                                    .onAppear {
+                                        isStreamEndVisible = true
+                                        unreadBlockCount = 0
+                                    }
+                                    .onDisappear { isStreamEndVisible = false }
+                            }
+                            .padding(.horizontal, compact ? 8 : 14)
+                            .padding(.vertical, 8)
                         }
-                        .padding(.horizontal, compact ? 8 : 14)
-                        .padding(.vertical, 8)
-                    }
-                    .background(Theme.bgTerminal)
-                    .compositingGroup()
-                    .onChange(of: tab.blocks.count) { _, newCount in
-                        if autoScroll && newCount != lastBlockCount {
-                            lastBlockCount = newCount
-                            debouncedScroll(proxy, delay: 0.1)
+                        .background(Theme.bgTerminal)
+                        .compositingGroup()
+                        .onChange(of: tab.blocks.count) { oldCount, newCount in
+                            if !isStreamEndVisible && newCount > oldCount {
+                                unreadBlockCount += (newCount - oldCount)
+                            }
+                            if autoScroll && newCount != lastBlockCount {
+                                lastBlockCount = newCount
+                                debouncedScroll(proxy, delay: 0.1)
+                            }
+                        }
+                        .onChange(of: tab.isProcessing) { _, processing in
+                            if !processing && autoScroll {
+                                debouncedScroll(proxy, delay: 0.15)
+                            }
+                        }
+                        .onChange(of: tab.claudeActivity) { _, _ in
+                            if autoScroll {
+                                debouncedScroll(proxy, delay: 0.2)
+                            }
+                        }
+                        .onChange(of: viewportSize.height) { _, newHeight in
+                            scrollViewportHeight = newHeight
+                        }
+                        .onChange(of: viewportSize.width) { oldWidth, newWidth in
+                            scrollViewportHeight = viewportSize.height
+                            guard !compact, oldWidth > 0, abs(oldWidth - newWidth) > 1 else { return }
+                            scheduleViewportRestore(proxy)
+                        }
+                        .onAppear {
+                            scrollViewportHeight = viewportSize.height
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { scrollToEnd(proxy) }
                         }
                     }
-                    .onChange(of: tab.isProcessing) { _, processing in
-                        // 처리 완료 시 최종 결과로 스크롤
-                        if !processing && autoScroll {
-                            debouncedScroll(proxy, delay: 0.15)
+                    .overlay(alignment: .bottom) {
+                        if !isStreamEndVisible {
+                            Button {
+                                withAnimation(.easeOut(duration: 0.2)) {
+                                    scrollToEnd(proxy)
+                                    unreadBlockCount = 0
+                                }
+                            } label: {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "chevron.down")
+                                        .font(.system(size: Theme.iconSize(9), weight: .bold))
+                                    if unreadBlockCount > 0 {
+                                        Text("+\(unreadBlockCount)")
+                                            .font(Theme.mono(9, weight: .bold))
+                                    }
+                                }
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(
+                                    Capsule()
+                                        .fill(Theme.accent.opacity(0.85))
+                                        .shadow(color: Theme.accent.opacity(0.3), radius: 8, y: 2)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.bottom, 8)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
                         }
-                    }
-                    .onChange(of: tab.claudeActivity) { _, _ in
-                        // 활동 상태 변경될 때마다 스크롤 (tool 전환 등)
-                        if autoScroll {
-                            debouncedScroll(proxy, delay: 0.2)
-                        }
-                    }
-                    .onAppear {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { scrollToEnd(proxy) }
                     }
                 }
 
@@ -204,6 +277,7 @@ public struct EventStreamView: View {
                 if showFilePanel && !compact {
                     Rectangle().fill(Theme.border).frame(width: 1)
                     fileChangePanel
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
             }
 
@@ -221,6 +295,10 @@ public struct EventStreamView: View {
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { isFocused = true }
             syncPlanSelectionState(with: activePlanSelectionRequest)
+        }
+        .onDisappear {
+            viewportRestoreWorkItem?.cancel()
+            viewportRestoreWorkItem = nil
         }
         .onChange(of: activePlanSelectionRequest?.signature ?? "") { _, _ in
             syncPlanSelectionState(with: activePlanSelectionRequest)
@@ -359,7 +437,7 @@ public struct EventStreamView: View {
             Spacer()
 
             // Toggle buttons
-            Button(action: { withAnimation(.easeInOut(duration: 0.15)) { showFilterBar.toggle() } }) {
+            Button(action: { withAnimation(panelAnimation) { showFilterBar.toggle() } }) {
                 HStack(spacing: 3) {
                     Image(systemName: "line.3.horizontal.decrease.circle\(showFilterBar ? ".fill" : "")")
                         .font(Theme.chrome(8))
@@ -370,7 +448,7 @@ public struct EventStreamView: View {
                 .background(showFilterBar ? Theme.accent.opacity(0.08) : .clear).cornerRadius(Theme.cornerSmall)
             }.buttonStyle(.plain).help(NSLocalizedString("terminal.help.log.filter", comment: ""))
 
-            Button(action: { withAnimation(.easeInOut(duration: 0.15)) { showFilePanel.toggle() } }) {
+            Button(action: { withAnimation(panelAnimation) { showFilePanel.toggle() } }) {
                 HStack(spacing: 3) {
                     Image(systemName: "doc.text.magnifyingglass").font(Theme.chrome(8))
                     Text(NSLocalizedString("terminal.file", comment: "")).font(Theme.chrome(8, weight: showFilePanel ? .bold : .regular))
@@ -531,6 +609,57 @@ public struct EventStreamView: View {
     func debouncedScroll(_ proxy: ScrollViewProxy, delay: Double) { vm.debouncedScroll(proxy, delay: delay) }
     var filteredBlocks: [StreamBlock] { vm.filteredBlocks(tab: tab) }
 
+    private func blockAnchorID(_ block: StreamBlock) -> String {
+        block.id.uuidString
+    }
+
+    /// completion 블록에 대응하는 prompt history 엔트리를 찾아 되돌리기 액션 반환
+    private func revertAction(for block: StreamBlock) -> (() -> Void)? {
+        guard case .completion = block.blockType else { return nil }
+        guard let entry = matchingHistoryEntry(for: block),
+              entry.gitCommitHashBefore != nil,
+              !entry.fileChanges.filter({ $0.action == "Write" || $0.action == "Edit" }).isEmpty else {
+            return nil
+        }
+        return { [weak tab] in
+            tab?.revertToBeforePrompt(entry)
+        }
+    }
+
+    /// completion 블록에 파일 변경이 있었는지 확인
+    private func hasFileChanges(for block: StreamBlock) -> Bool {
+        guard case .completion = block.blockType else { return false }
+        guard let entry = matchingHistoryEntry(for: block) else { return false }
+        return !entry.fileChanges.filter { $0.action == "Write" || $0.action == "Edit" }.isEmpty
+    }
+
+    /// completion 블록의 타임스탬프로 가장 가까운 prompt history 엔트리 매칭
+    private func matchingHistoryEntry(for block: StreamBlock) -> PromptHistoryEntry? {
+        let completionTime = block.timestamp
+        // completion 블록 직전의 완료된 히스토리 엔트리를 찾음
+        return tab.promptHistory
+            .filter { $0.isCompleted }
+            .min(by: { abs($0.timestamp.timeIntervalSince(completionTime)) < abs($1.timestamp.timeIntervalSince(completionTime)) })
+    }
+
+    private func scheduleViewportRestore(_ proxy: ScrollViewProxy) {
+        viewportRestoreWorkItem?.cancel()
+
+        let item = DispatchWorkItem {
+            if autoScroll {
+                var transaction = Transaction()
+                transaction.animation = nil
+                withTransaction(transaction) {
+                    proxy.scrollTo("streamEnd", anchor: .bottom)
+                }
+            }
+            viewportRestoreWorkItem = nil
+        }
+
+        viewportRestoreWorkItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08, execute: item)
+    }
+
     // MARK: - Setting Helpers
 
     func settingGroup<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
@@ -654,6 +783,7 @@ public struct EventStreamView: View {
         }
     }
 }
+
 
 struct PlanSelectionRequest {
     public struct Group: Identifiable {
