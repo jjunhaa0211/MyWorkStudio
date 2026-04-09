@@ -97,6 +97,16 @@ extension TerminalTab {
         assignedCharacter?.isOnVacation ?? false
     }
 
+    /// 현재 진행 중인 자동화 역할 정보 (기획자, 리뷰어, QA 등)
+    public var activeAutomationStage: WorkflowStageRecord? {
+        workflowStages.first(where: { $0.state == .running })
+    }
+
+    /// 자동화가 진행 중인지 여부 (소스 탭이 자동화 대기 상태)
+    public var isAwaitingAutomation: Bool {
+        officeSeatLockReason != nil || activeAutomationStage != nil
+    }
+
     public var hasCodeChanges: Bool {
         fileChanges.contains { $0.action == "Write" || $0.action == "Edit" }
     }

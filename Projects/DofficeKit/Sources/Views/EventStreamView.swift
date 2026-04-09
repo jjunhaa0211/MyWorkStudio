@@ -150,8 +150,24 @@ public struct EventStreamView: View {
                             }
 
                             if tab.isProcessing {
-                                ProcessingIndicator(activity: tab.claudeActivity, workerColor: tab.workerColor, workerName: tab.workerName)
-                                    .id("processing")
+                                ProcessingIndicator(
+                                    activity: tab.claudeActivity,
+                                    workerColor: tab.workerColor,
+                                    workerName: tab.workerName,
+                                    roleBadge: tab.workerJob.shortLabel,
+                                    roleColor: vm.toolColor(for: tab.workerJob)
+                                )
+                                .id("processing")
+                            } else if let stage = tab.activeAutomationStage {
+                                // 자동화 역할이 진행 중일 때 해당 역할의 상태 표시
+                                ProcessingIndicator(
+                                    activity: .thinking,
+                                    workerColor: vm.toolColor(for: stage.role),
+                                    workerName: stage.workerName,
+                                    roleBadge: stage.role.shortLabel,
+                                    roleColor: vm.toolColor(for: stage.role)
+                                )
+                                .id("automationProcessing")
                             }
 
                             Color.clear.frame(height: 1).id("streamEnd")
@@ -283,11 +299,29 @@ public struct EventStreamView: View {
 
     var statusBar: some View {
         HStack(spacing: 8) {
-            // Worker + Activity
-            HStack(spacing: 4) {
-                Circle().fill(tab.workerColor).frame(width: 6, height: 6)
-                Text(tab.workerName).font(Theme.chrome(9, weight: .semibold)).foregroundColor(tab.workerColor)
-                Text(activityLabel).font(Theme.chrome(9)).foregroundColor(activityLabelColor)
+            // Worker + Activity (자동화 진행 시 현재 역할 표시)
+            if let stage = tab.activeAutomationStage {
+                HStack(spacing: 4) {
+                    Circle().fill(vm.toolColor(for: stage.role)).frame(width: 6, height: 6)
+                    Text(stage.role.shortLabel)
+                        .font(Theme.chrome(8, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(Capsule().fill(vm.toolColor(for: stage.role)))
+                    Text(stage.workerName)
+                        .font(Theme.chrome(9, weight: .semibold))
+                        .foregroundColor(vm.toolColor(for: stage.role))
+                    Text(vm.activityLabel(for: .thinking))
+                        .font(Theme.chrome(9))
+                        .foregroundColor(Theme.textDim)
+                }
+            } else {
+                HStack(spacing: 4) {
+                    Circle().fill(tab.workerColor).frame(width: 6, height: 6)
+                    Text(tab.workerName).font(Theme.chrome(9, weight: .semibold)).foregroundColor(tab.workerColor)
+                    Text(activityLabel).font(Theme.chrome(9)).foregroundColor(activityLabelColor)
+                }
             }
 
             Rectangle().fill(Theme.border).frame(width: 1, height: 12)

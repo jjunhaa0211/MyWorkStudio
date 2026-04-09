@@ -9,14 +9,24 @@ public struct ProcessingIndicator: View {
     public let activity: ClaudeActivity
     public let workerColor: Color
     public let workerName: String
+    public var roleBadge: String?
+    public var roleColor: Color?
     @StateObject private var settings = AppSettings.shared
     @State private var dotPhase = 0
     public let timer = Timer.publish(every: 0.4, on: .main, in: .common).autoconnect()
 
     public var body: some View {
         HStack(spacing: 6) {
-            Circle().fill(workerColor).frame(width: 8, height: 8)
-            Text(workerName).font(Theme.chrome(10, weight: .semibold)).foregroundColor(workerColor)
+            Circle().fill(roleColor ?? workerColor).frame(width: 8, height: 8)
+            if let badge = roleBadge {
+                Text(badge)
+                    .font(Theme.chrome(8, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(roleColor ?? workerColor))
+            }
+            Text(workerName).font(Theme.chrome(10, weight: .semibold)).foregroundColor(roleColor ?? workerColor)
             Text(statusText).font(Theme.chrome(10)).foregroundColor(Theme.textDim)
             HStack(spacing: 2) {
                 ForEach(0..<3, id: \.self) { i in

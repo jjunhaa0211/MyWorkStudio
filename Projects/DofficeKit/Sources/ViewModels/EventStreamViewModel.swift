@@ -117,6 +117,19 @@ public final class EventStreamViewModel: ObservableObject {
         }
     }
 
+    public func toolColor(for role: WorkerJob) -> Color {
+        switch role {
+        case .developer: return Theme.accent
+        case .planner: return Theme.orange
+        case .designer: return Theme.pink
+        case .reviewer: return Theme.cyan
+        case .qa: return Theme.green
+        case .reporter: return Theme.purple
+        case .sre: return Theme.yellow
+        case .boss: return Theme.orange
+        }
+    }
+
     // MARK: - Scroll Helpers
 
     public func scrollToEnd(_ proxy: ScrollViewProxy) {
