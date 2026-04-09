@@ -306,8 +306,11 @@ public class TokenTracker: ObservableObject {
         let snapshot = history
         let key = saveKey
         let workItem = DispatchWorkItem {
-            if let data = try? JSONEncoder().encode(snapshot) {
+            do {
+                let data = try JSONEncoder().encode(snapshot)
                 PersistenceService.shared.set(data, forKey: key)
+            } catch {
+                CrashLogger.shared.warning("TokenTracker save failed: \(error.localizedDescription)")
             }
         }
         saveWorkItem = workItem
@@ -315,8 +318,14 @@ public class TokenTracker: ObservableObject {
     }
 
     private func load() {
-        guard let data = PersistenceService.shared.data(forKey: saveKey),
-              let loaded = try? JSONDecoder().decode([DayRecord].self, from: data) else { return }
+        guard let data = PersistenceService.shared.data(forKey: saveKey) else { return }
+        let loaded: [DayRecord]
+        do {
+            loaded = try JSONDecoder().decode([DayRecord].self, from: data)
+        } catch {
+            CrashLogger.shared.warning("TokenTracker load failed: \(error.localizedDescription)")
+            return
+        }
         // 최근 30일만 유지
         let cal = Calendar.current
         let cutoff = cal.date(byAdding: .day, value: -30, to: Date()) ?? Date()

@@ -12,9 +12,14 @@ public class TerminalTab: ObservableObject, Identifiable {
     static let maxRetainedBlocks = 420
     static let maxRetainedFileChanges = 240
     /// Pre-compiled ANSI escape regex for sanitizeTerminalText (avoid per-call recompilation).
-    private static let ansiRegex: NSRegularExpression? = try? NSRegularExpression(
-        pattern: "\u{001B}\\[[0-9;?]*[ -/]*[@-~]"
-    )
+    private static let ansiRegex: NSRegularExpression? = {
+        do {
+            return try NSRegularExpression(pattern: "\u{001B}\\[[0-9;?]*[ -/]*[@-~]")
+        } catch {
+            CrashLogger.shared.error("ANSI regex compilation failed: \(error.localizedDescription)")
+            return nil
+        }
+    }()
 
     /// Decoupled character lookup (set by App layer to bridge CharacterRegistry)
     public static var characterLookup: ((String) -> WorkerCharacter?) = { _ in nil }

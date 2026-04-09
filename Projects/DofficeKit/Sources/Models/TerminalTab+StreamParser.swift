@@ -293,7 +293,11 @@ extension TerminalTab {
             default: s += "\(b.content)\n"
             }
         }
-        try? s.write(to: url, atomically: true, encoding: .utf8)
+        do {
+            try s.write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            CrashLogger.shared.warning("exportLog write failed: \(error.localizedDescription)")
+        }
         return url
     }
 
