@@ -221,6 +221,195 @@ final class SessionPersistenceTests: XCTestCase {
         XCTAssertTrue(readme.contains("`Edit` \(sourceURL.path)"))
     }
 
+    // MARK: - SavedChatBlock round-trip tests
+
+    func testSaveAndRestoreSessionWithBlocks() throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let sessionsURL = root.appendingPathComponent("sessions.json")
+        try fileManager.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? fileManager.removeItem(at: root) }
+
+        let blocks: [SavedChatBlock] = [
+            SavedChatBlock(block: StreamBlock(type: .userPrompt, content: "Fix the bug")),
+            SavedChatBlock(block: StreamBlock(type: .thought, content: "Analyzing the code...")),
+            SavedChatBlock(block: StreamBlock(type: .toolUse(name: "Bash", input: "ls"), content: "ls -la")),
+            SavedChatBlock(block: StreamBlock(type: .text, content: "Here is the result")),
+            SavedChatBlock(block: StreamBlock(type: .error(message: "Something failed"), content: "Something failed")),
+            SavedChatBlock(block: StreamBlock(type: .status(message: "Processing..."), content: "Processing...")),
+            SavedChatBlock(block: StreamBlock(type: .completion(cost: 0.05, duration: 120), content: "Done")),
+        ]
+
+        let saved = makeSavedSession(
+            workerName: "BlockWorker",
+            chatHistory: blocks
+        )
+
+        let history = SessionHistory(sessions: [saved], lastSaved: Date())
+        let data = try JSONEncoder().encode(history)
+        try data.write(to: sessionsURL, options: .atomicWrite)
+
+        let store = SessionStore(fileURL: sessionsURL, writeDelay: 0)
+        let loaded = try XCTUnwrap(store.load().first)
+        let restoredBlocks = try XCTUnwrap(loaded.chatHistory)
+
+        XCTAssertEqual(restoredBlocks.count, 7)
+        XCTAssertEqual(loaded.workerName, "BlockWorker")
+    }
+
+    func testBlockTypesPreservedAfterRestore() throws {
+        let blocks: [SavedChatBlock] = [
+            SavedChatBlock(block: StreamBlock(type: .userPrompt, content: "Hello")),
+            SavedChatBlock(block: StreamBlock(type: .thought, content: "Thinking")),
+            SavedChatBlock(block: StreamBlock(type: .toolUse(name: "Read", input: "/tmp/f"), content: "read file")),
+            SavedChatBlock(block: StreamBlock(type: .text, content: "plain text")),
+            SavedChatBlock(block: StreamBlock(type: .error(message: "err"), content: "err")),
+            SavedChatBlock(block: StreamBlock(type: .status(message: "ok"), content: "ok")),
+            SavedChatBlock(block: StreamBlock(type: .completion(cost: nil, duration: nil), content: "fin")),
+        ]
+
+        let data = try JSONEncoder().encode(blocks)
+        let decoded = try JSONDecoder().decode([SavedChatBlock].self, from: data)
+
+        let expectedTypes = ["user", "thought", "tool", "text", "error", "status", "completion"]
+        XCTAssertEqual(decoded.map(\.type), expectedTypes)
+
+        // Verify round-trip to StreamBlock preserves block type
+        let streamBlocks = decoded.map { $0.toBlock() }
+        for (i, block) in streamBlocks.enumerated() {
+            switch (i, block.blockType) {
+            case (0, .userPrompt): break
+            case (1, .thought): break
+            case (2, .toolUse(let name, _)):
+                XCTAssertEqual(name, "Read")
+            case (3, .text): break
+            case (4, .error(let msg)):
+                XCTAssertEqual(msg, "err")
+            case (5, .status(let msg)):
+                XCTAssertEqual(msg, "ok")
+            case (6, .completion): break
+            default:
+                XCTFail("Unexpected block type at index \(i): \(block.blockType)")
+            }
+        }
+    }
+
+    func testPresentationStylesSurviveSaveRestore() throws {
+        let normalBlock = SavedChatBlock(block: StreamBlock(type: .text, content: "visible", presentationStyle: .normal))
+        let secretBlock = SavedChatBlock(block: StreamBlock(type: .thought, content: "hidden", presentationStyle: .secret))
+
+        let data = try JSONEncoder().encode([normalBlock, secretBlock])
+        let decoded = try JSONDecoder().decode([SavedChatBlock].self, from: data)
+
+        XCTAssertEqual(decoded[0].presentationStyle, "normal")
+        XCTAssertEqual(decoded[1].presentationStyle, "secret")
+
+        // Verify toBlock() restores the presentation style
+        let restoredNormal = decoded[0].toBlock()
+        let restoredSecret = decoded[1].toBlock()
+        XCTAssertEqual(restoredNormal.presentationStyle, .normal)
+        XCTAssertEqual(restoredSecret.presentationStyle, .secret)
+        XCTAssertEqual(restoredNormal.content, "visible")
+        XCTAssertEqual(restoredSecret.content, "hidden")
+    }
+
+    func testSessionMetadataPreservedThroughSaveRestore() throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let sessionsURL = root.appendingPathComponent("sessions.json")
+        try fileManager.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? fileManager.removeItem(at: root) }
+
+        let saved = makeSavedSession(
+            projectName: "MetadataProject",
+            projectPath: "/tmp/metadata-proj",
+            workerName: "MetaWorker",
+            workerColorHex: "FF00AA",
+            selectedModel: ClaudeModel.opus.rawValue,
+            effortLevel: EffortLevel.high.rawValue,
+            sessionId: "meta-session-42"
+        )
+
+        let history = SessionHistory(sessions: [saved], lastSaved: Date())
+        let data = try JSONEncoder().encode(history)
+        try data.write(to: sessionsURL, options: .atomicWrite)
+
+        let store = SessionStore(fileURL: sessionsURL, writeDelay: 0)
+        let loaded = try XCTUnwrap(store.load().first)
+
+        XCTAssertEqual(loaded.workerName, "MetaWorker")
+        XCTAssertEqual(loaded.projectPath, "/tmp/metadata-proj")
+        XCTAssertEqual(loaded.projectName, "MetadataProject")
+        XCTAssertEqual(loaded.workerColorHex, "FF00AA")
+        XCTAssertEqual(loaded.selectedModel, ClaudeModel.opus.rawValue)
+        XCTAssertEqual(loaded.effortLevel, EffortLevel.high.rawValue)
+        XCTAssertEqual(loaded.sessionId, "meta-session-42")
+    }
+
+    func testRestoreWithEmptyBlocks() throws {
+        let saved = makeSavedSession(chatHistory: [])
+        let data = try JSONEncoder().encode(saved)
+        let decoded = try JSONDecoder().decode(SavedSession.self, from: data)
+
+        XCTAssertNotNil(decoded.chatHistory)
+        XCTAssertEqual(decoded.chatHistory?.count, 0)
+
+        // Also test nil chatHistory
+        let savedNil = makeSavedSession(chatHistory: nil)
+        let dataNil = try JSONEncoder().encode(savedNil)
+        let decodedNil = try JSONDecoder().decode(SavedSession.self, from: dataNil)
+        XCTAssertNil(decodedNil.chatHistory)
+    }
+
+    func testRestoreWithCorruptedDataReturnsEmptyHistory() throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let sessionsURL = root.appendingPathComponent("sessions.json")
+        try fileManager.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? fileManager.removeItem(at: root) }
+
+        // Write corrupted JSON
+        try "{ this is not valid json !!!".write(to: sessionsURL, atomically: true, encoding: .utf8)
+
+        let store = SessionStore(fileURL: sessionsURL, writeDelay: 0)
+        let sessions = store.load()
+        XCTAssertTrue(sessions.isEmpty, "Corrupted data should result in empty session list")
+    }
+
+    func testRestoreWithMissingFileReturnsEmptyHistory() throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let sessionsURL = root.appendingPathComponent("sessions.json")
+        try fileManager.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? fileManager.removeItem(at: root) }
+
+        // Do NOT create the file — it should not exist
+        XCTAssertFalse(fileManager.fileExists(atPath: sessionsURL.path))
+
+        let store = SessionStore(fileURL: sessionsURL, writeDelay: 0)
+        let sessions = store.load()
+        XCTAssertTrue(sessions.isEmpty, "Missing file should result in empty session list")
+        XCTAssertEqual(store.sessionCount, 0)
+    }
+
+    func testRestoreWithPartiallyCorruptedFieldsFallsBackGracefully() throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let sessionsURL = root.appendingPathComponent("sessions.json")
+        try fileManager.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? fileManager.removeItem(at: root) }
+
+        // Write valid JSON but with a truncated sessions array (valid SessionHistory, empty sessions)
+        let emptyHistory = SessionHistory(sessions: [], lastSaved: Date())
+        let data = try JSONEncoder().encode(emptyHistory)
+        try data.write(to: sessionsURL, options: .atomicWrite)
+
+        let store = SessionStore(fileURL: sessionsURL, writeDelay: 0)
+        let sessions = store.load()
+        XCTAssertTrue(sessions.isEmpty)
+        XCTAssertNil(store.loadLastSaved())
+    }
+
     private func makeSavedSession(
         projectName: String = "DemoProject",
         projectPath: String = "/tmp/demo",
