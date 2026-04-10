@@ -77,6 +77,8 @@ public struct EventStreamView: View {
     @State private var viewportRestoreWorkItem: DispatchWorkItem?
     @State private var isStreamEndVisible = true
     @State private var unreadBlockCount = 0
+    @State var historyIndex: Int = -1
+    @State var savedInputText: String = ""
 
     // ═══════════════════════════════════════════
     var matchingCommands: [SlashCommand] {
@@ -154,6 +156,13 @@ public struct EventStreamView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
 
+            // 워크플로우 파이프라인 스텝퍼 (고정 위치)
+            if tab.workflowStages.count > 1 && !compact {
+                WorkflowStepperView(stages: tab.workflowStages)
+                    .background(Theme.bgSurface.opacity(0.8))
+                Divider().foregroundColor(Theme.border)
+            }
+
             // Main content
             HStack(spacing: 0) {
                 // Event stream
@@ -168,7 +177,13 @@ public struct EventStreamView: View {
                                         block: block,
                                         compact: compact,
                                         onResendPrompt: { text in inputText = text },
+                                        onQuickAction: { text in tab.sendPrompt(text) },
                                         onRevert: revertAction(for: block),
+                                        onRetry: {
+                                            let prompt = tab.lastPromptText
+                                            guard !prompt.isEmpty, !tab.isProcessing else { return }
+                                            tab.sendPrompt(prompt)
+                                        },
                                         hasFileChanges: hasFileChanges(for: block)
                                     )
                                         .id(blockAnchorID(block))
@@ -181,7 +196,9 @@ public struct EventStreamView: View {
                                         workerColor: tab.workerColor,
                                         workerName: tab.workerName,
                                         roleBadge: tab.workerJob.shortLabel,
-                                        roleColor: vm.toolColor(for: tab.workerJob)
+                                        roleColor: vm.toolColor(for: tab.workerJob),
+                                        activityDetail: tab.activityDetail,
+                                        elapsedSeconds: elapsedSeconds
                                     )
                                     .id("processing")
                                 } else if let stage = tab.activeAutomationStage {
@@ -190,7 +207,8 @@ public struct EventStreamView: View {
                                         workerColor: vm.toolColor(for: stage.role),
                                         workerName: stage.workerName,
                                         roleBadge: stage.role.shortLabel,
-                                        roleColor: vm.toolColor(for: stage.role)
+                                        roleColor: vm.toolColor(for: stage.role),
+                                        elapsedSeconds: elapsedSeconds
                                     )
                                     .id("automationProcessing")
                                 }

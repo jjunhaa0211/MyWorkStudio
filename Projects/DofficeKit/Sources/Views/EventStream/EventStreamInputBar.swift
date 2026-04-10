@@ -201,8 +201,43 @@ extension EventStreamView {
                     guard isCommandMode else { return .ignored }
                     return handleCommandKeyNavigation(event)
                 }
+                .onKeyPress(.upArrow, phases: .down) { _ in
+                    guard !isCommandMode else { return .ignored }
+                    guard !inputText.contains("\n") else { return .ignored }
+                    let prompts = tab.promptHistory.map(\.promptText)
+                    guard !prompts.isEmpty else { return .ignored }
+                    if historyIndex < 0 {
+                        savedInputText = inputText
+                    }
+                    historyIndex = min(historyIndex + 1, prompts.count - 1)
+                    inputText = prompts[prompts.count - 1 - historyIndex]
+                    return .handled
+                }
+                .onKeyPress(.downArrow, phases: .down) { _ in
+                    guard !isCommandMode else { return .ignored }
+                    guard !inputText.contains("\n") else { return .ignored }
+                    guard historyIndex >= 0 else { return .ignored }
+                    historyIndex -= 1
+                    if historyIndex < 0 {
+                        inputText = savedInputText
+                    } else {
+                        let prompts = tab.promptHistory.map(\.promptText)
+                        inputText = prompts[prompts.count - 1 - historyIndex]
+                    }
+                    return .handled
+                }
                 .onChange(of: inputText) { old, new in
                     selectedCommandIndex = 0
+                    // Reset history navigation when user types new content
+                    if historyIndex >= 0 {
+                        let prompts = tab.promptHistory.map(\.promptText)
+                        let isHistoryText = historyIndex < prompts.count && new == prompts[prompts.count - 1 - historyIndex]
+                        let isSavedText = historyIndex < 0 && new == savedInputText
+                        if !isHistoryText && !isSavedText {
+                            historyIndex = -1
+                            savedInputText = ""
+                        }
+                    }
                     // 타이핑 이벤트 발행 (플러그인 이펙트용)
                     if new.count > old.count && new.count - old.count <= 2 {
                         PluginHost.shared.fireEvent(.onPromptKeyPress)
@@ -321,6 +356,31 @@ extension EventStreamView {
                 guard isCommandMode else { return .ignored }
                 return handleCommandKeyNavigation(event)
             }
+            .onKeyPress(.upArrow, phases: .down) { _ in
+                guard !isCommandMode else { return .ignored }
+                guard !inputText.contains("\n") else { return .ignored }
+                let prompts = tab.promptHistory.map(\.promptText)
+                guard !prompts.isEmpty else { return .ignored }
+                if historyIndex < 0 {
+                    savedInputText = inputText
+                }
+                historyIndex = min(historyIndex + 1, prompts.count - 1)
+                inputText = prompts[prompts.count - 1 - historyIndex]
+                return .handled
+            }
+            .onKeyPress(.downArrow, phases: .down) { _ in
+                guard !isCommandMode else { return .ignored }
+                guard !inputText.contains("\n") else { return .ignored }
+                guard historyIndex >= 0 else { return .ignored }
+                historyIndex -= 1
+                if historyIndex < 0 {
+                    inputText = savedInputText
+                } else {
+                    let prompts = tab.promptHistory.map(\.promptText)
+                    inputText = prompts[prompts.count - 1 - historyIndex]
+                }
+                return .handled
+            }
 
             if tab.isProcessing {
                 HStack(spacing: 3) {
@@ -421,7 +481,7 @@ extension EventStreamView {
 
             // 정확히 매칭되는 명령어만 실행
             if let cmd = Self.allSlashCommands.first(where: { $0.name == cmdName }) {
-                inputText = ""; pastedChunks.removeAll(); selectedCommandIndex = 0
+                inputText = ""; pastedChunks.removeAll(); selectedCommandIndex = 0; historyIndex = -1; savedInputText = ""
                 tab.appendBlock(.userPrompt, content: "/\(cmd.name)" + (args.isEmpty ? "" : " " + args.joined(separator: " ")))
                 cmd.action(tab, manager, args)
                 return
@@ -429,6 +489,7 @@ extension EventStreamView {
         }
 
         inputText = ""; pastedChunks.removeAll()
+        historyIndex = -1; savedInputText = ""
         tab.sendPrompt(p)
         AchievementManager.shared.addXP(5); AchievementManager.shared.incrementCommand()
     }
