@@ -10,7 +10,9 @@ public struct EventBlockView: View {
     @StateObject private var settings = AppSettings.shared
     public let compact: Bool
     public var onResendPrompt: ((String) -> Void)?
+    public var onQuickAction: ((String) -> Void)?
     public var onRevert: (() -> Void)?
+    public var onRetry: (() -> Void)?
     public var hasFileChanges: Bool = false
     @State private var thoughtCollapsed = false
     @State private var showCopied = false
@@ -407,19 +409,19 @@ public struct EventBlockView: View {
             }
 
             // 빠른 후속 액션 버튼
-            if let onResend = onResendPrompt {
+            if let quickAction = onQuickAction {
                 HStack(spacing: 6) {
                     quickActionButton(label: NSLocalizedString("block.action.continue", value: "이어서", comment: ""), icon: "arrow.right.circle", color: Theme.accent) {
-                        onResend("이어서 진행해줘")
+                        quickAction("이어서 진행해줘")
                     }
                     quickActionButton(label: NSLocalizedString("block.action.explain", value: "설명", comment: ""), icon: "questionmark.circle", color: Theme.purple) {
-                        onResend("방금 한 작업을 설명해줘")
+                        quickAction("방금 한 작업을 설명해줘")
                     }
                     quickActionButton(label: NSLocalizedString("block.action.fix", value: "수정", comment: ""), icon: "wrench", color: Theme.orange) {
-                        onResend("에러가 있으면 수정해줘")
+                        quickAction("에러가 있으면 수정해줘")
                     }
                     quickActionButton(label: NSLocalizedString("block.action.retry", value: "재시도", comment: ""), icon: "arrow.counterclockwise", color: Theme.red) {
-                        onResend("방금 요청을 다시 시도해줘")
+                        quickAction("방금 요청을 다시 시도해줘")
                     }
 
                     if hasFileChanges, onRevert != nil {
@@ -489,6 +491,23 @@ public struct EventBlockView: View {
                         .font(Theme.mono(fsSm))
                         .foregroundColor(Theme.red.opacity(0.65))
                         .lineSpacing(2)
+                }
+                if let onRetry = onRetry {
+                    Button(action: { onRetry() }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.counterclockwise")
+                                .font(.system(size: Theme.iconSize(8)))
+                            Text(NSLocalizedString("block.action.retry", value: "재시도", comment: ""))
+                                .font(Theme.mono(9, weight: .bold))
+                        }
+                        .foregroundColor(Theme.red)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(RoundedRectangle(cornerRadius: 6).fill(Theme.red.opacity(0.08)))
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.red.opacity(0.2), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 4)
                 }
             }
         }
