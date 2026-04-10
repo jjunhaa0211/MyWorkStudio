@@ -79,6 +79,19 @@ extension TerminalTab {
                     let trimmed = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
                     if trimmed == ">" || trimmed == " >" || trimmed.isEmpty { continue }
 
+                    // Try JSON event parsing first
+                    if trimmed.hasPrefix("{"),
+                       let jsonData = trimmed.data(using: .utf8),
+                       let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
+                        DispatchQueue.main.async { [weak self] in
+                            guard let self = self,
+                                  self.currentProcess.map({ ObjectIdentifier($0) == procId }) ?? false
+                            else { return }
+                            self.handleGeminiStreamEvent(json)
+                        }
+                        continue
+                    }
+
                     // Strip "✦ " prefix
                     let content = trimmed.hasPrefix("✦") ? String(trimmed.dropFirst()).trimmingCharacters(in: .whitespaces) : cleaned
                     if !content.isEmpty {
