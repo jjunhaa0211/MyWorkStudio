@@ -211,61 +211,368 @@ public struct OfficeSpriteRenderer {
         drawOverlays(ctx, viewScale: scale)
     }
 
+    // MARK: - Pixel Art Cat Sprites
+    // 색상 팔레트 (짧은 별명으로 스프라이트 가독성 확보)
+    private static let F = "E8A060"  // fur 주황
+    private static let L = "F0C890"  // light 밝은 배
+    private static let D = "C07838"  // dark 줄무늬
+    private static let N = "F08888"  // nose 코
+    private static let E = "40B868"  // eye 녹색 눈
+    private static let W = "F0F0E8"  // white 눈 흰자
+    private static let I = "F0B0A0"  // inner ear 귀 안쪽
+    private static let T = "D08848"  // tail 꼬리
+    private static let P = "282828"  // pupil 동공
+    private static let o = ""        // 투명
+
+    // ── 앉아있기 (정면) 10w × 9h ──
+    private static let catSitDown: SpriteData = [
+        [o, o, F, o, o, o, o, F, o, o],  // 귀 꼭대기
+        [o, F, I, F, F, F, F, I, F, o],  // 귀 + 머리
+        [o, F, W, P, F, F, W, P, F, o],  // 눈
+        [o, o, F, F, N, N, F, F, o, o],  // 코
+        [o, o, F, L, L, L, L, F, o, o],  // 가슴
+        [o, o, F, F, L, L, F, F, o, o],  // 몸통
+        [o, o, F, F, F, F, F, F, o, o],  // 하체
+        [o, o, F, o, o, o, o, F, o, o],  // 앞발
+        [o, o, o, o, o, o, o, o, T, o],  // 꼬리
+    ]
+
+    // ── 걷기 (오른쪽 향) 4프레임  12w × 9h ──
+    // 삼각형 귀, 둥근 머리, 아치형 등, 가는 다리, S자 꼬리
+    private static let catWalkR: [SpriteData] = [
+        // 프레임 0: 오른발 앞
+        [
+            [o, o, o, o, F, o, o, o, o, o, o, o],  // 귀 꼭대기
+            [o, o, o, F, F, o, o, o, o, o, o, o],  // 귀 (삼각형)
+            [o, o, F, F, F, F, o, o, o, o, o, o],  // 이마 (둥근 머리)
+            [o, o, W, P, F, F, F, F, o, o, o, o],  // 눈 + 등 연결
+            [o, o, F, N, F, F, L, F, F, o, o, o],  // 주둥이 + 몸통
+            [o, o, o, F, F, F, F, F, F, T, o, o],  // 배 + 꼬리
+            [o, o, o, F, o, o, o, F, o, o, T, o],  // 다리 벌림
+            [o, o, o, o, o, o, o, o, o, o, o, o],
+            [o, o, o, o, o, o, o, o, o, o, o, o],
+        ],
+        // 프레임 1: 다리 모음 (바운스)
+        [
+            [o, o, o, o, F, o, o, o, o, o, o, o],
+            [o, o, o, F, F, o, o, o, o, o, o, o],
+            [o, o, F, F, F, F, o, o, o, o, o, o],
+            [o, o, W, P, F, F, F, F, o, o, o, o],
+            [o, o, F, N, F, F, L, F, F, o, o, o],
+            [o, o, o, F, F, F, F, F, F, T, o, o],
+            [o, o, o, o, F, F, o, o, o, o, T, o],
+            [o, o, o, o, o, o, o, o, o, o, o, o],
+            [o, o, o, o, o, o, o, o, o, o, o, o],
+        ],
+        // 프레임 2: 왼발 앞
+        [
+            [o, o, o, o, F, o, o, o, o, o, o, o],
+            [o, o, o, F, F, o, o, o, o, o, o, o],
+            [o, o, F, F, F, F, o, o, o, o, o, o],
+            [o, o, W, P, F, F, F, F, o, o, o, o],
+            [o, o, F, N, F, F, L, F, F, o, o, o],
+            [o, o, o, F, F, F, F, F, F, T, o, o],
+            [o, o, F, o, o, o, F, o, o, o, T, o],
+            [o, o, o, o, o, o, o, o, o, o, o, o],
+            [o, o, o, o, o, o, o, o, o, o, o, o],
+        ],
+        // 프레임 3: 다리 모음 (바운스)
+        [
+            [o, o, o, o, F, o, o, o, o, o, o, o],
+            [o, o, o, F, F, o, o, o, o, o, o, o],
+            [o, o, F, F, F, F, o, o, o, o, o, o],
+            [o, o, W, P, F, F, F, F, o, o, o, o],
+            [o, o, F, N, F, F, L, F, F, o, o, o],
+            [o, o, o, F, F, F, F, F, F, T, o, o],
+            [o, o, o, F, F, o, o, o, o, o, T, o],
+            [o, o, o, o, o, o, o, o, o, o, o, o],
+            [o, o, o, o, o, o, o, o, o, o, o, o],
+        ],
+    ]
+
+    // ── 걷기 (아래 향) 4프레임 10w × 9h ──
+    private static let catWalkD: [SpriteData] = [
+        [
+            [o, o, F, o, o, o, o, F, o, o],
+            [o, F, I, F, F, F, F, I, F, o],
+            [o, F, W, P, F, F, W, P, F, o],
+            [o, o, F, F, N, N, F, F, o, o],
+            [o, o, F, L, L, L, L, F, o, o],
+            [o, o, F, F, F, F, F, F, o, o],
+            [o, o, F, o, o, o, o, F, o, o],
+            [o, F, o, o, o, o, o, o, F, o],
+            [o, o, o, o, o, o, o, o, o, o],
+        ],
+        [
+            [o, o, F, o, o, o, o, F, o, o],
+            [o, F, I, F, F, F, F, I, F, o],
+            [o, F, W, P, F, F, W, P, F, o],
+            [o, o, F, F, N, N, F, F, o, o],
+            [o, o, F, L, L, L, L, F, o, o],
+            [o, o, F, F, F, F, F, F, o, o],
+            [o, o, o, F, o, o, F, o, o, o],
+            [o, o, o, o, o, o, o, o, o, o],
+            [o, o, o, o, o, o, o, o, o, o],
+        ],
+        [
+            [o, o, F, o, o, o, o, F, o, o],
+            [o, F, I, F, F, F, F, I, F, o],
+            [o, F, W, P, F, F, W, P, F, o],
+            [o, o, F, F, N, N, F, F, o, o],
+            [o, o, F, L, L, L, L, F, o, o],
+            [o, o, F, F, F, F, F, F, o, o],
+            [o, F, o, o, o, o, o, F, o, o],
+            [o, o, F, o, o, o, F, o, o, o],
+            [o, o, o, o, o, o, o, o, o, o],
+        ],
+        [
+            [o, o, F, o, o, o, o, F, o, o],
+            [o, F, I, F, F, F, F, I, F, o],
+            [o, F, W, P, F, F, W, P, F, o],
+            [o, o, F, F, N, N, F, F, o, o],
+            [o, o, F, L, L, L, L, F, o, o],
+            [o, o, F, F, F, F, F, F, o, o],
+            [o, o, F, o, o, o, F, o, o, o],
+            [o, o, o, o, o, o, o, o, o, o],
+            [o, o, o, o, o, o, o, o, o, o],
+        ],
+    ]
+
+    // ── 걷기 (위 향) 4프레임 10w × 9h ──
+    private static let catWalkU: [SpriteData] = [
+        [
+            [o, o, F, o, o, o, o, F, o, o],
+            [o, F, D, F, F, F, F, D, F, o],
+            [o, F, F, F, F, F, F, F, F, o],
+            [o, o, F, F, D, D, F, F, o, o],
+            [o, o, F, F, F, F, F, F, o, o],
+            [o, o, F, F, F, F, F, F, o, o],
+            [o, o, F, o, o, o, o, F, o, o],
+            [o, F, o, o, T, T, o, o, F, o],
+            [o, o, o, o, o, T, o, o, o, o],
+        ],
+        [
+            [o, o, F, o, o, o, o, F, o, o],
+            [o, F, D, F, F, F, F, D, F, o],
+            [o, F, F, F, F, F, F, F, F, o],
+            [o, o, F, F, D, D, F, F, o, o],
+            [o, o, F, F, F, F, F, F, o, o],
+            [o, o, F, F, F, F, F, F, o, o],
+            [o, o, o, F, o, o, F, o, o, o],
+            [o, o, o, o, T, T, o, o, o, o],
+            [o, o, o, o, o, T, o, o, o, o],
+        ],
+        [
+            [o, o, F, o, o, o, o, F, o, o],
+            [o, F, D, F, F, F, F, D, F, o],
+            [o, F, F, F, F, F, F, F, F, o],
+            [o, o, F, F, D, D, F, F, o, o],
+            [o, o, F, F, F, F, F, F, o, o],
+            [o, o, F, F, F, F, F, F, o, o],
+            [o, F, o, o, o, o, o, F, o, o],
+            [o, o, F, o, T, T, F, o, o, o],
+            [o, o, o, o, o, T, o, o, o, o],
+        ],
+        [
+            [o, o, F, o, o, o, o, F, o, o],
+            [o, F, D, F, F, F, F, D, F, o],
+            [o, F, F, F, F, F, F, F, F, o],
+            [o, o, F, F, D, D, F, F, o, o],
+            [o, o, F, F, F, F, F, F, o, o],
+            [o, o, F, F, F, F, F, F, o, o],
+            [o, o, F, o, o, o, F, o, o, o],
+            [o, o, o, o, T, T, o, o, o, o],
+            [o, o, o, o, o, T, o, o, o, o],
+        ],
+    ]
+
+    // ── 잠자기 (동그랗게 웅크린 형태) 10w × 5h ──
+    private static let catSleep: SpriteData = [
+        [o, o, F, F, F, F, F, F, o, o],
+        [o, F, D, F, F, F, D, F, F, o],
+        [o, F, L, L, L, L, L, F, T, o],
+        [o, o, F, F, F, F, F, T, T, o],
+        [o, o, o, o, o, o, o, o, o, o],
+    ]
+
+    // ── 기지개 (앞다리 쭉, 엉덩이 올림) 12w × 8h ──
+    private static let catStretch: SpriteData = [
+        [o, o, o, o, o, o, o, o, o, F, o, o],  // 귀 꼭대기
+        [o, o, o, o, o, o, o, o, F, F, o, o],  // 귀 삼각형
+        [o, o, o, o, o, o, o, F, F, F, F, o],  // 머리
+        [o, T, F, D, F, F, F, F, P, W, F, o],  // 꼬리+등+눈
+        [o, o, T, F, F, L, L, F, F, N, o, o],  // 몸+가슴+코
+        [o, o, o, F, F, F, F, F, o, o, o, o],  // 배
+        [o, o, o, o, F, o, o, F, F, F, o, o],  // 뒷다리+앞다리쭉
+        [o, o, o, o, o, o, o, o, o, o, o, o],
+    ]
+
+    // ── 쓰다듬받기 (행복, 눈 감음) 10w × 9h ──
+    private static let catHappy: SpriteData = [
+        [o, o, F, o, o, o, o, F, o, o],
+        [o, F, I, F, F, F, F, I, F, o],
+        [o, F, D, D, F, F, D, D, F, o],  // 눈 감음 (^ ^)
+        [o, o, F, F, N, N, F, F, o, o],
+        [o, o, F, L, L, L, L, F, o, o],
+        [o, o, F, F, L, L, F, F, o, o],
+        [o, o, F, F, F, F, F, F, o, o],
+        [o, o, F, o, o, o, o, F, o, o],
+        [o, o, o, o, o, o, o, o, T, o],
+    ]
+
+    // ── 장난 (엎드려 사냥 자세 - 머리 낮추고 엉덩이 올림) 12w × 8h ──
+    private static let catPlay: [SpriteData] = [
+        [
+            [o, o, o, o, o, o, o, o, o, T, o, o],  // 꼬리 올라감
+            [o, o, o, o, F, o, o, o, T, o, o, o],  // 귀+꼬리
+            [o, o, o, F, F, o, F, F, F, o, o, o],  // 귀+엉덩이 올림
+            [o, o, F, F, F, F, F, F, F, o, o, o],  // 머리+등
+            [o, o, W, P, F, L, F, D, F, o, o, o],  // 눈+몸
+            [o, o, F, N, F, F, F, F, o, o, o, o],  // 주둥이+배
+            [o, o, F, F, o, o, o, F, o, o, o, o],  // 다리
+            [o, o, o, o, o, o, o, o, o, o, o, o],
+        ],
+        [
+            [o, o, o, o, o, o, o, o, o, o, T, o],  // 꼬리 흔들림
+            [o, o, o, o, F, o, o, o, o, T, o, o],
+            [o, o, o, F, F, o, F, F, F, o, o, o],
+            [o, o, F, F, F, F, F, F, F, o, o, o],
+            [o, o, P, W, F, L, F, D, F, o, o, o],  // 눈 반짝
+            [o, o, F, N, F, F, F, F, o, o, o, o],
+            [o, o, o, F, o, o, F, o, o, o, o, o],  // 다리 교차
+            [o, o, o, o, o, o, o, o, o, o, o, o],
+        ],
+    ]
+
+    /// 방향 & 상태에 따라 적절한 고양이 스프라이트 반환
+    private func catSprite(for cat: OfficeCat) -> (sprite: SpriteData, mirrored: Bool) {
+        switch cat.state {
+        case .sleeping:
+            return (Self.catSleep, false)
+        case .stretching:
+            return (Self.catStretch, cat.dir == .left)
+        case .beingPetted:
+            return (Self.catHappy, false)
+        case .playing:
+            let phase = (frame / 10) % Self.catPlay.count
+            return (Self.catPlay[phase], cat.dir == .left)
+        case .walking, .approaching:
+            let walkFrame = cat.frame % 4
+            switch cat.dir {
+            case .right:
+                return (Self.catWalkR[walkFrame], false)
+            case .left:
+                return (Self.catWalkR[walkFrame], true)  // 미러
+            case .down:
+                return (Self.catWalkD[walkFrame], false)
+            case .up:
+                return (Self.catWalkU[walkFrame], false)
+            }
+        case .idle:
+            return (Self.catSitDown, false)
+        }
+    }
+
     private func drawOfficeCat(_ ctx: GraphicsContext) {
         guard let cat = officeCat else { return }
 
-        let catEmoji: String
-        let catSize: CGFloat
-        switch cat.state {
-        case .sleeping:
-            catEmoji = "🐱💤"
-            catSize = 7
-        case .stretching:
-            let phase = (frame / 8) % 2
-            catEmoji = phase == 0 ? "🐱" : "🙀"
-            catSize = 7
-        case .beingPetted:
-            catEmoji = "😻"
-            catSize = 7
-        case .playing:
-            let phase = (frame / 6) % 3
-            catEmoji = ["🐱", "🙀", "😺"][phase]
-            catSize = 7
-        default:
-            catEmoji = "🐱"
-            catSize = 6.5
-        }
+        let (sprite, mirrored) = catSprite(for: cat)
+        let spriteH = CGFloat(sprite.count)
+        let spriteW = CGFloat(sprite.first?.count ?? 10)
+
+        // 걷기 바운스 (프레임 1,3에서 살짝 위로)
+        let isWalking = cat.state == .walking || cat.state == .approaching
+        let walkBob: CGFloat = isWalking ? ((cat.frame % 2 == 1) ? -0.5 : 0) : 0
+
+        let drawX = cat.pixelX - spriteW / 2
+        let drawY = cat.pixelY - spriteH + walkBob + 2
 
         // 그림자
-        let shadowRect = CGRect(x: cat.pixelX - 4, y: cat.pixelY - 1, width: 8, height: 3)
-        ctx.fill(Path(ellipseIn: shadowRect), with: .color(Color.black.opacity(dark ? 0.15 : 0.08)))
-
-        // 고양이 이모지
-        ctx.draw(
-            Text(catEmoji).font(.system(size: catSize)),
-            at: CGPoint(x: cat.pixelX, y: cat.pixelY - 6)
+        let shadowW: CGFloat = cat.state == .sleeping ? 10 : 8
+        let shadowH: CGFloat = cat.state == .sleeping ? 2.5 : 3
+        ctx.fill(
+            Path(ellipseIn: CGRect(x: cat.pixelX - shadowW / 2, y: cat.pixelY + 0.5, width: shadowW, height: shadowH)),
+            with: .color(Color.black.opacity(dark ? 0.16 : 0.09))
         )
 
-        // 고양이 리액션 버블
-        let cycle = frame % Int(OfficeConstants.fps * 5)
-        if cycle < Int(OfficeConstants.fps * 1.5) {
-            let reactions: [String]
-            let color: Color
-            switch cat.state {
-            case .sleeping:
-                reactions = Self.catSleepReactions
-                color = Color(hex: "8090B0")
-            case .beingPetted:
-                reactions = Self.catPettedReactions
-                color = Color(hex: "F08090")
-            default:
-                reactions = Self.catReactions
-                color = Color(hex: "E8B870")
+        // 픽셀 렌더링 (캐릭터와 동일한 run-length 배치 + 1.15 스케일)
+        for y in 0..<sprite.count {
+            let row = sprite[y]
+            let rowY = drawY + CGFloat(y)
+            var runStart = -1
+            var runHex = ""
+            let cols = mirrored ? Array(row.reversed()) : row
+
+            for x in 0..<cols.count {
+                let hex = cols[x]
+                if hex == runHex && !hex.isEmpty { continue }
+                if !runHex.isEmpty && runStart >= 0 {
+                    let runLen = CGFloat(x - runStart)
+                    ctx.fill(Path(CGRect(
+                        x: drawX + CGFloat(runStart), y: rowY,
+                        width: runLen * 1.15, height: 1.15
+                    )), with: .color(Color(hex: runHex)))
+                }
+                runStart = x
+                runHex = hex
             }
-            let text = reactions[frame / 18 % reactions.count]
+            if !runHex.isEmpty && runStart >= 0 {
+                let runLen = CGFloat(cols.count - runStart)
+                ctx.fill(Path(CGRect(
+                    x: drawX + CGFloat(runStart), y: rowY,
+                    width: runLen * 1.15, height: 1.15
+                )), with: .color(Color(hex: runHex)))
+            }
+        }
+
+        // ── 상태별 이펙트 ──
+
+        if cat.state == .sleeping {
+            let zPhase = CGFloat((frame / 18) % 3)
             ctx.draw(
-                Text(text).font(.system(size: 4.5, weight: .medium)).foregroundColor(color),
-                at: CGPoint(x: cat.pixelX, y: cat.pixelY - 18)
+                Text("z").font(.system(size: 3.5 + zPhase * 0.8, weight: .bold, design: .monospaced))
+                    .foregroundColor(Color(hex: "8090B0").opacity(0.7 - zPhase * 0.15)),
+                at: CGPoint(x: cat.pixelX + 6 + zPhase * 2, y: drawY - 1 - zPhase * 3)
+            )
+        }
+
+        if cat.state == .beingPetted {
+            let heartPhase = (frame / 14) % 3
+            let hx = cat.pixelX + 5
+            let hy = drawY - 2 - CGFloat(heartPhase) * 2.5
+            let ha = 0.9 - Double(heartPhase) * 0.2
+            // 픽셀 하트 (3x3)
+            for (dx, dy) in [(0,0), (2,0), (-1,1), (3,1), (0,2), (2,2), (1,3)] as [(CGFloat,CGFloat)] {
+                ctx.fill(Path(CGRect(x: hx + dx, y: hy + dy, width: 1.15, height: 1.15)),
+                         with: .color(Color(hex: "F08090").opacity(ha)))
+            }
+        }
+
+        if cat.state == .stretching {
+            let phase = (frame / 5) % 2
+            let lx = cat.pixelX + (phase == 0 ? 7 : -5)
+            for i in 0..<3 {
+                ctx.fill(Path(CGRect(x: lx, y: drawY + 1 + CGFloat(i) * 2, width: 0.6, height: 1)),
+                         with: .color(Color(hex: Self.F).opacity(0.35)))
+            }
+        }
+
+        if cat.state == .playing {
+            if (frame / 8) % 3 == 0 {
+                ctx.fill(Path(CGRect(x: cat.pixelX - 4, y: drawY, width: 1, height: 1)),
+                         with: .color(Color.white.opacity(0.75)))
+            }
+        }
+
+        // 리액션 버블
+        let cycle = frame % Int(OfficeConstants.fps * 8)
+        if cycle < Int(OfficeConstants.fps * 1.5) && (cat.state == .idle || cat.state == .walking) {
+            let reactions = Self.catReactions
+            let text = reactions[frame / 24 % reactions.count]
+            ctx.draw(
+                Text(text).font(.system(size: 4, weight: .medium, design: .monospaced))
+                    .foregroundColor(Color(hex: "E8B870")),
+                at: CGPoint(x: cat.pixelX, y: drawY - 5)
             )
         }
     }

@@ -1196,6 +1196,8 @@
 /* Settings - Pipeline Management */
 "settings.template.prompt.toggle" = "プロンプト自動注入";
 "settings.template.prompt.toggle.desc" = "ロールごとにプロンプト自動注入のオン/オフ";
+"settings.template.master.toggle" = "全テンプレート無効化";
+"settings.template.master.toggle.desc" = "個別設定に関係なく全プロンプトを一括無効化します";
 "settings.template.pipeline" = "パイプライン順序";
 "settings.template.pipeline.desc" = "矢印で順序を変更またはステップを削除";
 "settings.template.pipeline.reset" = "デフォルトに戻す";
@@ -1349,6 +1351,11 @@
 "overlay.notif.approval.waiting" = "%@ の実行承認を待っています";
 "overlay.notif.arrival" = "%@ 出勤!";
 "overlay.notif.arrival.detail" = "%@ として参加しました";
+"overlay.notif.history" = "通知履歴";
+"overlay.notif.mark.all.read" = "すべて既読";
+"overlay.notif.mark.read" = "既読にする";
+"overlay.notif.clear.read" = "既読を削除 (%d件)";
+"overlay.notif.clear.all" = "すべて削除";
 
 /* OnboardingView */
 "onboard.skip" = "スキップ";
@@ -2215,6 +2222,8 @@
 
 /* Workflow - Developer start */
 "workflow.dev.user.start" = "ユーザー要件を受けて開発を開始します。";
+"workflow.dev.direct" = "%@ 開発者が直接作業します";
+"workflow.dev.direct.detail" = "パイプラインなしで開発者が単独でリクエストを処理します。";
 
 /* Workflow - Planner */
 "workflow.planner.busy" = "今空いている企画者がいないため、今回は開発者が直接引き継ぎます。";
@@ -2714,3 +2723,52 @@
 "settings.icon.restart" = "再起動";
 "settings.icon.change.message" = "アプリアイコンを変更するには再起動が必要です。";
 "button.cancel" = "キャンセル";
+
+/* Emergency Settings */
+"settings.emergency" = "緊急";
+"emergency.title" = "緊急制御";
+"emergency.description" = "全セッションを即座に停止し、問題発生時に復旧できます。";
+"emergency.stop.all.title" = "全セッション緊急停止";
+"emergency.stop.all.subtitle" = "実行中の全AIセッションを即座に停止します";
+"emergency.stop.all.button" = "全セッションを今すぐ停止";
+"emergency.sessions.running" = "%d個のセッション実行中";
+"emergency.sessions.idle" = "実行中のセッションなし";
+"emergency.stop" = "停止";
+"emergency.recovery.title" = "セッション復旧";
+"emergency.recovery.subtitle" = "保存、リフレッシュ、スタック解除";
+"emergency.force.save" = "セッション強制保存";
+"emergency.force.save.detail" = "全セッションの状態を即座にディスクに保存します";
+"emergency.refresh.sessions" = "セッションリフレッシュ";
+"emergency.refresh.sessions.detail" = "全セッションの状態を再読み込みします";
+"emergency.reset.stuck" = "スタック状態のセッションをリセット";
+"emergency.reset.stuck.detail" = "プロセスなしで「処理中」のままスタックしたセッションを復旧します";
+"emergency.stuck.resolved" = "スタック状態が解除されました";
+"emergency.diagnostics.title" = "診断";
+"emergency.diagnostics.subtitle" = "ログ、レポート、メモリ使用量";
+"emergency.diagnostic.report" = "診断レポート生成";
+"emergency.diagnostic.report.detail" = "システム情報とログを含むバグレポートを生成します";
+"emergency.open.logs" = "ログフォルダを開く";
+"emergency.open.logs.detail" = "~/Library/Logs/Doffice/をFinderで開きます";
+"emergency.memory.usage" = "メモリ使用量";
+"emergency.memory.unknown" = "不明";
+"emergency.tabs" = "タブ";
+"emergency.reset.title" = "緊急措置";
+"emergency.reset.subtitle" = "自動化停止、アプリ再起動";
+"emergency.stop.automation" = "全自動化ワークフロー停止";
+"emergency.stop.automation.detail" = "プランナー、レビュアー、QAなど実行中の全ワークフローを停止します";
+"emergency.restart.app" = "アプリ再起動";
+"emergency.restart.app.detail" = "セッションを保存してアプリを再起動します";
+"emergency.kill.system" = "システム全体のAIプロセスを終了";
+"emergency.kill.system.detail" = "Doffice + システム上の全Claude, Codex, Geminiプロセスを終了";
+"emergency.kill.none" = "終了するAIプロセスがありません";
+"emergency.kill.result" = "終了: %@";
+
+/* Usage Summary */
+"usage.title" = "使用量サマリー";
+"usage.refresh" = "更新";
+"usage.claude.plan" = "Claudeプラン使用量";
+"usage.local.tracking" = "ローカルトークン追跡";
+"usage.today" = "今日";
+"usage.week" = "今週";
+"usage.cost.today" = "今日のコスト:";
+"usage.last.refresh" = "最終更新: %@";

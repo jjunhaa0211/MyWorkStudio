@@ -167,7 +167,7 @@ extension PluginManager {
         process.arguments = ["-c", command]
         process.standardOutput = pipe
         process.standardError = errorPipe
-        process.environment = ProcessInfo.processInfo.environment
+        process.environment = sanitizedPluginEnvironment()
         if let cwd {
             process.currentDirectoryURL = URL(fileURLWithPath: cwd)
         }

@@ -9,7 +9,12 @@ public struct MarkdownTextView: View {
     public let compact: Bool
 
     public init(text: String, compact: Bool = false) {
-        self.text = text
+        // 대용량 텍스트 보호: UI 프리징 방지
+        if text.count > Self.maxBlockContentLength {
+            self.text = String(text.prefix(Self.maxBlockContentLength)) + "\n\n… (truncated: \(text.count - Self.maxBlockContentLength) chars)"
+        } else {
+            self.text = text
+        }
         self.compact = compact
     }
 
@@ -19,6 +24,8 @@ public struct MarkdownTextView: View {
 
     /// Maximum number of block-level elements rendered before truncation.
     private static let maxRenderedBlocks = 500
+    /// 단일 블록 내 최대 문자 수 — 초과 시 잘라서 렌더링
+    private static let maxBlockContentLength = 30_000
 
     public var body: some View {
         let parsed = parseBlocks()

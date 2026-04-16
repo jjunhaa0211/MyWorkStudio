@@ -129,7 +129,6 @@ public struct PixelStripView: View {
             }
         }
         .onReceive(timer) { _ in
-            guard NSApp.isActive else { return }
             frame += 1
             // Rebuild groups only when tab count or active tab changes
             let sig = "\(manager.userVisibleTabCount)|\(manager.activeTab?.id ?? "")"

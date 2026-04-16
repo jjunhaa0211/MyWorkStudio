@@ -156,7 +156,8 @@ extension TerminalTab {
         }
 
         if appendUserBlock {
-            appendBlock(.userPrompt, content: prompt, presentationStyle: presentationStyle)
+            let imageSnapshot = attachedImages
+            appendBlock(.userPrompt, content: prompt, presentationStyle: presentationStyle, imageURLs: imageSnapshot)
         }
         timeline.append(TimelineEvent(timestamp: Date(), type: .prompt, detail: String(prompt.prefix(50)) + (prompt.count > 50 ? "..." : "")))
         trimTimelineIfNeeded()
@@ -164,6 +165,7 @@ extension TerminalTab {
         lastPromptText = prompt
         isProcessing = true
         claudeActivity = .thinking
+        activityDetail = nil
         lastActivityTime = Date()
 
         // 히스토리 스냅샷: 프롬프트 전 git 상태 캡처
@@ -352,8 +354,9 @@ extension TerminalTab {
             // stderr 캡처 (에러 진단용)
             errPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
                 let data = handle.availableData
-                guard !data.isEmpty,
-                      let rawText = String(data: data, encoding: .utf8) else { return }
+                guard !data.isEmpty else { return }
+                guard let rawText = String(data: data, encoding: .utf8)
+                        ?? String(data: data, encoding: .isoLatin1) else { return }
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self,
                           self.currentProcess.map({ ObjectIdentifier($0) == procId }) ?? false
@@ -370,12 +373,28 @@ extension TerminalTab {
 
             outPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
                 let data = handle.availableData
-                guard !data.isEmpty, let chunk = String(data: data, encoding: .utf8) else { return }
+                guard !data.isEmpty else { return }
+                guard let chunk = String(data: data, encoding: .utf8)
+                        ?? String(data: data, encoding: .isoLatin1) else { return }
                 bufferQueue.sync {
                     jsonBuffer += chunk
 
-                    // 버퍼가 1MB를 초과하면 개행 없는 비정상 스트림 — 버퍼 초기화
+                    // 버퍼가 1MB를 초과하면 완성된 라인 먼저 파싱 시도 후 초기화
                     if jsonBuffer.utf8.count > 1_048_576 {
+                        CrashLogger.shared.warning("JSON buffer overflow (>1MB), attempting partial salvage")
+                        while let nl = jsonBuffer.range(of: "\n") {
+                            let line = String(jsonBuffer[jsonBuffer.startIndex..<nl.lowerBound])
+                            jsonBuffer = String(jsonBuffer[nl.upperBound...])
+                            guard !line.trimmingCharacters(in: .whitespaces).isEmpty,
+                                  let ld = line.data(using: .utf8),
+                                  let json = try? JSONSerialization.jsonObject(with: ld) as? [String: Any] else { continue }
+                            DispatchQueue.main.async { [weak self] in
+                                guard let self = self,
+                                      self.currentProcess.map({ ObjectIdentifier($0) == procId }) ?? false
+                                else { return }
+                                self.handleStreamEvent(json)
+                            }
+                        }
                         jsonBuffer = ""
                         return
                     }
@@ -384,8 +403,11 @@ extension TerminalTab {
                         let line = String(jsonBuffer[jsonBuffer.startIndex..<nl.lowerBound])
                         jsonBuffer = String(jsonBuffer[nl.upperBound...])
                         guard !line.trimmingCharacters(in: .whitespaces).isEmpty,
-                              let ld = line.data(using: .utf8),
-                              let json = try? JSONSerialization.jsonObject(with: ld) as? [String: Any] else { continue }
+                              let ld = line.data(using: .utf8) else { continue }
+                        guard let json = try? JSONSerialization.jsonObject(with: ld) as? [String: Any] else {
+                            CrashLogger.shared.warning("Malformed JSON line dropped (\(line.count) chars): \(String(line.prefix(200)))")
+                            continue
+                        }
 
                         DispatchQueue.main.async { [weak self] in
                             guard let self = self,

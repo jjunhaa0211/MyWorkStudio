@@ -6,7 +6,7 @@ public struct NewTabSheet: View {
     public init() {}
     @EnvironmentObject var manager: SessionManager; @Environment(\.dismiss) var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @StateObject var settings = AppSettings.shared
+    @ObservedObject var settings = AppSettings.shared
     @StateObject var preferences = NewSessionPreferencesStore.shared
 @State var projectName = ""
 @State var projectPath = ""

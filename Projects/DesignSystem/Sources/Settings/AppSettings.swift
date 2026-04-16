@@ -112,8 +112,14 @@ public class AppSettings: ObservableObject {
         }
     }
 
+    /// 모든 프롬프트를 일괄 비활성화 (개별 설정 보존)
+    @AppStorage("allPromptsDisabled") public var allPromptsDisabled: Bool = false {
+        didSet { notifyIfNeeded() }
+    }
+
     public func isPromptEnabled(for role: String) -> Bool {
-        !disabledPromptRoles.contains(role)
+        if allPromptsDisabled { return false }
+        return !disabledPromptRoles.contains(role)
     }
 
     public func setPromptEnabled(_ enabled: Bool, for role: String) {

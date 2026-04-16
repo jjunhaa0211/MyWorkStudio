@@ -71,6 +71,9 @@ public class UpdateChecker: ObservableObject {
     // 주기적 재체크 타이머
     private var recheckTimer: Timer?
 
+    // Sleep/wake 옵저버 참조 (deinit에서 제거용)
+    private var sleepWakeObserver: NSObjectProtocol?
+
     // Rate limit 해제 시점
     private var rateLimitResetDate: Date?
 
@@ -92,6 +95,9 @@ public class UpdateChecker: ObservableObject {
     deinit {
         recheckTimer?.invalidate()
         retryTimer?.invalidate()
+        if let sleepWakeObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(sleepWakeObserver)
+        }
     }
 
     // MARK: - 주기적 재체크 & 슬립 복귀 감지
@@ -105,7 +111,7 @@ public class UpdateChecker: ObservableObject {
     }
 
     private func setupSleepWakeObserver() {
-        NSWorkspace.shared.notificationCenter.addObserver(
+        sleepWakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification,
             object: nil,
             queue: .main
@@ -493,10 +499,34 @@ public class UpdateChecker: ObservableObject {
             return
         }
 
-        // 새 앱 번들이 실제로 존재하는지 확인
-        guard FileManager.default.fileExists(atPath: newAppURL.appendingPathComponent("Contents/MacOS").path) else {
+        // 번들 구조 검증
+        let macOSDir = newAppURL.appendingPathComponent("Contents/MacOS")
+        let infoPlist = newAppURL.appendingPathComponent("Contents/Info.plist")
+        guard FileManager.default.fileExists(atPath: macOSDir.path),
+              FileManager.default.fileExists(atPath: infoPlist.path) else {
             state = .failed(message: NSLocalizedString("update.bundle.corrupted", comment: "다운로드된 앱 번들이 손상되었습니다."))
             return
+        }
+
+        // 디스크 공간 확인 (앱 번들 크기의 2배 필요)
+        if let appSize = directorySize(url: newAppURL),
+           let freeSpace = try? FileManager.default.attributesOfFileSystem(forPath: Bundle.main.bundlePath)[.systemFreeSize] as? Int64,
+           freeSpace < appSize * 2 {
+            state = .failed(message: NSLocalizedString("update.error.disk", comment: ""))
+            return
+        }
+
+        // 코드서명 검증 (실패해도 경고만 — ad-hoc 빌드 허용)
+        let codesignProc = Process()
+        codesignProc.executableURL = URL(fileURLWithPath: "/usr/bin/codesign")
+        codesignProc.arguments = ["--verify", "--deep", "--strict", newAppURL.path]
+        codesignProc.standardOutput = nil
+        codesignProc.standardError = nil
+        if let _ = try? codesignProc.run() {
+            codesignProc.waitUntilExit()
+            if codesignProc.terminationStatus != 0 {
+                CrashLogger.shared.warning("Update: codesign verification failed for \(newAppURL.lastPathComponent) (status=\(codesignProc.terminationStatus)) — proceeding anyway")
+            }
         }
 
         state = .installing
@@ -590,9 +620,9 @@ public class UpdateChecker: ObservableObject {
             proc.standardError = nil
             try proc.run()
 
-            // 스크립트가 실행된 것을 확인 후 종료
+            // 스크립트가 실행된 것을 확인 후 정상 종료 (세션 저장 등 shutdown 시퀀스 실행)
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                exit(0)
+                NSApplication.shared.terminate(nil)
             }
         } catch {
             state = .failed(message: String(format: NSLocalizedString("update.install.script.failed", comment: ""), error.localizedDescription))
@@ -615,6 +645,19 @@ public class UpdateChecker: ObservableObject {
         retryTimer?.invalidate()
         retryCount = 0
         state = .idle
+    }
+
+    // MARK: - Helpers
+
+    private func directorySize(url: URL) -> Int64? {
+        let fm = FileManager.default
+        guard let enumerator = fm.enumerator(at: url, includingPropertiesForKeys: [.fileSizeKey], options: [.skipsHiddenFiles]) else { return nil }
+        var totalSize: Int64 = 0
+        for case let fileURL as URL in enumerator {
+            guard let size = try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize else { continue }
+            totalSize += Int64(size)
+        }
+        return totalSize
     }
 
     // MARK: - Version Comparison

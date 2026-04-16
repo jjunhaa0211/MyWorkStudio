@@ -19,6 +19,7 @@ public struct StreamBlock: Identifiable {
     public var isError: Bool = false
     public var exitCode: Int?
     public var presentationStyle: PresentationStyle = .normal
+    public var imageURLs: [URL] = []
 
     public enum BlockType: Equatable {
         case sessionStart(model: String, sessionId: String)

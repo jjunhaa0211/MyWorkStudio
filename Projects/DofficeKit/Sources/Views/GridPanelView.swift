@@ -6,7 +6,7 @@ import DesignSystem
 
 public struct GridPanelView: View {
     @EnvironmentObject var manager: SessionManager
-    @StateObject private var settings = AppSettings.shared
+    @ObservedObject private var settings = AppSettings.shared
     @State private var bottomPanel: BottomPanel = .none
     @State private var bottomPanelHeight: CGFloat = 280
 
@@ -147,7 +147,7 @@ public struct GridPanelView: View {
 // 선택된 그룹 내 개별 탭 패널
 public struct GridSinglePanel: View {
     @ObservedObject var tab: TerminalTab
-    @StateObject private var settings = AppSettings.shared
+    @ObservedObject private var settings = AppSettings.shared
     public let isSelected: Bool
 
     public var body: some View {
@@ -200,7 +200,7 @@ public struct GridSinglePanel: View {
 public struct GridGroupPanel: View {
     public let group: SessionManager.ProjectGroup
     @EnvironmentObject var manager: SessionManager
-    @StateObject private var settings = AppSettings.shared
+    @ObservedObject private var settings = AppSettings.shared
     @State private var selectedWorkerIndex = 0
 
     private var activeTab: TerminalTab? {

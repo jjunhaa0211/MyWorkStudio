@@ -8,7 +8,7 @@ import DesignSystem
 
 public struct TerminalAreaView: View {
     @EnvironmentObject var manager: SessionManager
-    @StateObject private var settings = AppSettings.shared
+    @ObservedObject private var settings = AppSettings.shared
     @State private var viewMode: ViewMode = .grid
     public enum ViewMode { case grid, single, git, history, browser }
 

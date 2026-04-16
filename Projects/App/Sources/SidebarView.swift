@@ -4,7 +4,7 @@ import DesignSystem
 import DofficeKit
 
 struct CollapsibleSidebarPanel<Content: View>: View {
-    @StateObject private var settings = AppSettings.shared
+    @ObservedObject private var settings = AppSettings.shared
     let title: String
     let icon: String
     let tint: Color
@@ -103,7 +103,7 @@ enum SidebarSortOption: String, CaseIterable, Identifiable {
 
 struct SidebarView: View {
     @EnvironmentObject var manager: SessionManager
-    @StateObject private var settings = AppSettings.shared
+    @ObservedObject private var settings = AppSettings.shared
     @StateObject var vm = SidebarViewModel()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let forceCompact: Bool
@@ -474,7 +474,7 @@ struct SidebarView: View {
 struct ReportCenterView: View {
     @EnvironmentObject var manager: SessionManager
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var settings = AppSettings.shared
+    @ObservedObject private var settings = AppSettings.shared
     @State private var selectedReportPath: String?
     @State private var reportText: String = ""
     @State private var reportToDelete: SessionManager.ReportReference?
@@ -750,7 +750,7 @@ struct SessionGroupCard: View {
     let group: SessionManager.ProjectGroup
     @EnvironmentObject var manager: SessionManager
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @StateObject private var settings = AppSettings.shared
+    @ObservedObject private var settings = AppSettings.shared
     @State private var isExpanded = false
     private var isGroupActive: Bool { group.hasActiveTab }
 
@@ -851,7 +851,7 @@ struct SessionGroupCard: View {
 struct WorkerMiniCard: View {
     @ObservedObject var tab: TerminalTab
     @EnvironmentObject var manager: SessionManager
-    @StateObject private var settings = AppSettings.shared
+    @ObservedObject private var settings = AppSettings.shared
     @State private var isHovered = false
     private var isSelected: Bool { manager.activeTabId == tab.id }
     var body: some View {
@@ -899,7 +899,7 @@ struct WorkerMiniCard: View {
 struct SessionCard: View {
     @ObservedObject var tab: TerminalTab
     @EnvironmentObject var manager: SessionManager
-    @StateObject private var settings = AppSettings.shared
+    @ObservedObject private var settings = AppSettings.shared
     @State private var isEditingName = false
     @State private var editName = ""
     @State private var isHovered = false
@@ -1063,7 +1063,7 @@ struct SessionHistoryView: View {
     @State private var history: [SavedSession] = []
     @State private var lastSaved: Date?
     @EnvironmentObject var manager: SessionManager
-    @StateObject private var settings = AppSettings.shared
+    @ObservedObject private var settings = AppSettings.shared
 
     var body: some View {
         VStack(spacing: 0) {

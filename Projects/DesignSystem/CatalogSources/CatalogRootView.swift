@@ -3,7 +3,7 @@ import DesignSystem
 
 struct CatalogRootView: View {
     @State private var selectedSection: CatalogSection? = .colors
-    @StateObject private var settings = AppSettings.shared
+    @ObservedObject private var settings = AppSettings.shared
 
     enum CatalogSection: String, CaseIterable, Identifiable, Hashable {
         case colors = "Colors"

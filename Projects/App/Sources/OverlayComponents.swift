@@ -11,6 +11,7 @@ struct ActionCenterView: View {
     @EnvironmentObject var manager: SessionManager
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var settings = AppSettings.shared
+    @ObservedObject private var notifManager = SessionNotificationManager.shared
 
     private var attentionTabs: [TerminalTab] {
         manager.userVisibleTabs.filter { $0.statusPresentation.category == .attention }
@@ -137,7 +138,24 @@ struct ActionCenterView: View {
                         }
                     }
 
-                    if pendingApprovalTabs.isEmpty && attentionTabs.isEmpty && processingTabs.isEmpty && completedTabs.isEmpty {
+                    // 알림 히스토리
+                    if !notifManager.history.isEmpty {
+                        notificationHistorySection
+                    }
+
+                    // 사용량 요약
+                    UsageSummaryView(compact: true)
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Theme.bgSurface.opacity(0.5))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Theme.border.opacity(0.2), lineWidth: 1)
+                        )
+
+                    if pendingApprovalTabs.isEmpty && attentionTabs.isEmpty && processingTabs.isEmpty && completedTabs.isEmpty && notifManager.history.isEmpty {
                         VStack(spacing: 12) {
                             Image(systemName: "checkmark.seal.fill")
                                 .font(.system(size: 32))
@@ -155,6 +173,147 @@ struct ActionCenterView: View {
         }
         .background(Theme.bgCard)
         .frame(minWidth: 500, minHeight: 400)
+    }
+
+    // MARK: - 알림 히스토리
+
+    private var readCount: Int { notifManager.history.filter(\.isRead).count }
+
+    private var notificationHistorySection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "bell.fill")
+                    .font(.system(size: Theme.iconSize(10)))
+                    .foregroundColor(Theme.purple)
+                Text(NSLocalizedString("overlay.notif.history", comment: ""))
+                    .font(Theme.mono(10, weight: .bold))
+                    .foregroundColor(Theme.textPrimary)
+                Text("\(notifManager.history.count)")
+                    .font(Theme.mono(9, weight: .bold))
+                    .foregroundColor(Theme.purple)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1)
+                    .background(Theme.purple.opacity(0.15))
+                    .cornerRadius(3)
+                Spacer()
+
+                if notifManager.unreadCount > 0 {
+                    Button(action: { notifManager.markAllRead() }) {
+                        HStack(spacing: 3) {
+                            Image(systemName: "eye")
+                                .font(.system(size: Theme.iconSize(8)))
+                            Text(NSLocalizedString("overlay.notif.mark.all.read", comment: ""))
+                                .font(Theme.chrome(8, weight: .medium))
+                        }
+                        .foregroundColor(Theme.accent)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                if readCount > 0 {
+                    Button(action: { withAnimation { notifManager.clearReadHistory() } }) {
+                        HStack(spacing: 3) {
+                            Image(systemName: "trash")
+                                .font(.system(size: Theme.iconSize(8)))
+                            Text(String(format: NSLocalizedString("overlay.notif.clear.read", comment: ""), readCount))
+                                .font(Theme.chrome(8, weight: .medium))
+                        }
+                        .foregroundColor(Theme.red)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Button(action: { withAnimation { notifManager.clearAllHistory() } }) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "trash.fill")
+                            .font(.system(size: Theme.iconSize(8)))
+                        Text(NSLocalizedString("overlay.notif.clear.all", comment: ""))
+                            .font(Theme.chrome(8, weight: .medium))
+                    }
+                    .foregroundColor(Theme.red.opacity(0.7))
+                }
+                .buttonStyle(.plain)
+            }
+
+            VStack(spacing: 4) {
+                ForEach(notifManager.history.reversed()) { notif in
+                    notificationHistoryRow(notif)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+            }
+        }
+    }
+
+    private func notificationHistoryRow(_ notif: SessionNotification) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: notif.symbol)
+                .font(.system(size: Theme.iconSize(10)))
+                .foregroundColor(notif.tint.opacity(notif.isRead ? 0.5 : 1.0))
+                .frame(width: 16)
+
+            if !notif.isRead {
+                Circle()
+                    .fill(Theme.accent)
+                    .frame(width: 5, height: 5)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(notif.title)
+                    .font(Theme.mono(9, weight: notif.isRead ? .regular : .bold))
+                    .foregroundColor(notif.isRead ? Theme.textDim : Theme.textPrimary)
+                    .lineLimit(1)
+                Text(notif.detail)
+                    .font(Theme.mono(8))
+                    .foregroundColor(Theme.textDim.opacity(notif.isRead ? 0.6 : 1.0))
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            Text(notif.timestamp, style: .relative)
+                .font(Theme.mono(7))
+                .foregroundColor(Theme.textMuted)
+
+            HStack(spacing: 4) {
+                if !notif.isRead {
+                    Button(action: { notifManager.markAsRead(notif.id) }) {
+                        Image(systemName: "eye")
+                            .font(.system(size: Theme.iconSize(8)))
+                            .foregroundColor(Theme.textDim)
+                    }
+                    .buttonStyle(.plain)
+                    .help(NSLocalizedString("overlay.notif.mark.read", comment: ""))
+                }
+
+                if let tabId = notif.tabId, !tabId.isEmpty {
+                    Button(action: {
+                        notifManager.markAsRead(notif.id)
+                        manager.selectTab(tabId)
+                        dismiss()
+                    }) {
+                        Text(NSLocalizedString("overlay.go", comment: ""))
+                            .font(Theme.mono(8, weight: .bold))
+                            .foregroundStyle(Theme.accentBackground)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Button(action: { withAnimation { notifManager.deleteFromHistory(notif.id) } }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 7, weight: .bold))
+                        .foregroundColor(Theme.textDim)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(8)
+        .background(RoundedRectangle(cornerRadius: 8).fill(
+            notif.isRead ? Theme.bgSurface.opacity(0.3) : Theme.bgSurface.opacity(0.6)
+        ))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(
+            notif.isRead ? Theme.border.opacity(0.15) : notif.tint.opacity(0.15),
+            lineWidth: 1
+        ))
     }
 
     private func actionSection<Detail: View>(
@@ -446,6 +605,7 @@ struct SessionNotification: Identifiable, Equatable {
     let tint: Color
     let tabId: String?
     let timestamp = Date()
+    var isRead: Bool = false
 
     static func == (lhs: SessionNotification, rhs: SessionNotification) -> Bool { lhs.id == rhs.id }
 }
@@ -471,6 +631,36 @@ final class SessionNotificationManager: ObservableObject {
 
     func markAllRead() {
         unreadCount = 0
+        for i in history.indices {
+            history[i].isRead = true
+        }
+    }
+
+    /// 읽은 알림 일괄 삭제
+    func clearReadHistory() {
+        history.removeAll { $0.isRead }
+    }
+
+    /// 전체 히스토리 삭제
+    func clearAllHistory() {
+        history.removeAll()
+        unreadCount = 0
+    }
+
+    /// 개별 알림 삭제
+    func deleteFromHistory(_ id: UUID) {
+        if let idx = history.firstIndex(where: { $0.id == id }) {
+            if !history[idx].isRead { unreadCount = max(0, unreadCount - 1) }
+            history.remove(at: idx)
+        }
+    }
+
+    /// 개별 알림 읽음 처리
+    func markAsRead(_ id: UUID) {
+        if let idx = history.firstIndex(where: { $0.id == id }), !history[idx].isRead {
+            history[idx].isRead = true
+            unreadCount = max(0, unreadCount - 1)
+        }
     }
 
     /// Navigate to the most recent unread notification's tab
@@ -619,10 +809,16 @@ struct SessionNotificationBannerStack: View {
                 .foregroundColor(notif.tint)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(notif.title)
-                    .font(Theme.mono(10, weight: .bold))
-                    .foregroundColor(Theme.textPrimary)
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    Text(notif.title)
+                        .font(Theme.mono(10, weight: .bold))
+                        .foregroundColor(Theme.textPrimary)
+                        .lineLimit(1)
+                    Text(notif.timestamp, style: .relative)
+                        .font(Theme.mono(8))
+                        .foregroundColor(Theme.textDim.opacity(0.7))
+                        .lineLimit(1)
+                }
                 Text(notif.detail)
                     .font(Theme.mono(8))
                     .foregroundColor(Theme.textDim)
@@ -644,7 +840,7 @@ struct SessionNotificationBannerStack: View {
         .cornerRadius(10)
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(notif.tint.opacity(0.3), lineWidth: 1))
         .onTapGesture {
-            if let tabId = notif.tabId {
+            if let tabId = notif.tabId, !tabId.isEmpty {
                 onTapNotification?(tabId)
             }
             notificationManager.dismiss(notif)

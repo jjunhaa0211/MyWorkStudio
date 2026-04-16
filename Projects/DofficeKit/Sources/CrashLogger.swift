@@ -40,7 +40,7 @@ public final class CrashLogger {
         } else {
             logDir = FileManager.default.temporaryDirectory.appendingPathComponent("DofficeLog", isDirectory: true)
         }
-        try? FileManager.default.createDirectory(at: logDir, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(at: logDir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         rotateOldLogs()
     }
 
@@ -95,7 +95,7 @@ public final class CrashLogger {
         if let data = entry.data(using: .utf8) {
             let crashFile = logDir.appendingPathComponent("crash_\(dateFormatter.string(from: Date())).log")
             if !FileManager.default.fileExists(atPath: crashFile.path) {
-                FileManager.default.createFile(atPath: crashFile.path, contents: nil)
+                FileManager.default.createFile(atPath: crashFile.path, contents: nil, attributes: [.posixPermissions: 0o600])
             }
             if let handle = FileHandle(forWritingAtPath: crashFile.path) {
                 handle.seekToEndOfFile()
@@ -191,7 +191,7 @@ public final class CrashLogger {
         if fileHandle == nil {
             let logFile = logDir.appendingPathComponent("doffice_\(currentLogDate.isEmpty ? dateFormatter.string(from: Date()) : currentLogDate).log")
             if !FileManager.default.fileExists(atPath: logFile.path) {
-                FileManager.default.createFile(atPath: logFile.path, contents: nil)
+                FileManager.default.createFile(atPath: logFile.path, contents: nil, attributes: [.posixPermissions: 0o600])
             }
             fileHandle = FileHandle(forWritingAtPath: logFile.path)
             fileHandle?.seekToEndOfFile()

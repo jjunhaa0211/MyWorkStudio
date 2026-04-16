@@ -10,7 +10,7 @@ public struct GitPanelView: View {
 
     @EnvironmentObject var manager: SessionManager
     @StateObject var git = GitDataProvider()
-    @StateObject var settings = AppSettings.shared
+    @ObservedObject var settings = AppSettings.shared
 
     // Selection & navigation
     @State var selectedCommitId: String?

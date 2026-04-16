@@ -64,7 +64,7 @@ private struct OfficeResizeHandle: View {
 
 public struct OfficeSceneView: View {
     @EnvironmentObject var manager: SessionManager
-    @StateObject private var settings = AppSettings.shared
+    @ObservedObject private var settings = AppSettings.shared
     @StateObject private var registry = CharacterRegistry.shared
     @ObservedObject private var pluginHost = PluginHost.shared
     @ObservedObject private var store: OfficeSceneStore
@@ -286,11 +286,11 @@ public struct OfficeSceneView: View {
             }
         }
         .onReceive(timer) { _ in
-            guard !isResizing, NSApp.isActive else { return }
+            guard !isResizing, NSApp.windows.contains(where: { $0.isVisible && !$0.isMiniaturized }) else { return }
             store.advance(with: manager.userVisibleTabs, activeTabId: manager.activeTab?.id, focusMode: isFocusMode, fps: currentFPS)
         }
         .onReceive(slowTimer) { _ in
-            guard !isResizing, NSApp.isActive else { return }
+            guard !isResizing, NSApp.windows.contains(where: { $0.isVisible && !$0.isMiniaturized }) else { return }
             let newFPS = Self.computeAdaptiveFPS()
             if newFPS != currentFPS { currentFPS = newFPS }
             Task { @MainActor in
@@ -1079,15 +1079,31 @@ public struct OfficeSceneView: View {
         if isFollowing {
             if let tabId = hitTestCharacter(at: scenePoint) {
                 if tabId == store.followingCharacterId {
-                    // 같은 캐릭터 다시 탭 → 팔로우 해제
                     store.followingCharacterId = nil
                 } else {
-                    // 다른 캐릭터 탭 → 대상 변경
                     store.followingCharacterId = tabId
+                    store.followingCat = false
                     manager.selectTab(tabId)
                 }
+            } else if hitTestCat(at: scenePoint) && store.followingCat {
+                // 고양이 다시 탭 → 팔로우 해제
+                store.followingCat = false
             } else {
                 store.followingCharacterId = nil
+                store.followingCat = false
+            }
+            selectedFurnitureId = nil
+            return
+        }
+
+        // 고양이 클릭 → 줌인 + 팔로우
+        if hitTestCat(at: scenePoint) {
+            store.followingCat = true
+            if let cat = controller.officeCat {
+                store.cameraCenter = CGPoint(x: cat.pixelX, y: cat.pixelY)
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    store.cameraZoom = max(store.cameraZoom, 2.5)
+                }
             }
             selectedFurnitureId = nil
             return
@@ -1095,10 +1111,16 @@ public struct OfficeSceneView: View {
 
         guard let tabId = hitTestCharacter(at: scenePoint) else { return }
         // 캐릭터를 탭하면 선택 + 팔로우 + 메뉴 표시
+        store.followingCat = false
         manager.selectTab(tabId)
         store.followingCharacterId = tabId
         selectedFurnitureId = nil
         tappedCharacterTabId = tabId
+    }
+
+    private func hitTestCat(at point: CGPoint) -> Bool {
+        guard let cat = controller.officeCat else { return false }
+        return hypot(cat.pixelX - point.x, cat.pixelY - point.y) < 10
     }
 
     private func placePluginFurniture(_ item: PluginHost.LoadedFurniture) {
@@ -1231,7 +1253,7 @@ public struct OfficeSceneView: View {
     // MARK: - Scene Coordinates
 
     private var isFollowing: Bool {
-        store.followingCharacterId != nil
+        store.followingCharacterId != nil || store.followingCat
     }
 
     private func sceneMetrics(for size: CGSize) -> (scale: CGFloat, offsetX: CGFloat, offsetY: CGFloat) {

@@ -22,6 +22,10 @@ extension SessionManager {
             handoffLabel: String(format: NSLocalizedString("workflow.handoff.user", comment: ""), tab.workerName),
             detail: NSLocalizedString("workflow.dev.user.start", comment: "")
         )
+        tab.appendBlock(
+            .status(message: String(format: NSLocalizedString("workflow.dev.direct", comment: ""), tab.workerName)),
+            content: NSLocalizedString("workflow.dev.direct.detail", comment: "")
+        )
     }
 
     public func routePromptIfNeeded(for tab: TerminalTab, prompt: String) -> Bool {

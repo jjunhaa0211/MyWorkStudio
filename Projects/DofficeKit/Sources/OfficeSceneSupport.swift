@@ -341,6 +341,7 @@ public final class OfficeSceneStore: ObservableObject {
     @Published public var cameraCenter: CGPoint
     @Published public var cameraZoom: CGFloat = 1
     @Published public var followingCharacterId: String?
+    @Published public var followingCat: Bool = false
     @Published public var followZoomLevel: CGFloat = 1.85  // 팔로우 줌 배율 (1.2 ~ 3.0)
     @Published public var backgroundSnapshot: CGImage?
 
@@ -528,14 +529,25 @@ public final class OfficeSceneStore: ObservableObject {
         var targetCenter = worldCenter
         var targetZoom: CGFloat = 1
 
+        // 고양이 팔로우 모드
+        if followingCat, let cat = controller.officeCat {
+            targetCenter = CGPoint(
+                x: cat.pixelX,
+                y: max(OfficeConstants.tileSize * 2, cat.pixelY - 18)
+            )
+            targetZoom = max(followZoomLevel, 2.5)
+        }
         // 캐릭터 팔로우 모드 (grid/side 모두 동작)
-        if let followId = followingCharacterId,
+        else if let followId = followingCharacterId,
            let character = controller.characters[followId] {
             targetCenter = CGPoint(
                 x: character.pixelX,
                 y: max(OfficeConstants.tileSize * 2, character.pixelY - 18)
             )
             targetZoom = followZoomLevel
+        } else if followingCat {
+            // 고양이가 사라졌으면 팔로우 해제
+            followingCat = false
         } else if focusMode,
            let activeTabId,
            let character = controller.characters[activeTabId] {
@@ -546,7 +558,7 @@ public final class OfficeSceneStore: ObservableObject {
             targetZoom = 1.65
         }
 
-        let isFollowing = followingCharacterId != nil
+        let isFollowing = followingCharacterId != nil || followingCat
         let blend: CGFloat = isFollowing ? 0.18 : (focusMode ? 0.16 : 0.12)
         cameraCenter = CGPoint(
             x: cameraCenter.x + (targetCenter.x - cameraCenter.x) * blend,

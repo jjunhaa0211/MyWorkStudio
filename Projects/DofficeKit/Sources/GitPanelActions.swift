@@ -614,7 +614,7 @@ extension GitPanelView {
 // MARK: - Git Toast View
 
 public struct GitToastView: View {
-    @StateObject private var settings = AppSettings.shared
+    @ObservedObject private var settings = AppSettings.shared
     public let message: String
     public let icon: String
     public let color: Color

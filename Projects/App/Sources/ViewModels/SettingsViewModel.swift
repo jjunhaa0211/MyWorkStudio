@@ -80,6 +80,7 @@ final class SettingsViewModel: ObservableObject {
     @Published var showUpdateSheet = false
     @Published var showImportError = false
     @Published var showIconChangeAlert = false
+    @Published var systemKillResult: String?
 
     // MARK: - Plugin State
 

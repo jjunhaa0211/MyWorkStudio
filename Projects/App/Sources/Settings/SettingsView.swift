@@ -87,7 +87,8 @@ struct SettingsView: View {
         ("bolt.fill", NSLocalizedString("settings.token", comment: "")), ("externaldrive.fill", NSLocalizedString("settings.data", comment: "")), ("doc.text.fill", NSLocalizedString("settings.template", comment: "")),
         ("puzzlepiece.fill", NSLocalizedString("settings.plugin", comment: "")),
         ("cup.and.saucer.fill", NSLocalizedString("settings.support", comment: "")), ("lock.shield.fill", NSLocalizedString("settings.security", comment: "")),
-        ("keyboard.fill", NSLocalizedString("settings.shortcuts", comment: ""))
+        ("keyboard.fill", NSLocalizedString("settings.shortcuts", comment: "")),
+        ("light.beacon.max.fill", NSLocalizedString("settings.emergency", comment: ""))
     ]
 
     var body: some View {
@@ -151,6 +152,7 @@ struct SettingsView: View {
                         case 7: supportTab
                         case 8: securityTab
                         case 9: ShortcutsSettingsTab()
+                        case 10: emergencyTab
                         default: generalTab
                         }
                     }

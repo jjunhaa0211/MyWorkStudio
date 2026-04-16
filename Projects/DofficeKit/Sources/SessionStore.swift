@@ -159,7 +159,7 @@ public class SessionStore {
         }
         let dir = appSupport.appendingPathComponent("Doffice", isDirectory: true)
         do {
-            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         } catch {
             print("[도피스] Application Support/Doffice 디렉토리 생성 실패: \(error.localizedDescription). 임시 디렉토리를 사용합니다.")
             CrashLogger.shared.error("SessionStore: Cannot create AppSupport dir — \(error.localizedDescription)")

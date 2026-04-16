@@ -5,7 +5,7 @@ import DesignSystem
 // ═══════════════════════════════════════════════════════
 
 public struct EmptySessionView: View {
-    @StateObject private var settings = AppSettings.shared
+    @ObservedObject private var settings = AppSettings.shared
     public var body: some View {
         VStack {
             Spacer()

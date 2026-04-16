@@ -1196,6 +1196,8 @@
 /* Settings - Pipeline Management */
 "settings.template.prompt.toggle" = "Auto Prompt Injection";
 "settings.template.prompt.toggle.desc" = "Toggle auto prompt injection per role";
+"settings.template.master.toggle" = "Disable All Templates";
+"settings.template.master.toggle.desc" = "Override all individual toggles and disable every prompt";
 "settings.template.pipeline" = "Pipeline Order";
 "settings.template.pipeline.desc" = "Reorder with arrows or remove steps";
 "settings.template.pipeline.reset" = "Reset to Default";
@@ -1349,6 +1351,11 @@
 "overlay.notif.approval.waiting" = "Waiting for %@ execution approval";
 "overlay.notif.arrival" = "%@ has arrived!";
 "overlay.notif.arrival.detail" = "Joined as %@";
+"overlay.notif.history" = "Notification History";
+"overlay.notif.mark.all.read" = "Mark all read";
+"overlay.notif.mark.read" = "Mark as read";
+"overlay.notif.clear.read" = "Delete read (%d)";
+"overlay.notif.clear.all" = "Clear all";
 
 /* OnboardingView */
 "onboard.skip" = "Skip";
@@ -2215,6 +2222,8 @@
 
 /* Workflow - Developer start */
 "workflow.dev.user.start" = "Received user requirements and starting development.";
+"workflow.dev.direct" = "%@ is working on it directly";
+"workflow.dev.direct.detail" = "The developer handles the request directly without the pipeline.";
 
 /* Workflow - Planner */
 "workflow.planner.busy" = "No available planner right now — the developer will take over directly.";
@@ -2714,3 +2723,52 @@
 "settings.icon.restart" = "Restart";
 "settings.icon.change.message" = "Restart the app to apply the new icon.";
 "button.cancel" = "Cancel";
+
+/* Emergency Settings */
+"settings.emergency" = "Emergency";
+"emergency.title" = "Emergency Control";
+"emergency.description" = "Immediately stop all sessions and recover from issues.";
+"emergency.stop.all.title" = "Emergency Stop All";
+"emergency.stop.all.subtitle" = "Immediately stop all running AI sessions";
+"emergency.stop.all.button" = "Stop All Sessions Now";
+"emergency.sessions.running" = "%d sessions running";
+"emergency.sessions.idle" = "No sessions running";
+"emergency.stop" = "Stop";
+"emergency.recovery.title" = "Session Recovery";
+"emergency.recovery.subtitle" = "Save, refresh, and unstick sessions";
+"emergency.force.save" = "Force Save Sessions";
+"emergency.force.save.detail" = "Immediately write all session state to disk";
+"emergency.refresh.sessions" = "Refresh Sessions";
+"emergency.refresh.sessions.detail" = "Reload all session states";
+"emergency.reset.stuck" = "Reset Stuck Sessions";
+"emergency.reset.stuck.detail" = "Recover sessions stuck in 'processing' without a running process";
+"emergency.stuck.resolved" = "Stuck state resolved";
+"emergency.diagnostics.title" = "Diagnostics";
+"emergency.diagnostics.subtitle" = "Logs, reports, and memory usage";
+"emergency.diagnostic.report" = "Generate Diagnostic Report";
+"emergency.diagnostic.report.detail" = "Create a bug report with system info and logs";
+"emergency.open.logs" = "Open Log Folder";
+"emergency.open.logs.detail" = "Open ~/Library/Logs/Doffice/ in Finder";
+"emergency.memory.usage" = "Memory Usage";
+"emergency.memory.unknown" = "Unknown";
+"emergency.tabs" = "tabs";
+"emergency.reset.title" = "Emergency Actions";
+"emergency.reset.subtitle" = "Stop automations, restart app";
+"emergency.stop.automation" = "Stop All Automations";
+"emergency.stop.automation.detail" = "Stop all running automation workflows (planner, reviewer, QA, etc.)";
+"emergency.restart.app" = "Restart App";
+"emergency.restart.app.detail" = "Save sessions and restart the application";
+"emergency.kill.system" = "Kill All System AI Processes";
+"emergency.kill.system.detail" = "Doffice + all Claude, Codex, Gemini processes on this system";
+"emergency.kill.none" = "No AI processes found to kill";
+"emergency.kill.result" = "Killed: %@";
+
+/* Usage Summary */
+"usage.title" = "Usage Summary";
+"usage.refresh" = "Refresh";
+"usage.claude.plan" = "Claude Plan Usage";
+"usage.local.tracking" = "Local Token Tracking";
+"usage.today" = "Today";
+"usage.week" = "This Week";
+"usage.cost.today" = "Today's Cost:";
+"usage.last.refresh" = "Last updated: %@";

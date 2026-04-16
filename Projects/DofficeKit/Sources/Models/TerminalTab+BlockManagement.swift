@@ -36,7 +36,8 @@ extension TerminalTab {
     public func appendBlock(
         _ type: StreamBlock.BlockType,
         content: String = "",
-        presentationStyle: StreamBlock.PresentationStyle? = nil
+        presentationStyle: StreamBlock.PresentationStyle? = nil,
+        imageURLs: [URL] = []
     ) -> StreamBlock {
         dispatchPrecondition(condition: .onQueue(.main))
         // toolEnd가 오면 직전 toolUse 블록을 완료 처리
@@ -58,13 +59,16 @@ extension TerminalTab {
             notifyBlocksChanged()
             return blocks[lastIndex]
         }
-        let block = StreamBlock(
+        var block = StreamBlock(
             type: type,
             content: content,
             presentationStyle: effectivePresentationStyle(for: type, explicitStyle: presentationStyle)
         )
+        block.imageURLs = imageURLs
         blocks.append(block)
         trimBlocksIfNeeded()
+        trimTimelineIfNeeded()
+        trimToolContextsIfNeeded()
         notifyBlocksChanged()
         return block
     }
@@ -114,7 +118,17 @@ extension TerminalTab {
         currentProcess = nil
         isProcessing = false; claudeActivity = .idle
         finalizeParallelTasks(as: .failed)
+
+        // 자동화 워크플로우 상태 정리
+        for i in workflowStages.indices where workflowStages[i].state == .running {
+            workflowStages[i].state = .failed
+        }
+        officeSeatLockReason = nil
+
         appendBlock(.status(message: NSLocalizedString("tab.cancelled", comment: "")))
+
+        // 자식 자동화 탭도 함께 중지
+        stopChildAutomationTabs()
     }
 
     public func startSleepWork(task: String, tokenBudget: Int?) {
@@ -152,7 +166,56 @@ extension TerminalTab {
                 let pid = proc.processIdentifier
                 DispatchQueue.global().asyncAfter(deadline: .now() + 1.0) {
                     if proc.isRunning {
-                        // 프로세스 그룹 전체에 SIGKILL (자식 프로세스 포함)
+                        kill(-pid, SIGKILL)
+                        kill(pid, SIGKILL)
+                    }
+                }
+            }
+        }
+        currentProcess = nil
+        isProcessing = false; claudeActivity = .idle; isRunning = false
+        finalizeParallelTasks(as: .failed)
+
+        // 자동화 워크플로우 상태 정리
+        for i in workflowStages.indices where workflowStages[i].state == .running {
+            workflowStages[i].state = .failed
+        }
+        officeSeatLockReason = nil
+
+        appendBlock(.status(message: NSLocalizedString("tab.force.stopped", comment: "")))
+
+        // 이 탭에서 파생된 자동화 탭도 함께 중지
+        stopChildAutomationTabs()
+    }
+
+    /// 이 탭을 소스로 하는 자동화 탭들을 모두 중지
+    private func stopChildAutomationTabs() {
+        let sourceId = self.id
+        let childTabs = SessionManager.shared.tabs.filter {
+            $0.automationSourceTabId == sourceId && ($0.isProcessing || $0.isRunning)
+        }
+        for child in childTabs {
+            child.forceStopSelf()
+        }
+    }
+
+    /// 자기 자신만 중지 (자식 탭 재귀 방지)
+    internal func forceStopSelf() {
+        currentOutPipe?.fileHandleForReading.readabilityHandler = nil
+        currentErrPipe?.fileHandleForReading.readabilityHandler = nil
+        try? currentOutPipe?.fileHandleForReading.close()
+        try? currentErrPipe?.fileHandleForReading.close()
+        currentOutPipe = nil
+        currentErrPipe = nil
+
+        if let proc = currentProcess {
+            let procId = ObjectIdentifier(proc)
+            cancelledProcessIds.insert(procId)
+            if proc.isRunning {
+                proc.terminate()
+                let pid = proc.processIdentifier
+                DispatchQueue.global().asyncAfter(deadline: .now() + 1.0) {
+                    if proc.isRunning {
                         kill(-pid, SIGKILL)
                         kill(pid, SIGKILL)
                     }
@@ -288,6 +351,25 @@ extension TerminalTab {
     func trimTimelineIfNeeded() {
         if timeline.count > Self.maxTimelineEvents {
             timeline.removeFirst(timeline.count - Self.maxTimelineEvents)
+        }
+    }
+
+    func trimToolContextsIfNeeded() {
+        let maxContexts = 500
+        if toolUseContexts.count > maxContexts {
+            // 가장 오래된 항목부터 제거 (키가 UUID이므로 삽입 순서 불명 → 절반 제거)
+            let toRemove = toolUseContexts.count - maxContexts
+            for key in toolUseContexts.keys.prefix(toRemove) {
+                toolUseContexts.removeValue(forKey: key)
+            }
+        }
+        let maxSeenIds = 1000
+        if seenToolUseIds.count > maxSeenIds {
+            // Set은 순서가 없으므로 절반 제거
+            let removeCount = seenToolUseIds.count - maxSeenIds
+            for id in seenToolUseIds.prefix(removeCount) {
+                seenToolUseIds.remove(id)
+            }
         }
     }
 

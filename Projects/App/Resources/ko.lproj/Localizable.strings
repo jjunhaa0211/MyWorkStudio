@@ -1196,6 +1196,8 @@
 /* Settings - Pipeline Management */
 "settings.template.prompt.toggle" = "프롬프트 자동 주입";
 "settings.template.prompt.toggle.desc" = "역할별로 프롬프트 자동 주입을 끄거나 켤 수 있습니다";
+"settings.template.master.toggle" = "모든 템플릿 비활성화";
+"settings.template.master.toggle.desc" = "개별 설정과 무관하게 모든 프롬프트를 일괄 비활성화합니다";
 "settings.template.pipeline" = "파이프라인 순서";
 "settings.template.pipeline.desc" = "드래그하거나 화살표로 순서를 변경하세요";
 "settings.template.pipeline.reset" = "기본 순서로 초기화";
@@ -1349,6 +1351,11 @@
 "overlay.notif.approval.waiting" = "%@ 실행 승인을 기다리고 있습니다";
 "overlay.notif.arrival" = "%@ 출근!";
 "overlay.notif.arrival.detail" = "%@ 역할로 합류했습니다";
+"overlay.notif.history" = "알림 히스토리";
+"overlay.notif.mark.all.read" = "모두 읽음";
+"overlay.notif.mark.read" = "읽음 처리";
+"overlay.notif.clear.read" = "읽은 항목 삭제 (%d개)";
+"overlay.notif.clear.all" = "전체 삭제";
 
 /* OnboardingView */
 "onboard.skip" = "건너뛰기";
@@ -2217,6 +2224,8 @@
 
 /* Workflow - Developer start */
 "workflow.dev.user.start" = "사용자 요구사항을 받아 개발을 시작합니다.";
+"workflow.dev.direct" = "%@ 개발자가 직접 작업합니다";
+"workflow.dev.direct.detail" = "파이프라인 없이 개발자가 단독으로 요청을 처리합니다.";
 
 /* Workflow - Planner */
 "workflow.planner.busy" = "지금 비어 있는 기획자가 없어 이번 작업은 개발자가 바로 이어받습니다.";
@@ -2712,3 +2721,52 @@
 "settings.icon.restart" = "재시작";
 "settings.icon.change.message" = "앱 아이콘을 변경하려면 앱을 재시작해야 합니다.";
 "button.cancel" = "취소";
+
+/* Emergency Settings */
+"settings.emergency" = "긴급";
+"emergency.title" = "긴급 제어";
+"emergency.description" = "모든 세션을 즉시 중지하고, 문제 발생 시 복구할 수 있습니다.";
+"emergency.stop.all.title" = "전체 긴급 정지";
+"emergency.stop.all.subtitle" = "실행 중인 모든 AI 세션을 즉시 중지합니다";
+"emergency.stop.all.button" = "모든 세션 즉시 정지";
+"emergency.sessions.running" = "%d개 세션 실행 중";
+"emergency.sessions.idle" = "실행 중인 세션 없음";
+"emergency.stop" = "정지";
+"emergency.recovery.title" = "세션 복구";
+"emergency.recovery.subtitle" = "세션 저장, 새로고침, 멈춤 상태 해제";
+"emergency.force.save" = "세션 강제 저장";
+"emergency.force.save.detail" = "현재 모든 세션 상태를 즉시 디스크에 저장합니다";
+"emergency.refresh.sessions" = "세션 새로고침";
+"emergency.refresh.sessions.detail" = "모든 세션의 상태를 다시 로드합니다";
+"emergency.reset.stuck" = "멈춤 상태 세션 리셋";
+"emergency.reset.stuck.detail" = "프로세스 없이 '처리 중'으로 멈춘 세션을 복구합니다";
+"emergency.stuck.resolved" = "멈춤 상태가 해제되었습니다";
+"emergency.diagnostics.title" = "진단";
+"emergency.diagnostics.subtitle" = "로그, 리포트, 메모리 사용량 확인";
+"emergency.diagnostic.report" = "진단 리포트 생성";
+"emergency.diagnostic.report.detail" = "시스템 정보와 로그를 포함한 버그 리포트를 생성합니다";
+"emergency.open.logs" = "로그 폴더 열기";
+"emergency.open.logs.detail" = "~/Library/Logs/Doffice/ 폴더를 Finder에서 엽니다";
+"emergency.memory.usage" = "메모리 사용량";
+"emergency.memory.unknown" = "알 수 없음";
+"emergency.tabs" = "탭";
+"emergency.reset.title" = "긴급 조치";
+"emergency.reset.subtitle" = "자동화 중지, 앱 재시작";
+"emergency.stop.automation" = "자동화 워크플로우 전체 중지";
+"emergency.stop.automation.detail" = "기획자, 리뷰어, QA 등 자동 실행 중인 모든 워크플로우를 중지합니다";
+"emergency.restart.app" = "앱 재시작";
+"emergency.restart.app.detail" = "세션을 저장한 후 앱을 재시작합니다";
+"emergency.kill.system" = "시스템 전체 AI 프로세스 종료";
+"emergency.kill.system.detail" = "도피스 + 시스템의 모든 Claude, Codex, Gemini 프로세스 종료";
+"emergency.kill.none" = "종료할 AI 프로세스가 없습니다";
+"emergency.kill.result" = "종료됨: %@";
+
+/* Usage Summary */
+"usage.title" = "사용량 요약";
+"usage.refresh" = "새로고침";
+"usage.claude.plan" = "Claude 플랜 사용량";
+"usage.local.tracking" = "로컬 토큰 추적";
+"usage.today" = "오늘";
+"usage.week" = "이번 주";
+"usage.cost.today" = "오늘 비용:";
+"usage.last.refresh" = "마지막 업데이트: %@";

@@ -816,7 +816,7 @@ struct DailyRewardOverlay: View {
 }
 
 struct SessionLockOverlay: View {
-    @StateObject private var settings = AppSettings.shared
+    @ObservedObject private var settings = AppSettings.shared
     @ObservedObject private var registry = CharacterRegistry.shared
     @State private var pinInput = ""
     @State private var wrongPin = false

@@ -107,26 +107,59 @@ extension SettingsView {
 
             // ── 프롬프트 자동 주입 토글 ──
             settingsSection(title: NSLocalizedString("settings.template.prompt.toggle", comment: ""), subtitle: NSLocalizedString("settings.template.prompt.toggle.desc", comment: "")) {
-                VStack(spacing: 6) {
-                    ForEach(AutomationTemplateKind.allCases) { kind in
-                        HStack(spacing: 8) {
-                            Image(systemName: kind.icon)
-                                .font(.system(size: Theme.iconSize(10), weight: .medium))
-                                .foregroundColor(settings.isPromptEnabled(for: kind.rawValue) ? Theme.accent : Theme.textDim)
-                                .frame(width: 16)
-                            Text(kind.displayName)
-                                .font(Theme.mono(10, weight: .medium))
-                                .foregroundColor(settings.isPromptEnabled(for: kind.rawValue) ? Theme.textPrimary : Theme.textDim)
-                            Spacer()
-                            Toggle("", isOn: Binding(
-                                get: { settings.isPromptEnabled(for: kind.rawValue) },
-                                set: { settings.setPromptEnabled($0, for: kind.rawValue) }
-                            ))
+                VStack(spacing: 8) {
+                    // 마스터 토글: 모든 템플릿 일괄 비활성화
+                    HStack(spacing: 8) {
+                        Image(systemName: settings.allPromptsDisabled ? "slash.circle.fill" : "checkmark.circle.fill")
+                            .font(.system(size: Theme.iconSize(12), weight: .bold))
+                            .foregroundColor(settings.allPromptsDisabled ? Theme.red : Theme.green)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(NSLocalizedString("settings.template.master.toggle", comment: ""))
+                                .font(Theme.mono(10, weight: .bold))
+                                .foregroundColor(Theme.textPrimary)
+                            Text(NSLocalizedString("settings.template.master.toggle.desc", comment: ""))
+                                .font(Theme.mono(8))
+                                .foregroundColor(Theme.textDim)
+                        }
+                        Spacer()
+                        Toggle("", isOn: $settings.allPromptsDisabled)
                             .toggleStyle(.switch)
                             .controlSize(.mini)
-                        }
-                        .padding(.vertical, 3)
                     }
+                    .padding(10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(settings.allPromptsDisabled ? Theme.red.opacity(0.06) : Theme.green.opacity(0.06))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(settings.allPromptsDisabled ? Theme.red.opacity(0.2) : Theme.green.opacity(0.2), lineWidth: 1)
+                    )
+
+                    // 개별 역할 토글
+                    VStack(spacing: 6) {
+                        ForEach(AutomationTemplateKind.allCases) { kind in
+                            HStack(spacing: 8) {
+                                Image(systemName: kind.icon)
+                                    .font(.system(size: Theme.iconSize(10), weight: .medium))
+                                    .foregroundColor(settings.isPromptEnabled(for: kind.rawValue) ? Theme.accent : Theme.textDim)
+                                    .frame(width: 16)
+                                Text(kind.displayName)
+                                    .font(Theme.mono(10, weight: .medium))
+                                    .foregroundColor(settings.isPromptEnabled(for: kind.rawValue) ? Theme.textPrimary : Theme.textDim)
+                                Spacer()
+                                Toggle("", isOn: Binding(
+                                    get: { settings.isPromptEnabled(for: kind.rawValue) },
+                                    set: { settings.setPromptEnabled($0, for: kind.rawValue) }
+                                ))
+                                .toggleStyle(.switch)
+                                .controlSize(.mini)
+                            }
+                            .padding(.vertical, 3)
+                        }
+                    }
+                    .disabled(settings.allPromptsDisabled)
+                    .opacity(settings.allPromptsDisabled ? 0.4 : 1.0)
                 }
             }
 

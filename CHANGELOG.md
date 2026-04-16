@@ -2,6 +2,30 @@
 
 All notable changes to Doffice are documented here.
 
+## [0.0.57] - 2026-04-16
+
+### Added
+- 채팅 내 이미지 미리보기: 사용자가 이미지를 첨부하면 메시지 스트림에 100x100 썸네일로 표시
+- 사용량/쿼터 표시: ActionCenter에서 Claude 실제 플랜 사용량 + 로컬 토큰 추적 프로그래스 바
+- 템플릿 일괄 끄기: 설정에서 모든 프롬프트 자동 주입을 한 번에 비활성화하는 마스터 토글
+- UsageSummaryView: Claude/GPT/Gemini 사용량을 한 곳에서 확인 (ClaudeUsageFetcher 비동기 래퍼 포함)
+
+### Improved
+- 자동 업데이트: exit(0) 제거 → NSApplication.terminate로 정상 종료, 코드서명/번들/디스크 검증 추가
+- 메시지 안정성: UTF-8 실패 시 Latin-1 폴백, JSON 파싱 에러 로깅, 1MB 버퍼 오버플로 복구 개선
+- ClaudeUsageFetcher: 부팅 타임아웃 8초→5초, 폴링 간격 개선, 구조화된 UsageData 타입 추가
+- 텔레그램풍 UI: 메시지 등장 애니메이션, 웨이브 도트 인디케이터, 호버 효과, 입력바 그림자
+
+### Fixed
+- toolUseContexts/seenToolUseIds 무한 증가 → 500/1000개 크기 제한 및 자동 트리밍
+- appendBlock에서 trimTimelineIfNeeded 호출 누락 → timeline 무한 증가 방지
+- API 키가 플러그인 프로세스에 노출되던 문제 → sanitizedPluginEnvironment()로 민감 키 필터링
+- 플러그인 스크립트 경로 검증 없이 실행되던 문제 → 플러그인 디렉토리 내 경로만 허용
+- SessionStore/CrashLogger 파일 퍼미션 미설정 → 디렉토리 0o700, 파일 0o600 적용
+- @StateObject로 싱글톤(AppSettings.shared) 참조하던 13개 파일 → @ObservedObject로 수정
+- UpdateChecker sleep/wake 옵저버 누수 → 참조 저장 및 deinit에서 제거
+- MarkdownTextView 대용량 텍스트 UI 프리징 → 30,000자 초과 시 자동 truncation
+
 ## [0.0.56] - 2026-04-09
 
 ### Fixed

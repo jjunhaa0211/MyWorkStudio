@@ -6,6 +6,40 @@ import Darwin
 // ═══════════════════════════════════════════════════════
 
 public enum ClaudeUsageFetcher {
+
+    // MARK: - Structured Usage Data
+
+    public struct UsageSection: Identifiable {
+        public let id = UUID()
+        public let label: String
+        public let percent: Int
+        public let resetInfo: String
+    }
+
+    public struct UsageData {
+        public let sections: [UsageSection]
+        public let extraInfo: String
+        public let rawText: String
+
+        public var isEmpty: Bool { sections.isEmpty }
+    }
+
+    /// 비동기 래퍼 — 백그라운드에서 fetch 후 메인 스레드 콜백
+    public static func fetchAsync(completion: @escaping (UsageData) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = fetchStructured()
+            DispatchQueue.main.async {
+                completion(result)
+            }
+        }
+    }
+
+    /// 구조화된 결과 반환
+    public static func fetchStructured() -> UsageData {
+        let raw = fetch()
+        return parseUsageStructured(raw)
+    }
+
     /// Claude CLI를 인터랙티브 PTY로 실행하여 /usage 결과를 캡처
     public static func fetch() -> String {
         guard let claudePath = findClaude() else {
@@ -52,11 +86,11 @@ public enum ClaudeUsageFetcher {
             close(masterFD)
         }
 
-        // 시작 대기 — Claude CLI 프롬프트가 나올 때까지 (최대 8초)
+        // 시작 대기 — Claude CLI 프롬프트가 나올 때까지 (최대 5초, 폴링 0.15초)
         var startupData = Data()
         let bootStart = Date()
-        while Date().timeIntervalSince(bootStart) < 8.0 {
-            Thread.sleep(forTimeInterval: 0.3)
+        while Date().timeIntervalSince(bootStart) < 5.0 {
+            Thread.sleep(forTimeInterval: 0.15)
             var buf = [UInt8](repeating: 0, count: 4096)
             _ = withTemporarilyNonBlocking(masterFD, work: {
                 while true {
@@ -175,6 +209,45 @@ public enum ClaudeUsageFetcher {
             }
         }
         return result
+    }
+
+    private static func parseUsageStructured(_ displayText: String) -> UsageData {
+        let text = stripANSI(displayText)
+        let sectionKeys: [(key: String, label: String)] = [
+            ("Current session", "현재 세션"),
+            ("Current week (all models)", "이번 주 — 전체"),
+            ("Current week (Sonnet only)", "이번 주 — Sonnet"),
+            ("Current week (Opus only)", "이번 주 — Opus"),
+            ("Current day", "오늘"),
+        ]
+        var sections: [UsageSection] = []
+        for (key, label) in sectionKeys {
+            guard text.contains(key) else { continue }
+            let pctPattern = "(\(NSRegularExpression.escapedPattern(for: key))).*?(\\d+)%\\s*used"
+            guard let regex = try? NSRegularExpression(pattern: pctPattern, options: [.dotMatchesLineSeparators]),
+                  let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+                  let pctRange = Range(match.range(at: 2), in: text) else { continue }
+            let pct = Int(text[pctRange]) ?? 0
+            var resetInfo = ""
+            if let keyRange = text.range(of: key) {
+                let after = String(text[keyRange.upperBound...])
+                let resetPattern = "Resets?\\s+(.+?)(?:\\n|$)"
+                if let rRegex = try? NSRegularExpression(pattern: resetPattern),
+                   let rMatch = rRegex.firstMatch(in: after, range: NSRange(after.startIndex..., in: after)),
+                   let rRange = Range(rMatch.range(at: 1), in: after) {
+                    resetInfo = String(after[rRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+                        .replacingOccurrences(of: "[^a-zA-Z0-9:/ ().,]", with: "", options: .regularExpression)
+                }
+            }
+            sections.append(UsageSection(label: label, percent: pct, resetInfo: resetInfo))
+        }
+        var extraInfo = ""
+        if text.contains("Extra usage not enabled") {
+            extraInfo = "Extra usage 비활성"
+        } else if text.contains("extra usage") || text.contains("Extra usage") {
+            extraInfo = "Extra usage 활성"
+        }
+        return UsageData(sections: sections, extraInfo: extraInfo, rawText: displayText)
     }
 
     private static func parseUsageOutput(_ raw: String) -> String {

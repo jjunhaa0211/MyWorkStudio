@@ -302,20 +302,7 @@ public class SessionManager: ObservableObject, SessionProviding {
         }
         workerIndex += 1
 
-        // 캐릭터가 배정된 세션이 추가되면 출근 알림 (복원 세션 제외)
-        if restoredSession == nil, let cid = characterId,
-           let character = CharacterRegistry.shared.character(with: cid) {
-            let tabId = tab.id
-            let workerName = character.name
-            let jobRole = character.jobRole
-            DispatchQueue.main.async {
-                NotificationCenter.default.post(
-                    name: .dofficeCharacterArrival,
-                    object: nil,
-                    userInfo: ["tabId": tabId, "workerName": workerName, "jobRole": jobRole]
-                )
-            }
-        }
+        // 출근 알림: 자동 고용으로 새 캐릭터가 투입된 경우에만 표시 (randomManualCharacter에서 처리)
 
         if autoStart {
             tab.start()
@@ -383,8 +370,10 @@ public class SessionManager: ObservableObject, SessionProviding {
         // 새로 고용된 캐릭터만 개발자 역할 부여
         registry.setJobRole(.developer, for: candidate.id)
 
+        let hiredCharacter = registry.character(with: candidate.id)
+        let hiredName = hiredCharacter?.name ?? candidate.name
+
         // 자동 고용 토스트 알림
-        let hiredName = registry.character(with: candidate.id)?.name ?? candidate.name
         NotificationCenter.default.post(
             name: .dofficeRoleNotice,
             object: nil,
@@ -394,7 +383,18 @@ public class SessionManager: ObservableObject, SessionProviding {
             ]
         )
 
-        return registry.character(with: candidate.id)
+        // 출근 알림 — 담당 개발자가 없어서 새로 고용된 경우에만 표시
+        NotificationCenter.default.post(
+            name: .dofficeCharacterArrival,
+            object: nil,
+            userInfo: [
+                "tabId": "",
+                "workerName": hiredName,
+                "jobRole": WorkerJob.developer
+            ]
+        )
+
+        return hiredCharacter
     }
 
     public func notifyManualLaunchCapacity(requested: Int = 1) {

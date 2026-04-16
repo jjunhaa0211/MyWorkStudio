@@ -370,6 +370,7 @@ extension TerminalTab {
                         // should return to the workstation instead of lingering in a
                         // remote "thinking" spot.
                         claudeActivity = .writing
+                        activityDetail = nil
                         appendBlock(.thought, content: text)
                     }
                 }
@@ -387,6 +388,7 @@ extension TerminalTab {
                     switch toolName {
                     case "Bash":
                         claudeActivity = .running
+                        activityDetail = String((toolInput["command"] as? String ?? "").prefix(50))
                         commandCount += 1
                         let cmd = toolInput["command"] as? String ?? ""
                         // 보안: 위험 명령 감지
@@ -403,6 +405,7 @@ extension TerminalTab {
                     case "Read":
                         claudeActivity = .reading
                         let file = toolInput["file_path"] as? String ?? ""
+                        activityDetail = (file as NSString).lastPathComponent
                         // 보안: 민감 파일 감지
                         if let match = SensitiveFileShield.shared.check(filePath: file, action: "Read") {
                             sensitiveFileWarning = String(format: NSLocalizedString("sensitive.file.read", comment: ""), match.patternMatched, file)
@@ -415,6 +418,7 @@ extension TerminalTab {
                     case "Write":
                         claudeActivity = .writing
                         let file = toolInput["file_path"] as? String ?? ""
+                        activityDetail = (file as NSString).lastPathComponent
                         if let match = SensitiveFileShield.shared.check(filePath: file, action: "Write") {
                             sensitiveFileWarning = String(format: NSLocalizedString("sensitive.file.write", comment: ""), match.patternMatched, file)
                             AuditLog.shared.log(.sensitiveFileAccess, tabId: id, projectName: projectName, detail: "Write: \(file)", isDangerous: true)
@@ -427,6 +431,7 @@ extension TerminalTab {
                     case "Edit":
                         claudeActivity = .writing
                         let file = toolInput["file_path"] as? String ?? ""
+                        activityDetail = (file as NSString).lastPathComponent
                         if let match = SensitiveFileShield.shared.check(filePath: file, action: "Edit") {
                             sensitiveFileWarning = String(format: NSLocalizedString("sensitive.file.edit", comment: ""), match.patternMatched, file)
                             AuditLog.shared.log(.sensitiveFileAccess, tabId: id, projectName: projectName, detail: "Edit: \(file)", isDangerous: true)
@@ -438,16 +443,19 @@ extension TerminalTab {
                         NotificationCenter.default.post(name: .init("dofficeAchievementFileEdit"), object: nil)
                     case "Grep":
                         claudeActivity = .searching
+                        activityDetail = String((toolInput["pattern"] as? String ?? "").prefix(30))
                         let pattern = toolInput["pattern"] as? String ?? ""
                         appendBlock(.toolUse(name: "Grep", input: pattern), content: pattern)
                         NotificationCenter.default.post(name: .init("dofficeAchievementUnlock"), object: "first_grep")
                     case "Glob":
                         claudeActivity = .searching
+                        activityDetail = String((toolInput["pattern"] as? String ?? "").prefix(30))
                         let pattern = toolInput["pattern"] as? String ?? ""
                         appendBlock(.toolUse(name: "Glob", input: pattern), content: pattern)
                         NotificationCenter.default.post(name: .init("dofficeAchievementUnlock"), object: "first_glob")
                     case "Task":
                         claudeActivity = .thinking
+                        activityDetail = nil
                         let taskLabel = registerParallelTask(toolUseId: toolUseId, input: toolInput)
                         appendBlock(.toolUse(name: "Task", input: taskLabel), content: taskLabel)
                     default:
@@ -516,6 +524,7 @@ extension TerminalTab {
             // 즉시 완료 상태로 전환 (프로세스 종료 기다리지 않음)
             isProcessing = false
             claudeActivity = .done
+            activityDetail = nil
             lastResultText = resultText
             completedPromptCount += 1
             finalizeParallelTasks(as: .completed)
@@ -527,7 +536,10 @@ extension TerminalTab {
                 presentPermissionApprovalIfNeeded(denial)
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
-                if self?.claudeActivity == .done { self?.claudeActivity = .idle }
+                if self?.claudeActivity == .done {
+                    self?.claudeActivity = .idle
+                    self?.activityDetail = nil
+                }
             }
 
             if permissionDenials.isEmpty {

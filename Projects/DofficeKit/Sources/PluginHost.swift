@@ -7,6 +7,19 @@ import DesignSystem
 // MARK: - Plugin Host (런타임 플러그인 관리)
 // ═══════════════════════════════════════════════════════
 
+/// 플러그인 실행 시 민감한 환경변수를 제거한 환경 딕셔너리를 반환
+public func sanitizedPluginEnvironment() -> [String: String] {
+    var env = ProcessInfo.processInfo.environment
+    let sensitivePatterns = ["API_KEY", "SECRET", "TOKEN", "PASSWORD", "CREDENTIAL", "ANTHROPIC_", "OPENAI_", "GEMINI_API"]
+    for key in env.keys {
+        let upper = key.uppercased()
+        if sensitivePatterns.contains(where: { upper.contains($0) }) {
+            env.removeValue(forKey: key)
+        }
+    }
+    return env
+}
+
 /// 활성 플러그인에서 로드된 확장 포인트들을 관리
 public class PluginHost: ObservableObject, PluginHostProviding {
     public static let shared = PluginHost()
@@ -380,6 +393,14 @@ public class PluginHost: ObservableObject, PluginHostProviding {
 
     public func executeCommand(_ command: LoadedCommand, projectPath: String? = nil) {
         #if os(macOS)
+        // 스크립트 경로가 플러그인 디렉토리 내에 있는지 검증
+        let pluginBaseDir = PluginManager.defaultPluginBaseDir().path
+        let resolvedScript = URL(fileURLWithPath: command.scriptPath).standardizedFileURL.path
+        guard resolvedScript.hasPrefix(pluginBaseDir) || resolvedScript.hasPrefix("/usr/") || resolvedScript.hasPrefix("/bin/") else {
+            CrashLogger.shared.warning("PluginHost: Script path outside plugin directory — blocked: \(command.scriptPath)")
+            return
+        }
+
         PluginManager.shared.requestPermission(
             pluginName: command.pluginName,
             scriptPath: command.scriptPath
@@ -391,7 +412,7 @@ public class PluginHost: ObservableObject, PluginHostProviding {
                 if let path = projectPath {
                     process.currentDirectoryURL = URL(fileURLWithPath: path)
                 }
-                process.environment = ProcessInfo.processInfo.environment
+                process.environment = sanitizedPluginEnvironment()
                 do {
                     try process.run()
                     process.waitUntilExit()
@@ -433,7 +454,7 @@ public class PluginHost: ObservableObject, PluginHostProviding {
             process.executableURL = URL(fileURLWithPath: "/bin/zsh")
             process.arguments = ["-c", item.scriptPath]
             process.standardOutput = pipe
-            process.environment = ProcessInfo.processInfo.environment
+            process.environment = sanitizedPluginEnvironment()
             do {
                 try process.run()
             } catch {

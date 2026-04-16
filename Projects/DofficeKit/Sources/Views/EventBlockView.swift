@@ -7,7 +7,7 @@ import DesignSystem
 
 public struct EventBlockView: View {
     var block: StreamBlock
-    @StateObject private var settings = AppSettings.shared
+    @ObservedObject private var settings = AppSettings.shared
     public let compact: Bool
     public var onResendPrompt: ((String) -> Void)?
     public var onQuickAction: ((String) -> Void)?
@@ -17,33 +17,39 @@ public struct EventBlockView: View {
     @State private var thoughtCollapsed = false
     @State private var showCopied = false
     @State private var showRevertConfirm = false
+    @State private var isHovering = false
 
     public var body: some View {
-        switch block.blockType {
-        case .sessionStart:
-            sessionStartBlock
-        case .userPrompt:
-            userPromptBlock
-        case .thought:
-            thoughtBlock
-        case .toolUse(let name, _):
-            toolUseBlock(name: name)
-        case .toolOutput:
-            toolOutputBlock
-        case .toolError:
-            toolErrorBlock
-        case .toolEnd(let success):
-            toolEndBlock(success: success)
-        case .fileChange(_, let action):
-            fileChangeBlock(action: action)
-        case .status(let msg):
-            statusBlock(msg)
-        case .completion(let cost, let duration):
-            completionBlock(cost: cost, duration: duration)
-        case .error(let msg):
-            errorBlock(msg)
-        case .text:
-            textBlock
+        Group {
+            switch block.blockType {
+            case .sessionStart:
+                sessionStartBlock
+            case .userPrompt:
+                userPromptBlock
+            case .thought:
+                thoughtBlock
+            case .toolUse(let name, _):
+                toolUseBlock(name: name)
+            case .toolOutput:
+                toolOutputBlock
+            case .toolError:
+                toolErrorBlock
+            case .toolEnd(let success):
+                toolEndBlock(success: success)
+            case .fileChange(_, let action):
+                fileChangeBlock(action: action)
+            case .status(let msg):
+                statusBlock(msg)
+            case .completion(let cost, let duration):
+                completionBlock(cost: cost, duration: duration)
+            case .error(let msg):
+                errorBlock(msg)
+            case .text:
+                textBlock
+            }
+        }
+        .onHover { hovering in
+            withAnimation(.easeOut(duration: 0.15)) { isHovering = hovering }
         }
     }
 
@@ -106,6 +112,36 @@ public struct EventBlockView: View {
                 )
             }
 
+            // 이미지 썸네일 미리보기
+            if !block.imageURLs.isEmpty {
+                HStack(spacing: 6) {
+                    Spacer(minLength: compact ? 40 : 72)
+                    ForEach(Array(block.imageURLs.enumerated()), id: \.offset) { _, url in
+                        if let nsImage = NSImage(contentsOf: url) {
+                            Image(nsImage: nsImage)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: compact ? 72 : 100, height: compact ? 72 : 100)
+                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                                )
+                                .shadow(color: Color.black.opacity(0.15), radius: 4, y: 2)
+                        } else {
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(Theme.bgSurface)
+                                .frame(width: compact ? 72 : 100, height: compact ? 72 : 100)
+                                .overlay(
+                                    Image(systemName: "photo")
+                                        .font(.system(size: 18))
+                                        .foregroundColor(Theme.textDim)
+                                )
+                        }
+                    }
+                }
+            }
+
             HStack(spacing: 8) {
                 Text(block.timestamp, style: .time)
                     .font(Theme.mono(7))
@@ -121,6 +157,7 @@ public struct EventBlockView: View {
                 }
                 .buttonStyle(.plain)
                 .help("Copy")
+                .scaleEffect(isHovering ? 1.0 : 0.9)
 
                 if let onResend = onResendPrompt {
                     Button {
@@ -132,8 +169,10 @@ public struct EventBlockView: View {
                     }
                     .buttonStyle(.plain)
                     .help(NSLocalizedString("block.resend", value: "Edit & Resend", comment: ""))
+                    .scaleEffect(isHovering ? 1.0 : 0.9)
                 }
             }
+            .opacity(isHovering ? 1.0 : 0.5)
         }
         .padding(.top, 10).padding(.bottom, 2)
     }

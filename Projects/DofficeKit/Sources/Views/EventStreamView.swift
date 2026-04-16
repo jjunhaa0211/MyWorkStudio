@@ -10,7 +10,7 @@ public struct EventStreamView: View {
     @EnvironmentObject var manager: SessionManager
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject var tab: TerminalTab
-    @StateObject var settings = AppSettings.shared
+    @ObservedObject var settings = AppSettings.shared
     @StateObject private var vm = EventStreamViewModel()
     public let compact: Bool
     @State var inputText = ""
@@ -188,6 +188,10 @@ public struct EventStreamView: View {
                                     )
                                         .id(blockAnchorID(block))
                                         .textSelection(.enabled)
+                                        .transition(.asymmetric(
+                                            insertion: .move(edge: .bottom).combined(with: .opacity),
+                                            removal: .opacity
+                                        ))
                                 }
 
                                 if tab.isProcessing {
@@ -308,7 +312,8 @@ public struct EventStreamView: View {
                 planSelectionPanel(request)
             }
 
-            if !compact { fullInputBar } else { compactInputBar }
+            (compact ? AnyView(compactInputBar) : AnyView(fullInputBar))
+                .shadow(color: Theme.textDim.opacity(0.08), radius: 8, y: -4)
         }
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { isFocused = true }
